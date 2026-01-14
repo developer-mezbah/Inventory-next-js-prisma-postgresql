@@ -1,0 +1,147 @@
+/* Mobile padding for bottom nav */
+@media (max-width: 767px) {
+  .mobile-bottom-padding {
+    padding-bottom: 4rem !important;
+  }
+
+  .mobile-bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    border-top: 1px solid #e5e7eb;
+    box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
+    z-index: 50;
+    height: 4rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .mobile-bottom-nav {
+    display: none !important;
+  }
+}
+@media (max-width: 550px) {
+  .mui-1s5aoqn {
+    width: 95% !important;
+  }
+}
+
+.modal-table-style {
+  width: 100%;
+}
+.modal-table-style thead {
+  font-weight: bold;
+}
+.modal-table-style td {
+  border-bottom: 1px solid gray;
+  padding: 5px 2px;
+}
+
+/* .myQuil{
+  min-height: 200px !important;
+  height: 300px !important;
+} */
+
+.file_input[type="file"]::file-selector-button {
+  padding: 10px;
+  background: #eef0f2;
+  color: #84788d;
+  border: 0;
+  border-right: 2px solid #eef0f2;
+  font-weight: 500;
+}
+
+/* product table animation  */
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(4rem); /* Start off-screen */
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0); /* End at normal position */
+  }
+}
+@keyframes fadeOut {
+  0% {
+    opacity: 1;
+    display: block;
+  }
+  100% {
+    opacity: 0;
+    display: none;
+  }
+}
+.animate-fadeIn {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+.animate-fadeOut {
+  animation: fadeOut 0.4s ease-out forwards;
+}
+
+/* Apply custom scrollbar only to the specific box */
+.custom-scrollbox {
+  overflow: auto; /* Enables scrolling */
+  max-height: calc(100vh - 100px); /* Adjust based on your layout */
+}
+
+/* Custom Scrollbar for WebKit browsers */
+.custom-scrollbox::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+/* Track (background of scrollbar) */
+.custom-scrollbox::-webkit-scrollbar-track {
+  background: #1e1e1e; /* Dark background */
+  border-radius: 5px;
+}
+
+/* Handle (movable part of scrollbar) */
+.custom-scrollbox::-webkit-scrollbar-thumb {
+  background: #555; /* Dark gray */
+  border-radius: 5px;
+  transition: background 0.3s;
+}
+
+/* Handle on hover */
+.custom-scrollbox::-webkit-scrollbar-thumb:hover {
+  background: #777; /* Lighter gray */
+}
+
+/* Corner (where horizontal and vertical scrollbars meet) */
+.custom-scrollbox::-webkit-scrollbar-corner {
+  background: #1e1e1e;
+}
+
+/* Firefox scrollbar customization */
+.custom-scrollbox {
+  scrollbar-width: thin;
+  scrollbar-color: #555 #1e1e1e;
+}
+
+/* Webkit Browsers (Chrome, Edge, Safari) */
+.category-thin-scrollbar::-webkit-scrollbar {
+  width: 6px; /* Thin scrollbar */
+}
+
+.category-thin-scrollbar::-webkit-scrollbar-thumb {
+  background: #ccc; /* Light gray thumb */
+  border-radius: 4px;
+}
+
+.category-thin-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #bbb; /* Slightly darker on hover */
+}
+
+.category-thin-scrollbar::-webkit-scrollbar-track {
+  background: #f5f5f5; /* Very light track to match white theme */
+}
+
+/* Firefox */
+.category-thin-scrollbar {
+  scrollbar-width: thin; /* "thin" or "auto" */
+  scrollbar-color: #ccc #f5f5f5; /* thumb color and track color */
+}

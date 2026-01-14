@@ -13,11 +13,362 @@ datasource db {
   provider = "postgresql"
 }
 
-model Task {
-  id          Int      @id @default(autoincrement())
-  title       String
-  description String?
-  completed   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+model User {
+  id            String     @id @default(cuid())
+  name          String?
+  email         String     @unique
+  emailVerified DateTime?
+  password      String?
+  image         String?
+  phoneNumber   String?
+  companies     Company[]
+  userRoles     UserRole[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  accounts      Account[]
+  sessions      Session[]
+}
+
+enum RoleType {
+  OWNER
+  SECONDARY_ADMIN
+  SALESMAN
+  BILLER
+  BILLER_AND_SALESMAN
+  CA_ACCOUNTANT
+  STOCK_KEEPER
+  CA_ACCOUNT_EDIT_ACCESS
+}
+
+enum StatusTypeOfRole {
+  PENDING
+  OPEN
+  LEAVE
+}
+
+model UserRole {
+  id        String           @id @default(cuid())
+  name      String
+  email     String
+  userId    String?
+  user      User?            @relation(fields: [userId], references: [id])
+  companyId String
+  company   Company          @relation(fields: [companyId], references: [id])
+  status    StatusTypeOfRole @default(PENDING)
+  role      RoleType         @default(SECONDARY_ADMIN)
+
+  @@unique([userId, companyId])
+}
+
+model Company {
+  id               String           @id @default(cuid())
+  name             String
+  ownerId          String
+  owner            User             @relation(fields: [ownerId], references: [id])
+  phoneNumber      String?
+  emailId          String?
+  businessType     String?
+  businessCategory String?
+  businessAddress  String?
+  websiteUrl       String?
+  signatureUrl     String?
+  logoUrl          String?
+  country          String?
+  countryCode      String?
+  code             String?
+  symbol           String?
+  currencyCode     String?          @default("USD")
+  currencySymbol   String?          @default("$")
+  purchases        Purchase[]
+  sales            Sale[]
+  Images           Image[]
+  userRoles        UserRole[]
+  cashAndBank      CashAndBank[]
+  cashAdjustment   CashAdjustment[]
+  party            Party[]
+  transaction      Transaction[]
+  item             Item[]
+  category         Category[]
+  currencies       Currency[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+}
+
+model Currency {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  symbol    String
+  name      String
+  isActive  Boolean  @default(true)
+  company   Company? @relation(fields: [companyId], references: [id])
+  companyId String?
+
+  @@index([companyId])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  id      String   @id @default(cuid())
+  email   String
+  token   String   @unique
+  expires DateTime
+
+  @@unique([email, token])
+}
+
+model Image {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  file_name String
+  file_size Int
+  img_url   String
+  public_id String   @unique
+  company   Company? @relation(fields: [companyId], references: [id])
+  companyId String?
+}
+
+model Category {
+  id            String    @id @default(cuid())
+  name          String    @unique
+  subcategories Json?     @default("[]")
+  createdAt     DateTime? @default(now())
+  items         Item[]
+  companyId     String
+  company       Company   @relation(fields: [companyId], references: [id])
+}
+
+// Converted from "type Subcategory"
+// model Subcategory {
+//   id         Int      @id @default(autoincrement())
+//   name       String
+//   categoryId String
+//   category   Category @relation(fields: [categoryId], references: [id])
+// }
+
+model Item {
+  id                  String        @id @default(cuid())
+  itemType            String
+  itemName            String
+  itemCode            String?
+  description         String?
+  categoryId          String?
+  subCategoryId       Int?
+  category            Category?     @relation(fields: [categoryId], references: [id])
+  baseUnit            String?
+  secondaryUnit       String?
+  unitQty             Int?
+  salePrice           Float?
+  purchasePrice       Float?
+  wholesalePrice      Float?
+  minimumWholesaleQty Int?
+  stock               Json?
+  images              String[] // PG supports scalar arrays
+  transaction         Transaction[]
+  createdAt           DateTime?     @default(now())
+  updatedAt           DateTime?     @updatedAt
+  companyId           String
+  company             Company       @relation(fields: [companyId], references: [id])
+  sale                Sale?         @relation(fields: [saleId], references: [id])
+  saleId              String?
+  purchase            Purchase?     @relation(fields: [purchaseId], references: [id])
+  purchaseId          String?
+}
+
+// Converted from "type StockInfo"
+// model StockInfo {
+//   id                 String  @id @default(cuid())
+//   openingQuantity    Float?
+//   atPrice            Float?
+//   asOfDate           String?
+//   minStockToMaintain Float?
+//   location           String?
+//   itemId             String  @unique
+//   item               Item    @relation(fields: [itemId], references: [id])
+// }
+
+model Transaction {
+  id               String          @id @default(cuid())
+  createdAt        DateTime?       @default(now())
+  updatedAt        DateTime?       @updatedAt
+  date             DateTime?
+  invoiceNo        String          @unique @default(cuid())
+  name             String?
+  paymentType      String?
+  amount           Float?
+  balanceDue       Float?
+  type             String?
+  status           String?
+  description      String?
+  transactionId    String?         @unique
+  totalAmount      Float?
+  taxRate          Float?          @default(0.0)
+  taxAmount        Float?          @default(0.0)
+  paymentDate      DateTime?
+  paymentRef       String?
+  cashAndBankId    String?
+  cashAndBank      CashAndBank?    @relation(fields: [cashAndBankId], references: [id])
+  cashAdjustmentId String?
+  cashAdjustment   CashAdjustment? @relation(fields: [cashAdjustmentId], references: [id])
+  item             Item?           @relation(fields: [itemId], references: [id])
+  itemId           String?
+  party            Party?          @relation(fields: [partyId], references: [id])
+  partyId          String?
+  purchase         Purchase?       @relation(fields: [purchaseId], references: [id])
+  purchaseId       String?
+  companyId        String
+  company          Company         @relation(fields: [companyId], references: [id])
+  sale             Sale?           @relation(fields: [saleId], references: [id])
+  saleId           String?
+}
+
+model Party {
+  id               String  @id @default(cuid())
+  partyName        String
+  phoneNumber      String?
+  emailId          String?
+  billingAddress   String?
+  shippingEnabled  Boolean @default(false)
+  shippingAddress  String?
+  openingBalance   Float?
+  asOfDate         String?
+  creditLimitType  String  @default("no-limit")
+  creditLimit      Float?
+  balanceType      String?
+  additionalFields Json?   @default("[]")
+  //   type AdditionalField {
+  //   id          Int
+  //   name        String
+  //   value       String
+  //   showInPrint Boolean @default(false)
+  //   isDate      Boolean @default(false)
+  // }
+
+  transaction Transaction[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  companyId   String
+  company     Company       @relation(fields: [companyId], references: [id])
+
+  @@map("parties")
+}
+
+model Purchase {
+  id            String        @id @default(cuid())
+  billDate      String?
+  billNumber    Int?
+  description   String?
+  images        String[]
+  phoneNumber   Int?
+  tax           Float?
+  discount      Float?
+  amount        Float?
+  paidAmount    Float?
+  balanceDue    Float?
+  isPaid        Boolean?
+  partyName     String?
+  partyId       String?
+  paymentType   String?
+  paymentTypeId String?
+  transaction   Transaction[]
+  invoiceData   InvoiceData[]
+  items         Item[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  company       Company?      @relation(fields: [companyId], references: [id])
+  companyId     String?
+}
+
+model InvoiceData {
+  id         String    @id @default(cuid())
+  itemName   String?
+  itemId     String?
+  qty        Float?
+  price      Float?
+  unitPrice  Float?
+  purchase   Purchase? @relation(fields: [purchaseId], references: [id])
+  purchaseId String?
+  sale       Sale?     @relation(fields: [saleId], references: [id])
+  saleId     String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model Sale {
+  id            String        @id @default(cuid())
+  billDate      String?
+  billNumber    Int?
+  description   String?
+  images        String[]
+  phoneNumber   Int?
+  tax           Float?
+  discount      Float?
+  amount        Float?
+  paidAmount    Float?
+  balanceDue    Float?
+  isPaid        Boolean?
+  partyName     String?
+  partyId       String?
+  paymentType   String?
+  paymentTypeId String?
+  transaction   Transaction[]
+  invoiceData   InvoiceData[]
+  items         Item[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  company       Company?      @relation(fields: [companyId], references: [id])
+  companyId     String?
+}
+
+model CashAdjustment {
+  id          String        @id @default(cuid())
+  cashInHand  Float?
+  createdAt   DateTime?     @default(now())
+  updatedAt   DateTime?     @updatedAt
+  userId      String?       @unique
+  transaction Transaction[]
+  companyId   String
+  company     Company       @relation(fields: [companyId], references: [id])
+}
+
+model CashAndBank {
+  id                 String        @id @default(cuid())
+  accountdisplayname String
+  openingbalance     Float
+  asofdate           String?
+  accountnumber      String?
+  IFSCCode           String?
+  UPIID              String?
+  BankName           String?
+  AccountHolderName  String?
+  Notes              String?
+  createdAt          DateTime?     @default(now())
+  updatedAt          DateTime?     @updatedAt
+  transaction        Transaction[]
+  companyId          String
+  company            Company       @relation(fields: [companyId], references: [id])
 }

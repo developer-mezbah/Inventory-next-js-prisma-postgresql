@@ -1,0 +1,60 @@
+import prisma from "@/lib/prisma";
+import { getCompanyId } from "@/utils/GetCompanyId";
+import { NextResponse } from "next/server";
+
+
+
+
+// GET ALL
+export async function GET() {
+    try {
+        const categories = await prisma.category.findMany({
+            orderBy: {
+                id: 'desc',
+            },
+            // include: {
+            //     subcategories: true
+            // },
+            where: {
+                companyId: await getCompanyId(),
+            },
+        });
+        const party = await prisma.Party.findMany({
+            orderBy: {
+                id: 'desc',
+            },
+            where: {
+                companyId: await getCompanyId(),
+            },
+        });
+        const item = await prisma.Item.findMany({
+            orderBy: {
+                id: 'desc',
+            },
+            where: {
+                companyId: await getCompanyId(),
+            },
+        });
+        const bank = await prisma.CashAndBank.findMany({
+            orderBy: {
+                id: 'desc',
+            },
+            where: {
+                companyId: await getCompanyId(),
+            },
+        });
+        const cash = await prisma.CashAdjustment.findMany({
+            orderBy: {
+                id: 'desc',
+            },
+            where: {
+                companyId: await getCompanyId(),
+            },
+        });
+        return NextResponse.json({ categories, party, item, bank, cash });
+    } catch (error) {
+        console.log(error);
+        
+        return NextResponse.json({ error: error || "Failed to fetch Init Data" }, { status: 500 });
+    }
+}
