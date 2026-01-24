@@ -88,7 +88,9 @@ model Company {
   party            Party[]
   transaction      Transaction[]
   item             Item[]
+  expenceItem      ExpenceItem[]
   category         Category[]
+  expenceCategory  ExpenceCategory[]
   currencies       Currency[]
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
@@ -197,6 +199,28 @@ model Item {
   saleId              String?
   purchase            Purchase?     @relation(fields: [purchaseId], references: [id])
   purchaseId          String?
+}
+model ExpenceItem {
+  id                  String        @id @default(cuid())
+  itemName            String
+  quantity            Float?
+  expenceCategoryId          String?
+  expenceCategory            ExpenceCategory?     @relation(fields: [expenceCategoryId], references: [id])
+  price               Float?
+  createdAt           DateTime?     @default(now())
+  updatedAt           DateTime?     @updatedAt
+  companyId           String
+  company             Company       @relation(fields: [companyId], references: [id])
+  
+}
+
+model ExpenceCategory {
+  id            String    @id @default(cuid())
+  name          String    @unique
+  createdAt     DateTime? @default(now())
+  expenceItems         ExpenceItem[]
+  companyId     String
+  company       Company   @relation(fields: [companyId], references: [id])
 }
 
 // Converted from "type StockInfo"

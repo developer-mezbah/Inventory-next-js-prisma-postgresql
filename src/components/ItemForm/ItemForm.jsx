@@ -20,7 +20,6 @@ export default function ItemForm({
   updateFormData,
   refetch,
   autoAddItem,
-  priceType,
 }) {
   const [formLoading, setFormLoading] = useState(false);
   const [type, setType] = useState("product");
@@ -176,14 +175,8 @@ export default function ItemForm({
               item: res?.item?.itemName || "",
               qty: 1,
               unit: res?.item?.baseUnit || "None",
-              price:
-                priceType === "sale"
-                  ? res?.item?.salePrice
-                  : res?.item?.purchasePrice || 0,
-              amount:
-                priceType === "sale"
-                  ? res?.item?.salePrice
-                  : res?.item?.purchasePrice || 0,
+              price: res?.item?.price || 0,
+              amount: res?.item?.price || 0,
               itemId: res?.item?.id,
             };
             autoAddItem &&

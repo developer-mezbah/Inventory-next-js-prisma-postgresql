@@ -107,10 +107,45 @@ const TabContents = ({ subcategory, category, categoryName }) => {
                 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
                 <title>${categoryName} Inventory Report</title>
                 <style>
-                    /* Embed fonts */
-                    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-                    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+                    /* Print-specific styles */
+                    @media print {
+                        * {
+                            -webkit-print-color-adjust: exact !important;
+                            color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                        }
+                        
+                        body {
+                            width: 100% !important;
+                            margin: 0 auto !important;
+                            padding: 10mm !important;
+                            font-size: 11pt !important;
+                        }
+                        
+                        table {
+                            page-break-inside: auto !important;
+                            border-collapse: collapse !important;
+                        }
+                        
+                        tr {
+                            page-break-inside: avoid !important;
+                            page-break-after: auto !important;
+                        }
+                        
+                        thead {
+                            display: table-header-group !important;
+                        }
+                        
+                        tfoot {
+                            display: table-footer-group !important;
+                        }
+                        
+                        .no-print {
+                            display: none !important;
+                        }
+                    }
                     
+                    /* Base styles */
                     * { 
                         box-sizing: border-box; 
                         margin: 0; 
@@ -221,32 +256,42 @@ const TabContents = ({ subcategory, category, categoryName }) => {
                     
                     /* Table */
                     table {
-                        width: 100%;
-                        border-collapse: collapse;
-                        margin: 25px 0 30px 0;
-                        font-size: 11px;
+                        width: 100% !important;
+                        border-collapse: collapse !important;
+                        margin: 25px 0 30px 0 !important;
+                        font-size: 11px !important;
+                        table-layout: fixed !important;
+                        word-wrap: break-word !important;
                     }
                     
                     th {
-                        background: #3B82F6;
-                        color: white;
-                        padding: 12px 8px;
-                        text-align: left;
-                        font-weight: 600;
-                        border-right: 1px solid #2563eb;
+                        background: #3B82F6 !important;
+                        color: white !important;
+                        padding: 12px 8px !important;
+                        text-align: left !important;
+                        font-weight: 600 !important;
+                        border: 1px solid #2563eb !important;
+                        -webkit-print-color-adjust: exact !important;
+                        color-adjust: exact !important;
+                        print-color-adjust: exact !important;
                     }
                     
                     th:last-child {
-                        border-right: none;
+                        border-right: 1px solid #2563eb !important;
                     }
                     
                     td {
-                        padding: 10px 8px;
-                        border-bottom: 1px solid #e2e8f0;
+                        padding: 10px 8px !important;
+                        border: 1px solid #e2e8f0 !important;
+                        word-wrap: break-word !important;
+                        overflow-wrap: break-word !important;
                     }
                     
                     tr:nth-child(even) {
-                        background: #f8fafc;
+                        background: #f8fafc !important;
+                        -webkit-print-color-adjust: exact !important;
+                        color-adjust: exact !important;
+                        print-color-adjust: exact !important;
                     }
                     
                     /* Status badges */
@@ -258,13 +303,17 @@ const TabContents = ({ subcategory, category, categoryName }) => {
                         font-weight: 500;
                     }
                     
-                    .status-good { background: #d1fae5; color: #059669; }
-                    .status-low { background: #fee2e2; color: #dc2626; }
+                    .status-good { 
+                    // backgrFound: #d1fae5 !important;
+                     color: #059669 !important; }
+                    .status-low { 
+                    // background: #fee2e2 !important;
+                     color: #dc2626 !important; }
                     
                     /* Margin colors */
-                    .margin-high { color: #059669; font-weight: 600; }
-                    .margin-medium { color: #3B82F6; font-weight: 600; }
-                    .margin-low { color: #f59e0b; font-weight: 600; }
+                    .margin-high { color: #059669 !important; font-weight: 600 !important; }
+                    .margin-medium { color: #3B82F6 !important; font-weight: 600 !important; }
+                    .margin-low { color: #f59e0b !important; font-weight: 600 !important; }
                     
                     /* Footer */
                     .footer {
@@ -275,6 +324,7 @@ const TabContents = ({ subcategory, category, categoryName }) => {
                         color: #64748b;
                         font-size: 11px;
                         line-height: 1.4;
+                        page-break-inside: avoid;
                     }
                     
                     /* Ensure currency symbols display correctly */
@@ -282,6 +332,16 @@ const TabContents = ({ subcategory, category, categoryName }) => {
                         font-family: 'Arial', sans-serif;
                         font-weight: 600;
                         white-space: nowrap;
+                    }
+                    
+                    /* Print margins */
+                    @page {
+                        size: A4;
+                        margin: 15mm;
+                    }
+                    
+                    @page :first {
+                        margin-top: 20mm;
                     }
                 </style>
             </head>
@@ -341,17 +401,17 @@ const TabContents = ({ subcategory, category, categoryName }) => {
                 </div>
                 
                 <!-- Table -->
-                <table>
+                <table cellpadding="0" cellspacing="0">
                     <thead>
                         <tr>
-                            <th>Item Name</th>
-                            <th>Subcategory</th>
-                            <th>Stock Qty</th>
-                            <th>Min Stock</th>
-                            <th>Purchase Price</th>
-                            <th>Sale Price</th>
-                            <th>Profit Margin</th>
-                            <th>Status</th>
+                            <th style="width: 20%;">Item Name</th>
+                            <th style="width: 15%;">Subcategory</th>
+                            <th style="width: 10%;">Stock Qty</th>
+                            <th style="width: 10%;">Min Stock</th>
+                            <th style="width: 12%;">Purchase Price</th>
+                            <th style="width: 12%;">Sale Price</th>
+                            <th style="width: 11%;">Profit Margin</th>
+                            <th style="width: 10%;">Status</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -368,14 +428,14 @@ const TabContents = ({ subcategory, category, categoryName }) => {
                                 
                                 return `
                                     <tr>
-                                        <td>${item.itemName || 'N/A'}</td>
-                                        <td>${getSubcategoryName(item.subCategoryId)}</td>
-                                        <td>${openingQuantity}</td>
-                                        <td>${minStock}</td>
-                                        <td class="currency-cell">${formatCurrency(purchasePrice)}</td>
-                                        <td class="currency-cell">${formatCurrency(salePrice)}</td>
-                                        <td class="${marginClass} currency-cell">${margin.toFixed(2)}%</td>
-                                        <td>
+                                        <td style="width: 20%;">${item.itemName || 'N/A'}</td>
+                                        <td style="width: 15%;">${getSubcategoryName(item.subCategoryId)}</td>
+                                        <td style="width: 10%; text-align: center;">${openingQuantity}</td>
+                                        <td style="width: 10%; text-align: center;">${minStock}</td>
+                                        <td style="width: 12%;" class="currency-cell">${formatCurrency(purchasePrice)}</td>
+                                        <td style="width: 12%;" class="currency-cell">${formatCurrency(salePrice)}</td>
+                                        <td style="width: 11%;" class="${marginClass} currency-cell">${margin.toFixed(2)}%</td>
+                                        <td style="width: 10%; text-align: center;">
                                             <span class="status-badge ${isLowStock ? 'status-low' : 'status-good'}">
                                                 ${isLowStock ? 'Low Stock' : 'In Stock'}
                                             </span>
@@ -435,59 +495,79 @@ const TabContents = ({ subcategory, category, categoryName }) => {
             await new Promise(resolve => {
                 iframe.onload = resolve;
                 // Fallback timeout
-                setTimeout(resolve, 1000);
+                setTimeout(resolve, 1500);
             });
+            
+            // Calculate content height
+            const contentHeight = iframe.contentDocument.body.scrollHeight;
+            const scale = 2;
             
             // Use html2canvas to capture the iframe content
             const canvas = await html2canvas(iframe.contentDocument.body, {
-                scale: 2, // Higher scale for better quality
+                scale: scale,
                 useCORS: true,
                 allowTaint: true,
                 backgroundColor: '#FFFFFF',
                 logging: false,
                 width: 794,
-                height: iframe.contentDocument.body.scrollHeight,
+                height: contentHeight,
                 windowWidth: 794,
-                windowHeight: iframe.contentDocument.body.scrollHeight,
+                windowHeight: contentHeight,
                 onclone: (clonedDoc) => {
                     // Ensure fonts are loaded
                     clonedDoc.body.style.fontFamily = "'Inter', 'Roboto', 'Segoe UI', Arial, sans-serif";
+                    clonedDoc.body.style.width = '794px';
                 }
             });
             
             // Calculate PDF dimensions (A4)
             const pdfWidth = 210; // A4 width in mm
             const pdfHeight = 297; // A4 height in mm
-            const imgWidth = pdfWidth - 20; // Account for margins
+            
+            // Calculate image dimensions to fit within page margins
+            const margin = 10; // 10mm margins on all sides
+            const usableWidth = pdfWidth - (2 * margin);
+            const usableHeight = pdfHeight - (2 * margin);
+            
+            const imgWidth = usableWidth;
             const imgHeight = (canvas.height * imgWidth) / canvas.width;
             
-            // Create PDF
+            // Create PDF in portrait orientation
             const pdf = new jsPDF({
-                orientation: imgHeight > pdfHeight ? 'portrait' : 'landscape',
+                orientation: 'portrait',
                 unit: 'mm',
                 format: 'a4'
             });
             
-            let position = 10;
-            let remainingHeight = imgHeight;
+            // Add content to PDF with proper centering
+            let heightLeft = imgHeight;
+            let position = 0;
             
-            while (remainingHeight > 0) {
-                // Add image to PDF
+            // First page
+            pdf.addImage(
+                canvas.toDataURL('image/jpeg', 1.0),
+                'JPEG',
+                margin, // x position (left margin)
+                margin + position, // y position (top margin)
+                imgWidth,
+                Math.min(imgHeight, usableHeight)
+            );
+            
+            heightLeft -= usableHeight;
+            position = -usableHeight;
+            
+            // Add additional pages if needed
+            while (heightLeft > 0) {
+                pdf.addPage();
                 pdf.addImage(
                     canvas.toDataURL('image/jpeg', 1.0),
                     'JPEG',
-                    10, // x position
-                    position, // y position
+                    margin,
+                    margin,
                     imgWidth,
-                    Math.min(remainingHeight, pdfHeight - 20)
+                    Math.min(heightLeft, usableHeight)
                 );
-                
-                remainingHeight -= (pdfHeight - 20);
-                position = 10; // Reset position for next page
-                
-                if (remainingHeight > 0) {
-                    pdf.addPage();
-                }
+                heightLeft -= usableHeight;
             }
             
             // Save PDF
@@ -539,228 +619,6 @@ const TabContents = ({ subcategory, category, categoryName }) => {
         }
     };
 
-    // Function to download as Office-compatible DOC
-    const handleExportDocs = () => {
-        if (!category?.items || category.items.length === 0) {
-            toast.error('No items to export');
-            return;
-        }
-
-        try {
-            // Generate Office-compatible HTML
-            const totals = calculateTotals();
-            const now = new Date();
-            
-            const officeHTML = `
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="UTF-8">
-                    <title>${categoryName} Inventory Report</title>
-                    <style>
-                        body {
-                            font-family: 'Calibri', 'Arial', sans-serif;
-                            font-size: 11pt;
-                            color: #000000;
-                            margin: 20px;
-                        }
-                        .header {
-                            border-bottom: 3px solid #2E74B5;
-                            padding-bottom: 15px;
-                            margin-bottom: 25px;
-                        }
-                        .company-name {
-                            color: #2E74B5;
-                            font-size: 24pt;
-                            font-weight: bold;
-                        }
-                        .report-title {
-                            color: #2E74B5;
-                            font-size: 18pt;
-                            font-weight: bold;
-                            margin: 15px 0;
-                        }
-                        .summary-grid {
-                            display: table;
-                            width: 100%;
-                            border-collapse: collapse;
-                            margin: 20px 0;
-                        }
-                        .summary-row {
-                            display: table-row;
-                        }
-                        .summary-cell {
-                            display: table-cell;
-                            padding: 15px;
-                            border: 1px solid #95B3D7;
-                            text-align: center;
-                            background: #DAEEF3;
-                            font-weight: bold;
-                        }
-                        table.data-table {
-                            width: 100%;
-                            border-collapse: collapse;
-                            margin: 20px 0;
-                            border: 2px solid #366092;
-                        }
-                        table.data-table th {
-                            background: #366092;
-                            color: white;
-                            padding: 12px;
-                            font-weight: bold;
-                            border: 1px solid #95B3D7;
-                        }
-                        table.data-table td {
-                            padding: 10px;
-                            border: 1px solid #95B3D7;
-                        }
-                        .currency {
-                            font-family: 'Cambria', 'Times New Roman', serif;
-                        }
-                        .footer {
-                            font-size: 10pt;
-                            color: #7F7F7F;
-                            margin-top: 30px;
-                            padding-top: 15px;
-                            border-top: 2px solid #CCC;
-                        }
-                        .low-stock {
-                            background-color: #FFF2CC;
-                            font-weight: bold;
-                        }
-                    </style>
-                </head>
-                <body>
-                    <div class="header">
-                        <div class="company-name">${companyInfo.name}</div>
-                        <div style="font-size: 11pt; color: #666; margin: 10px 0;">
-                            ${companyInfo.address}<br>
-                            Phone: ${companyInfo.phone} | Email: ${companyInfo.email}
-                        </div>
-                        <div class="report-title">${categoryName} Inventory Report</div>
-                        <div style="font-size: 11pt; color: #666;">
-                            Generated: ${now.toLocaleDateString('en-US', { 
-                                month: 'long', 
-                                day: 'numeric', 
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                            })}
-                        </div>
-                    </div>
-                    
-                    <!-- Summary -->
-                    <div class="summary-grid">
-                        <div class="summary-row">
-                            <div class="summary-cell">Total Items: ${totals.totalItems}</div>
-                            <div class="summary-cell">Stock Value: ${formatCurrency(totals.totalStockValue)}</div>
-                            <div class="summary-cell">Sale Value: ${formatCurrency(totals.totalSaleValue)}</div>
-                            <div class="summary-cell">Low Stock Items: ${totals.lowStockItems}</div>
-                        </div>
-                    </div>
-                    
-                    <!-- Financial Summary -->
-                    <div style="background: #F2F2F2; padding: 15px; margin: 20px 0; border: 1px solid #D9D9D9;">
-                        <div style="font-weight: bold; margin-bottom: 10px; color: #2E74B5;">Financial Summary</div>
-                        <div style="display: table; width: 100%;">
-                            <div style="display: table-row;">
-                                <div style="display: table-cell; padding: 10px; text-align: center;">
-                                    <div style="font-size: 10pt; color: #666;">Avg Profit Margin</div>
-                                    <div style="font-size: 14pt; font-weight: bold; color: #059669;">${totals.avgProfitMargin.toFixed(2)}%</div>
-                                </div>
-                                <div style="display: table-cell; padding: 10px; text-align: center;">
-                                    <div style="font-size: 10pt; color: #666;">Potential Profit</div>
-                                    <div style="font-size: 14pt; font-weight: bold; color: #059669;">${formatCurrency(totals.potentialProfit)}</div>
-                                </div>
-                                <div style="display: table-cell; padding: 10px; text-align: center;">
-                                    <div style="font-size: 10pt; color: #666;">Profit Ratio</div>
-                                    <div style="font-size: 14pt; font-weight: bold; color: #059669;">${totals.profitRatio.toFixed(2)}%</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Data Table -->
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Item Name</th>
-                                <th>Subcategory</th>
-                                <th>Stock Qty</th>
-                                <th>Min Stock</th>
-                                <th>Purchase Price</th>
-                                <th>Sale Price</th>
-                                <th>Profit Margin</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${category?.items && category.items.length > 0 ? 
-                                category.items.map(item => {
-                                    const openingQuantity = item.stock?.openingQuantity || 0;
-                                    const minStock = item.stock?.minStockToMaintain || 0;
-                                    const purchasePrice = item.purchasePrice || 0;
-                                    const salePrice = item.salePrice || 0;
-                                    const margin = purchasePrice > 0 ? (((salePrice - purchasePrice) / purchasePrice) * 100) : 0;
-                                    const isLowStock = openingQuantity <= minStock;
-                                    
-                                    return `
-                                        <tr ${isLowStock ? 'class="low-stock"' : ''}>
-                                            <td>${item.itemName || 'N/A'}</td>
-                                            <td>${getSubcategoryName(item.subCategoryId)}</td>
-                                            <td>${openingQuantity}</td>
-                                            <td>${minStock}</td>
-                                            <td class="currency">${formatCurrency(purchasePrice)}</td>
-                                            <td class="currency">${formatCurrency(salePrice)}</td>
-                                            <td class="currency">${margin.toFixed(2)}%</td>
-                                            <td>${isLowStock ? '<strong>LOW STOCK</strong>' : 'In Stock'}</td>
-                                        </tr>
-                                    `;
-                                }).join('') 
-                                : 
-                                '<tr><td colspan="8" style="text-align: center; padding: 30px; color: #666; font-style: italic;">No inventory items found</td></tr>'
-                            }
-                        </tbody>
-                    </table>
-                    
-                    <!-- Footer -->
-                    <div class="footer">
-                        <div><strong>${companyInfo.footerNote}</strong></div>
-                        <div style="margin-top: 10px;">
-                            ${companyInfo.address} | ${companyInfo.phone} | ${companyInfo.website}
-                        </div>
-                        <div style="margin-top: 5px; font-size: 9pt;">
-                            Report ID: ${categoryName.toUpperCase().replace(/[^A-Z0-9]/g, '')}_${now.getTime()}
-                        </div>
-                    </div>
-                </body>
-                </html>
-            `;
-            
-            // Create blob with proper MIME type for Word
-            const blob = new Blob(['\ufeff', officeHTML], { 
-                type: 'application/msword;charset=utf-8' 
-            });
-            
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `${categoryName.replace(/[^a-z0-9]/gi, '_')}_Report_${new Date().toISOString().split('T')[0]}.doc`;
-            
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            
-            setTimeout(() => URL.revokeObjectURL(url), 100);
-            
-            toast.success('DOC file downloaded! Compatible with Microsoft Office.');
-            
-        } catch (error) {
-            console.error('DOCS export error:', error);
-            toast.error(`DOC generation failed: ${error.message}`);
-        }
-    };
-
     // Print functionality
     const handlePrint = () => {
         if (!category?.items || category.items.length === 0) {
@@ -770,7 +628,7 @@ const TabContents = ({ subcategory, category, categoryName }) => {
 
         try {
             const printContent = generateReportHTML();
-            const printWindow = window.open('', '_blank', 'width=900,height=600');
+            const printWindow = window.open('', '_blank', 'width=900,height=600,toolbar=0,scrollbars=1,status=0');
             
             if (!printWindow) {
                 toast.error('Please allow popups to print the report');
@@ -780,13 +638,28 @@ const TabContents = ({ subcategory, category, categoryName }) => {
             printWindow.document.write(printContent);
             printWindow.document.close();
             
+            // Wait for content to load
             setTimeout(() => {
                 printWindow.focus();
                 printWindow.print();
+                
+                // Close window after printing
                 printWindow.onafterprint = () => {
-                    setTimeout(() => printWindow.close(), 1000);
+                    setTimeout(() => {
+                        if (!printWindow.closed) {
+                            printWindow.close();
+                        }
+                    }, 500);
                 };
-            }, 300);
+                
+                // Fallback close in case onafterprint doesn't fire
+                setTimeout(() => {
+                    if (!printWindow.closed) {
+                        printWindow.close();
+                    }
+                }, 3000);
+                
+            }, 500);
             
             toast.info('Opening print dialog...');
             
@@ -840,16 +713,7 @@ const TabContents = ({ subcategory, category, categoryName }) => {
                                     {isGeneratingPDF ? 'Generating...' : 'PDF'}
                                 </span>
                             </button>
-                            
-                            {/* Docs */}
-                            <button
-                                onClick={handleExportDocs}
-                                className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200 ease-in-out border border-blue-200 hover:border-blue-300 bg-white flex items-center space-x-1"
-                                title="Download as DOC"
-                            >
-                               <SiGoogledocs className="h-5 w-5" />
-                               <span className="text-sm">DOC</span>
-                            </button>
+                          
 
                             {/* Separator */}
                             <div className="h-6 w-px bg-gray-300 mx-1"></div>
