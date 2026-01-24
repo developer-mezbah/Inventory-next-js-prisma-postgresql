@@ -1,2 +1,58 @@
-npx prisma generate
 npx prisma db push
+npx prisma generate
+
+{addItemDD && <div className="fixed inset-0 z-10" onClick={() => setAddItemDD(!addItemDD)} />}
+
+
+
+
+  const { currencySymbol, formatPrice } = useCurrencyStore();
+  console.log({ currencySymbol });
+  formatPrice(product.price)
+
+  const hiderBoxRef = useOutsideClick(() => setShowFromPicker(false));
+
+ const {
+    isInitialLoading,
+    error,
+    data = [],
+    refetch,
+  } = useFetchData("/api/categories", ["category"]);
+
+  https://web.hishabee.business/
+
+======================= Item Modal ============================
+Item:- Item type (service, product), item name, category, unit(base unit, secondary unit), images (array), item code, Sale price, purchase price, wholesale price, minimun wholesale qty, stock(opening quantity, at price, as of date, min stock to maintain, location)
+
+
+
+new Date(dataToUpsert?.adjustmentDate.replace(/[\[\]]/g, ''))
+
+
+
+  const { data: session } = useSession()
+
+
+
+  https://bgjar.com/stacked-wave
+
+
+
+    const [invoiceData, setInvoiceData] = useState({
+    companyName: "My Company",
+    phone: "18070707707",
+    email: "info@mycompany.com",
+    address: "123 Business Street",
+    logoUrl: "/generic-company-logo.png",
+    invoiceNumber: "1",
+    date: new Date().toISOString().split("T")[0],
+    dueDate: "",
+    billTo: "Sakib",
+    billToEmail: "client@example.com",
+    items: [{ id: 1, description: "Product/Service", quantity: 1, rate: 100, amount: 100 }],
+    notes: "Thanks for doing business with us!",
+    termsAndConditions: "Payment due within 30 days",
+  })
+
+// pagiantion
+  https://codepen.io/designfenix/pen/MWWxNEy

@@ -98,7 +98,7 @@ export default async function DashboardPage({ searchParams }) {
               </span>
             </div>
             <div className="mt-4 pt-4 border-t border-gray-100">
-              <Link href="/cash-bank" className="text-xs font-medium text-amber-600 hover:text-amber-700 inline-flex items-center">
+              <Link href="/cash-bank/cash-in-hand" className="text-xs font-medium text-amber-600 hover:text-amber-700 inline-flex items-center">
                 View cash flow
                 <FiChevronRight className="h-3 w-3 ml-1" />
               </Link>
@@ -148,7 +148,7 @@ export default async function DashboardPage({ searchParams }) {
               <span className="text-sm text-gray-500 ml-2">invoices</span>
             </div>
             <div className="mt-4 pt-4 border-t border-gray-100">
-              <Link href="/sales" className="text-xs font-medium text-red-600 hover:text-red-700 inline-flex items-center">
+              <Link href="/sales/sale-invoices" className="text-xs font-medium text-red-600 hover:text-red-700 inline-flex items-center">
                 View all invoices
                 <FiChevronRight className="h-3 w-3 ml-1" />
               </Link>
@@ -225,7 +225,7 @@ export default async function DashboardPage({ searchParams }) {
               </span>
             </div>
             <div className="mt-4 pt-4 border-t border-gray-100">
-              <Link href="/expenses" className="text-xs font-medium text-purple-600 hover:text-purple-700 inline-flex items-center">
+              <Link href="/purchase/expenses" className="text-xs font-medium text-purple-600 hover:text-purple-700 inline-flex items-center">
                 View expense report
                 <FiChevronRight className="h-3 w-3 ml-1" />
               </Link>
@@ -254,7 +254,7 @@ export default async function DashboardPage({ searchParams }) {
             </div>
             <div className="mt-4 pt-4 border-t border-gray-100">
               <Link
-                href="/inventory"
+                href="/items/products?filter=low-stock"
                 className="text-xs font-medium text-red-600 hover:text-red-700 inline-flex items-center"
               >
                 Review inventory
@@ -297,7 +297,7 @@ export default async function DashboardPage({ searchParams }) {
                 <h3 className="text-lg font-semibold text-gray-900">Top Customers</h3>
                 <p className="text-sm text-gray-500">By total sales amount</p>
               </div>
-              <Link href="/parties" className="text-sm font-medium text-purple-600 hover:text-purple-700 inline-flex items-center">
+              <Link href="/parties/party-details?filter=top-customers" className="text-sm font-medium text-purple-600 hover:text-purple-700 inline-flex items-center">
                 View all
                 <FiChevronRight className="h-4 w-4 ml-1" />
               </Link>
@@ -539,13 +539,13 @@ export default async function DashboardPage({ searchParams }) {
                 <h3 className="text-lg font-semibold text-gray-900">
                   Recent Transactions
                 </h3>
-                <Link
+                {/* <Link
                   href="/transactions"
                   className="text-sm font-medium text-purple-600 hover:text-purple-700 inline-flex items-center"
                 >
                   View all
                   <FiChevronRight className="h-4 w-4 ml-1" />
-                </Link>
+                </Link> */}
               </div>
             </div>
             <div className="divide-y divide-gray-100 max-h-[400px]">

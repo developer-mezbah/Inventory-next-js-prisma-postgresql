@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { FaSearch } from "react-icons/fa"
 import { IoClose } from "react-icons/io5"
+import GetCurrencty from "../home/GetCurrencty";
 
 // --- UTILITY FUNCTION TO MAP AND FILTER PROPS DATA ---
 // Now accepts 'data' and 'subCategory' (the filter object)
@@ -46,7 +47,7 @@ const StockRow = ({ item, isAlternate }) => (
             {item.quantity}
         </td>
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-            ${item.stockValue.toFixed(2)}
+            <GetCurrencty/>{item.stockValue.toFixed(2)}
         </td>
         {/* ACTION COLUMN REMOVED */}
     </tr>
