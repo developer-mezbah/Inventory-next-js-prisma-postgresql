@@ -88,9 +88,9 @@ model Company {
   party            Party[]
   transaction      Transaction[]
   item             Item[]
-  expenceItem      ExpenceItem[]
+  expenceItem      ExpenseItem[]
   category         Category[]
-  expenceCategory  ExpenceCategory[]
+  expenceCategory  ExpenseCategory[]
   currencies       Currency[]
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
@@ -200,27 +200,44 @@ model Item {
   purchase            Purchase?     @relation(fields: [purchaseId], references: [id])
   purchaseId          String?
 }
-model ExpenceItem {
+model ExpenseItem  {
   id                  String        @id @default(cuid())
   itemName            String
   quantity            Float?
-  expenceCategoryId          String?
-  expenceCategory            ExpenceCategory?     @relation(fields: [expenceCategoryId], references: [id])
   price               Float?
   createdAt           DateTime?     @default(now())
-  updatedAt           DateTime?     @updatedAt
+  updatedAt           DateTime?     @updatedAt 
   companyId           String
   company             Company       @relation(fields: [companyId], references: [id])
   
+  expenseId String
+  expense   Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  
 }
 
-model ExpenceCategory {
+model ExpenseCategory  {
   id            String    @id @default(cuid())
   name          String    @unique
+  expenseType   String?
   createdAt     DateTime? @default(now())
-  expenceItems         ExpenceItem[]
   companyId     String
   company       Company   @relation(fields: [companyId], references: [id])
+   expenses  Expense[]
+}
+
+model Expense {
+  id            String        @id @default(cuid())
+  billDate      String?
+  billNumber    Int?
+  price        Float?
+  paymentType   String?
+  paymentTypeId String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  companyId     String? 
+  categoryId   String
+  category     ExpenseCategory @relation(fields: [categoryId], references: [id])
+  items        ExpenseItem[]
 }
 
 // Converted from "type StockInfo"

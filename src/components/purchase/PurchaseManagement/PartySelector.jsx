@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { BiChevronDown, BiPlus, BiSearch } from 'react-icons/bi';
 import { GrClose } from 'react-icons/gr';
-import AddPartyModal from '../../add-party-modal';
+import AddExpenceModal from '../../add-party-modal';
 
 // ------------------------------------------------------------------
 // 1. MOCK: useOutsideClick Hook (Client-side hook replacement)
@@ -247,7 +247,7 @@ export default function PartySelector({ setNewParty, setPhoneNumber, selectedPar
         <>
             {/* Using the original AddPartyModal for better integration */}
             {/* If AddPartyModal is not defined in the original scope, you should use AddPartyModal2 */}
-            <AddPartyModal isOpen={showAddPartyModal} onClose={() => {
+            <AddExpenceModal isOpen={showAddPartyModal} onClose={() => {
                 setShowAddPartyModal(false)
                 setIsOpen(false) // Keep dropdown closed after modal interaction
             }} refetch={refetch} onSave={handleSaveParty} />

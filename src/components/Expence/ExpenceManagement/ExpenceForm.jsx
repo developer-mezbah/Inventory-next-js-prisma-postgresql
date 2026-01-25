@@ -1,7 +1,6 @@
 "use client";
 
 import Loading from "@/components/Loading";
-import Media from "@/components/gallery/Media";
 import { useFetchData } from "@/hook/useFetchData";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -10,7 +9,7 @@ import { FiPrinter, FiSave, FiShare2 } from "react-icons/fi";
 import { RiArrowGoBackLine } from "react-icons/ri";
 import { toast } from "react-toastify";
 import ItemsTable from "./ItemsTable";
-import PartySelector from "./PartySelector";
+import ExpenceCSelector from "./ExpenceCSelector";
 import PaymentSection from "./PaymentSection";
 import { useCurrencyStore } from "@/stores/useCurrencyStore";
 
@@ -37,13 +36,13 @@ export default function ExpenceForm({
   mode,
   initData,
 }) {
-  const [selectedParty, setSelectedParty] = useState(null);
+  const [selectedECategory, setSelectedECategory] = useState(null);
    const { currencySymbol, formatPrice } = useCurrencyStore();
   const [billNumber, setBillNumber] = useState("");
   const [billDate, setBillDate] = useState(
     new Date().toISOString().split("T")[0]
   );
-  const [newParty, setNewParty] = useState(null);
+  const [newECategory, setNewExpenceCategory] = useState(null);
   const [items, setItems] = useState(
     [
       {
@@ -57,8 +56,6 @@ export default function ExpenceForm({
   );
 
   const [paymentType, setPaymentType] = useState("Cash");
-  const [isFullPayment, setIsFullPayment] = useState(false);
-  const [manualPaidAmount, setManualPaidAmount] = useState(0);
 
   useEffect(() => {
     if (mode === "update" && initData?.data) {
@@ -80,7 +77,6 @@ export default function ExpenceForm({
         }))
       );
 
-      setIsFullPayment(initData.data.isPaid || false);
       setPaymentType(
         initData.data.paymentType === "Cash"
           ? "Cash"
@@ -89,13 +85,12 @@ export default function ExpenceForm({
             accountdisplayname: initData.data.paymentType,
           }
       );
-      setSelectedParty({ ...initData.party, name: initData.party?.partyName });
+      setSelectedECategory({ ...initData.party, name: initData.party?.partyName });
       setBillNumber(initData.data.billNumber || "");
       setBillDate(initData.data.billDate || "");
 
       // Set payment amounts from initData
       const initialPaidAmount = initData.data.paidAmount || 0;
-      setManualPaidAmount(initialPaidAmount);
     }
   }, [mode, initData]);
 
@@ -104,7 +99,7 @@ export default function ExpenceForm({
     error,
     data = {},
     refetch,
-  } = useFetchData("/api/purchase-init-data", ["purchase-init-data"]);
+  } = useFetchData("/api/expence/init-data", ["expence-init-data"]);
 
   const calculateTotal = () => {
     return items.reduce((sum, item) => sum + (item.amount || 0), 0);
@@ -183,12 +178,11 @@ export default function ExpenceForm({
     onUpdate({
       items,
       total: calculateTotal(),
-      selectedParty,
-      newParty,
+      selectedParty: selectedECategory,
+      newParty: newECategory,
       billNumber,
       billDate,
       paymentType: paymentType,
-      paidAmount: isFullPayment ? calculateTotal() : manualPaidAmount,
     });
   };
 
@@ -245,12 +239,12 @@ export default function ExpenceForm({
       <div className="p-4 sm:p-6 space-y-6">
         {/* Search and Date Section */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <PartySelector
-            setSelectedParty={setSelectedParty}
-            setNewParty={setNewParty}
-            partyData={data?.party || []}
-            selectedParty={selectedParty}
-            onSelect={setSelectedParty}
+          <ExpenceCSelector
+            setSelectedExpenceC={setSelectedECategory}
+            setNewECategory={setNewExpenceCategory}
+            expenceCData={data?.expenceCategory || []}
+            selectedECategory={selectedECategory}
+            onSelect={setSelectedECategory}
             refetch={refetch}
           />
           <div className="relative">

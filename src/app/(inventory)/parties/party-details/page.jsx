@@ -1,5 +1,5 @@
 "use client";
-import AddPartyModal from "@/components/add-party-modal";
+import AddExpenceModal from "@/components/add-party-modal";
 import HeaderSection from "@/components/Parties/HeaderSectionOfTabs";
 import TabContents from "@/components/Parties/TabContents";
 import { useFetchData } from "@/hook/useFetchData";
@@ -305,7 +305,7 @@ const PartDetails = () => {
     <div>
       <HeaderSection setIsModalOpen={setIsModalOpen} />
 
-      <AddPartyModal
+      <AddExpenceModal
         refetch={refetch}
         isOpen={isUpdateModalOpen}
         onClose={handleClose}
@@ -313,7 +313,7 @@ const PartDetails = () => {
         defaultData={updateFormData}
       />
 
-      <AddPartyModal
+      <AddExpenceModal
         refetch={refetch}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -474,7 +474,7 @@ const PartDetails = () => {
   if (isMobile) {
     return (
       <>
-        <AddPartyModal
+        <AddExpenceModal
           refetch={refetch}
           isOpen={isUpdateModalOpen}
           onClose={handleClose}
@@ -482,7 +482,7 @@ const PartDetails = () => {
           defaultData={updateFormData}
         />
 
-        <AddPartyModal
+        <AddExpenceModal
           refetch={refetch}
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}

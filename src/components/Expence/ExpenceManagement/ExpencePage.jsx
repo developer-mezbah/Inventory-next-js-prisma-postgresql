@@ -66,7 +66,6 @@ export default function ExpencePage({ mode, initData }) {
         .create("/api/sale-purchase", "token", {
           ...updates,
           userId: session?.user?.id,
-          mode: type === "sale" ? "sale" : "purchase",
         })
         .then((res) => {
           if (res?.status) {
