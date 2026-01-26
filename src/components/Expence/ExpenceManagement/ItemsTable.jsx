@@ -152,7 +152,7 @@ function SearchableItemInput({
     <>
       {isShowItemForm && (
         <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 transition-opacity">
-          <div className="lg:w-4xl bg-white">
+          <div className="lg:w-xl bg-white rounded">
             {" "}
             <ItemForm
               autoAddItem={autoAddItem}
@@ -244,13 +244,13 @@ function SearchableItemInput({
                   </div>
                   {/* Use item.stock.openingQuantity */}
                   <div
-                    className={`p-2 w-1/6 text-right font-medium ${
-                      item?.stock?.price > 0
+                    className={`p-2 w-1/6 text-left font-medium ${
+                      item?.price > 0
                         ? "text-green-600"
                         : "text-red-600"
                     }`}
                   >
-                    {item?.stock?.price}
+                    {item?.price}
                   </div>
                 </button>
               ))

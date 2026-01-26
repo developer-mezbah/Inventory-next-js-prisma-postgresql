@@ -203,15 +203,14 @@ model Item {
 model ExpenseItem  {
   id                  String        @id @default(cuid())
   itemName            String
-  quantity            Float?
   price               Float?
   createdAt           DateTime?     @default(now())
   updatedAt           DateTime?     @updatedAt 
   companyId           String
   company             Company       @relation(fields: [companyId], references: [id])
   
-  expenseId String
-  expense   Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  expenseId String?
+  expense   Expense?  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
   
 }
 
@@ -232,6 +231,7 @@ model Expense {
   price        Float?
   paymentType   String?
   paymentTypeId String?
+  quantity            Float?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   companyId     String? 
