@@ -240,29 +240,6 @@ export default function ExpenceCSelector({
                         {party.name}
                       </p>
                     </div>
-                    <div className="text-right ml-4 flex flex-col justify-center items-end">
-                      <p
-                        className={`font-bold text-sm ${
-                          party?.openingBalance
-                            ? party?.balanceType === "ToReceive"
-                              ? "text-green-600"
-                              : "text-red-600"
-                            : "text-gray-500" // Fallback color if no opening balance exists
-                        }`}
-                      >
-                        {
-                          party.openingBalance
-                            ? parseFloat(party.openingBalance) >= 0
-                              ? `${currencySymbol}${parseFloat(
-                                  party.openingBalance
-                                ).toFixed(2)}`
-                              : `-${currencySymbol}${Math.abs(
-                                  parseFloat(party.openingBalance)
-                                ).toFixed(2)}`
-                            : `${currencySymbol}0.00` // Default to $0.00 if openingBalance is null/undefined/empty
-                        }
-                      </p>
-                    </div>
                   </button>
                 ))
               ) : (
@@ -275,16 +252,13 @@ export default function ExpenceCSelector({
 
             {/* Add New Party Option (moved to bottom) */}
             <div className="border-t border-gray-100 sticky bottom-0 bg-white">
-              {/* The 'isNewPartyCandidate' check should only apply to the main input, 
-                                but showing a hint here is good for UX. Using the dropdown search term 
-                                only makes sense if there are no filtered results. 
-                                We'll keep the Add Party button standard. */}
+              
               <button
                 onClick={handleAddPartyClick}
                 className="w-full px-4 py-3 text-left text-blue-600 font-medium text-sm hover:bg-blue-50 flex items-center gap-2 transition duration-150 rounded-b-lg"
               >
                 <BiPlus className="w-4 h-4" />
-                Add Party
+                Add Category
               </button>
             </div>
           </div>

@@ -5,14 +5,16 @@ import { NextResponse } from "next/server";
 // GET ALL
 export async function GET() {
     try {
-        const categories = await prisma.category.findMany({
-            orderBy: {
-                id: 'desc',
-            },
-            where: {
-                companyId: await getCompanyId(),
-            },
-        });
+        console.log(await getCompanyId());
+        
+        // const categories = await prisma.category.findMany({
+        //     orderBy: {
+        //         id: 'desc',
+        //     },
+        //     where: {
+        //         companyId: await getCompanyId(),
+        //     },
+        // });
         const expenceCategory = await prisma.ExpenseCategory.findMany({
             orderBy: {
                 id: 'desc',
@@ -46,7 +48,7 @@ export async function GET() {
             },
         });
         
-        return NextResponse.json({ categories,expenceCategory, item: expenseItem, bank, cash });
+        return NextResponse.json({ expenceCategory, item: expenseItem, bank, cash });
     } catch (error) {
         console.log(error);
         

@@ -216,9 +216,7 @@ function SearchableItemInput({
           {/* Dropdown Content Header */}
           <div className="flex bg-gray-50 text-xs font-semibold uppercase text-gray-600 border-b border-gray-200">
             <div className="p-2 w-1/2">Item Name</div>
-            <div className="p-2 w-1/6 text-right">Sale Price</div>
-            <div className="p-2 w-1/6 text-right">Purchase Price</div>
-            <div className="p-2 w-1/6 text-right">Stock</div>
+            <div className="p-2 w-1/6 text-right">Price</div>
           </div>
           {/* Add Item Button at the bottom of the dropdown */}
           <div className="p-2 border-t border-gray-200">
@@ -244,23 +242,15 @@ function SearchableItemInput({
                   <div className="p-2 w-1/2 text-gray-800 truncate">
                     {item.itemName}
                   </div>
-                  {/* Use item.salePrice */}
-                  <div className="p-2 w-1/6 text-right text-gray-600">
-                    ${item.salePrice && item.salePrice.toFixed(2)}
-                  </div>
-                  {/* Use item.purchasePrice */}
-                  <div className="p-2 w-1/6 text-right text-gray-600">
-                    ${item.purchasePrice && item.purchasePrice.toFixed(2)}
-                  </div>
                   {/* Use item.stock.openingQuantity */}
                   <div
                     className={`p-2 w-1/6 text-right font-medium ${
-                      item?.stock?.openingQuantity > 0
+                      item?.stock?.price > 0
                         ? "text-green-600"
                         : "text-red-600"
                     }`}
                   >
-                    {item?.stock?.openingQuantity}
+                    {item?.stock?.price}
                   </div>
                 </button>
               ))

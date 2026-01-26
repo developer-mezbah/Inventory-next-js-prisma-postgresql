@@ -99,7 +99,7 @@ export default function ExpenceForm({
     error,
     data = {},
     refetch,
-  } = useFetchData("/api/expence/init-data", ["expence-init-data"]);
+  } = useFetchData("/api/expense/init-data", ["expence-init-data"]);
 
   const calculateTotal = () => {
     return items.reduce((sum, item) => sum + (item.amount || 0), 0);
