@@ -48,11 +48,11 @@ export default function ExpencePage({ mode, initData }) {
             toast.success(
               res?.message || `Expence Updated successfully.`
             );
-            router.push(
-              type === "sale"
-                ? "/sales/sale-invoices"
-                : "/purchase/purchase-bils"
-            );
+            // router.push(
+            //   type === "sale"
+            //     ? "/sales/sale-invoices"
+            //     : "/purchase/purchase-bils"
+            // );
           } else {
             toast.error(res?.error || `Failed to update Expence.`);
           }
@@ -63,7 +63,7 @@ export default function ExpencePage({ mode, initData }) {
       // console.log( { ...updates,id: initData?.data?.id, userId: session?.user?.id });
     } else {
       client_api
-        .create("/api/sale-purchase", "token", {
+        .create("/api/expense", "token", {
           ...updates,
           userId: session?.user?.id,
         })
@@ -72,11 +72,11 @@ export default function ExpencePage({ mode, initData }) {
             toast.success(
               res?.message || `Expence created successfully.`
             );
-            router.push(
-              type === "sale"
-                ? "/sales/sale-invoices"
-                : "/purchase/purchase-bils"
-            );
+            // router.push(
+            //   type === "sale"
+            //     ? "/sales/sale-invoices"
+            //     : "/purchase/purchase-bils"
+            // );
           } else {
             toast.error(res?.error || `Failed to create Expence.`);
           }

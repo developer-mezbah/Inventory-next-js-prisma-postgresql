@@ -246,7 +246,7 @@ function SearchableItemInput({
                   <div
                     className={`p-2 w-1/6 text-left font-medium ${
                       item?.price > 0
-                        ? "text-green-600"
+                        ? "text-green-600" 
                         : "text-red-600"
                     }`}
                   >

@@ -179,7 +179,7 @@ export default function ExpenceForm({
       items,
       total: calculateTotal(),
       selectedParty: selectedECategory,
-      newParty: newECategory,
+      newCategory: newECategory,
       billNumber,
       billDate,
       paymentType: paymentType,

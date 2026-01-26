@@ -67,7 +67,7 @@ export default function ItemForm({
 
     if (updateFormData) {
       client_api
-        .update(`/api/expense/${updateFormData?.id}`, "token", dataToSubmit)
+        .update(`/api/expense/item/${updateFormData?.id}`, "token", dataToSubmit)
         .then((res) => {
           if (res) {
             refetch();
@@ -85,7 +85,7 @@ export default function ItemForm({
         });
     } else {
       client_api
-        .create("/api/expense", "token", dataToSubmit)
+        .create("/api/expense/item", "token", dataToSubmit)
         .then((res) => {
           if (res.status) {
             refetch();
