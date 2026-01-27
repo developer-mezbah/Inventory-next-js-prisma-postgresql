@@ -61,10 +61,10 @@ model UserRole {
 }
 
 model Company {
-  id               String           @id @default(cuid())
+  id               String            @id @default(cuid())
   name             String
   ownerId          String
-  owner            User             @relation(fields: [ownerId], references: [id])
+  owner            User              @relation(fields: [ownerId], references: [id])
   phoneNumber      String?
   emailId          String?
   businessType     String?
@@ -77,8 +77,8 @@ model Company {
   countryCode      String?
   code             String?
   symbol           String?
-  currencyCode     String?          @default("USD")
-  currencySymbol   String?          @default("$")
+  currencyCode     String?           @default("USD")
+  currencySymbol   String?           @default("$")
   purchases        Purchase[]
   sales            Sale[]
   Images           Image[]
@@ -92,8 +92,9 @@ model Company {
   category         Category[]
   expenceCategory  ExpenseCategory[]
   currencies       Currency[]
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  expenses         Expense[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 }
 
 model Currency {
@@ -200,44 +201,46 @@ model Item {
   purchase            Purchase?     @relation(fields: [purchaseId], references: [id])
   purchaseId          String?
 }
-model ExpenseItem  {
-  id                  String        @id @default(cuid())
-  itemName            String
-  price               Float?
-  createdAt           DateTime?     @default(now())
-  updatedAt           DateTime?     @updatedAt 
-  companyId           String
-  company             Company       @relation(fields: [companyId], references: [id])
-  
+
+model ExpenseItem {
+  id        String    @id @default(cuid())
+  itemName  String
+  price     Float?
+  createdAt DateTime? @default(now())
+  updatedAt DateTime? @updatedAt
+  companyId String
+  company   Company   @relation(fields: [companyId], references: [id])
+  transaction         Transaction[]
   expenseId String?
-  expense   Expense?  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
-  
+  expense   Expense? @relation(fields: [expenseId], references: [id], onDelete: Cascade)
 }
 
-model ExpenseCategory  {
-  id            String    @id @default(cuid())
-  name          String    @unique
-  expenseType   String?
-  createdAt     DateTime? @default(now())
-  companyId     String
-  company       Company   @relation(fields: [companyId], references: [id])
-   expenses  Expense[]
+model ExpenseCategory {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  expenseType String?
+  createdAt   DateTime? @default(now())
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id])
+  expenses    Expense[]
 }
 
 model Expense {
-  id            String        @id @default(cuid())
+  id            String          @id @default(cuid())
   billDate      String?
   billNumber    Int?
-  price        Float?
+  price         Float?
   paymentType   String?
   paymentTypeId String?
-  quantity            Float?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  companyId     String? 
-  categoryId   String
-  category     ExpenseCategory @relation(fields: [categoryId], references: [id])
-  items        ExpenseItem[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  company       Company?      @relation(fields: [companyId], references: [id])
+  companyId     String?
+  categoryId    String
+  category      ExpenseCategory @relation(fields: [categoryId], references: [id])
+  items         ExpenseItem[]
+  transaction   Transaction[]
+  invoiceData   InvoiceData[]
 }
 
 // Converted from "type StockInfo"
@@ -277,6 +280,8 @@ model Transaction {
   cashAdjustment   CashAdjustment? @relation(fields: [cashAdjustmentId], references: [id])
   item             Item?           @relation(fields: [itemId], references: [id])
   itemId           String?
+  expenseItem      ExpenseItem?    @relation(fields: [expenseItemId], references: [id])
+  expenseItemId           String?
   party            Party?          @relation(fields: [partyId], references: [id])
   partyId          String?
   purchase         Purchase?       @relation(fields: [purchaseId], references: [id])
@@ -285,6 +290,8 @@ model Transaction {
   company          Company         @relation(fields: [companyId], references: [id])
   sale             Sale?           @relation(fields: [saleId], references: [id])
   saleId           String?
+  expense          Expense?        @relation(fields: [expenseId], references: [id])
+  expenseId        String?
 }
 
 model Party {
@@ -354,6 +361,8 @@ model InvoiceData {
   purchase   Purchase? @relation(fields: [purchaseId], references: [id])
   purchaseId String?
   sale       Sale?     @relation(fields: [saleId], references: [id])
+  expenseId  String?
+  expense    Expense?  @relation(fields: [expenseId], references: [id])
   saleId     String?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt

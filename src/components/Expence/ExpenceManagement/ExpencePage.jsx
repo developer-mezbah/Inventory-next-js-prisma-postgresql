@@ -25,7 +25,7 @@ export default function ExpencePage({ mode, initData }) {
 
 
   const updateExpence = (id, updates) => {
-    if (!updates?.selectedParty && !updates?.newParty) {
+    if (!updates?.selectedParty && !updates?.newCategory) {
       return toast.error(
         `Expence name doesn't exist, please create a new Expence.`
       );
@@ -48,11 +48,9 @@ export default function ExpencePage({ mode, initData }) {
             toast.success(
               res?.message || `Expence Updated successfully.`
             );
-            // router.push(
-            //   type === "sale"
-            //     ? "/sales/sale-invoices"
-            //     : "/purchase/purchase-bils"
-            // );
+            router.push(
+              "/purchase/expenses?"
+            );
           } else {
             toast.error(res?.error || `Failed to update Expence.`);
           }
@@ -72,11 +70,9 @@ export default function ExpencePage({ mode, initData }) {
             toast.success(
               res?.message || `Expence created successfully.`
             );
-            // router.push(
-            //   type === "sale"
-            //     ? "/sales/sale-invoices"
-            //     : "/purchase/purchase-bils"
-            // );
+            router.push(
+              "/purchase/expenses?"
+            );
           } else {
             toast.error(res?.error || `Failed to create Expence.`);
           }
@@ -102,9 +98,9 @@ export default function ExpencePage({ mode, initData }) {
           </p>
         </div>
 
-    
 
-     
+
+
 
         {/* Purchase Form */}
         {activeSale && (

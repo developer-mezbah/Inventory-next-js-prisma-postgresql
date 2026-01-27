@@ -148,6 +148,7 @@ const initMenuItems = [
       { name: "Purchase Bils", href: "/purchase/purchase-bils" },
       { name: "Payment-Out", href: "/purchase/payment-out" },
       { name: "Expenses", href: "/purchase/expenses" },
+      { name: "Add Expense", href: "/purchase/add-expense" }, 
       { name: "Purchase Order", href: "/purchase/purchase-order" },
       {
         name: "Purchase Return/ Dr. Note",

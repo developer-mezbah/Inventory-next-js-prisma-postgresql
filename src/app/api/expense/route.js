@@ -1,14 +1,15 @@
 import prisma from "@/lib/prisma";
+import { generateShortSecureID } from "@/utils/generateShortSecureID";
 import { getCompanyId } from "@/utils/GetCompanyId";
 import { NextResponse } from "next/server";
 
 
 async function handleCategory(body) {
-  if (body?.newParty) {
-    const newCategory = await prisma.Party.create({
+  if (body?.newCategory) {
+    const newCategory = await prisma.ExpenseCategory.create({
       data: {
-        expenseType: body?.expenseType,
-        name: body?.name,
+        // expenseType: body?.expenseType,
+        name: body?.newCategory,
         companyId: await getCompanyId(),
       },
     });
@@ -25,7 +26,7 @@ async function handleCash(body) {
       },
       update: {
         cashInHand: {
-          decrement: body?.paidAmount,
+          decrement:body?.total || 0
         },
       },
       create: {
@@ -97,13 +98,9 @@ async function handleItem(body, id) {
           company: {
             connect: { id: await getCompanyId() },
           },
-          [body?.mode === "sale" ? "sale" : "purchase"]: {
+          expense: {
             connect: { id },
-          },
-          stock: {
-
-            openingQuantity: body?.mode === "sale" ? 0 : item?.qty,
-          },
+          }
         },
       });
 
@@ -124,12 +121,90 @@ async function handleItem(body, id) {
 export async function POST(request) {
   try {
     const data = await request.json();
+
 console.log(data);
 
-   
+    const newCategoryId = await handleCategory(data);
+    const cashId = await handleCash(data);
 
+        const expenseData = {
+      billNumber: data?.billNumber || null,
+      billDate: data?.billDate,
+      paymentType:
+        data?.paymentType === "Cash"
+          ? data?.paymentType
+          : data?.paymentType?.accountdisplayname,
+      paymentTypeId:
+        data?.paymentType === "Cash" ? null : data?.paymentType?.id,
+      price: data?.total,
+      categoryId: data?.newCategory ? newCategoryId : data?.selectedParty?.id,
+      companyId: await getCompanyId()
+    
+    };
+    const expense = await prisma.Expense.create({
+      data: expenseData,
+    })
+
+
+    // Get item IDs (including newly created ones)
+    const itemIds = await handleItem(data, expense?.id);
+
+    // Prepare invoice data with correct item IDs
+    const invoiceData = data?.items.map((item, index) => ({
+      itemName: item?.item,
+      itemId: item?.itemId || itemIds[index], // Use existing itemId or newly created one
+      qty: item?.qty,
+      unitPrice: item?.price,
+      price: item?.amount,
+      expenseId: expense?.id,
+    }));
+
+    await prisma.InvoiceData.createMany({
+      data: invoiceData,
+    });
+
+
+    const transaction = await prisma.Transaction.create({
+      data: {
+        type: "Expense",
+        paymentType:
+          data?.paymentType === "Cash"
+            ? data?.paymentType
+            : data?.paymentType?.accountdisplayname,
+        date: expense?.createdAt,
+        totalAmount: data?.total,
+        amount: data?.total,
+        balanceDue: 0,
+        transactionId: generateShortSecureID(),
+        expense: {
+          connect: { id: expense?.id },
+        },
+        [data?.paymentType === "Cash" ? "cashAdjustment" : "cashAndBank"]: {
+          connect: {
+            id: data?.paymentType === "Cash" ? cashId : data?.paymentType?.id,
+          },
+        },
+        company: {
+          connect: { id: await getCompanyId() },
+        },
+      },
+    });
+
+        if (itemIds.length > 0) {
+          for (let i = 0; i < itemIds.length; i++) {
+            const itemId = itemIds[i];
+            await prisma.Transaction.update({
+              where: { id: transaction?.id, companyId: await getCompanyId() },
+              data: {
+                expenseItem: {
+                  connect: { id: itemId },
+                },
+              },
+            });
+          }
+        }
     return NextResponse.json(
-      { expenseItem: data, status: true },
+      { data: expense, status: true },
       { status: 201 }
     );
   } catch (error) {
@@ -147,7 +222,7 @@ console.log(data);
         );
       }
     }
-    
+
     console.error("Error creating expense item:", error);
     return NextResponse.json(
       {
