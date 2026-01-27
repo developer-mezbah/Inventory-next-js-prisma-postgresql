@@ -5,6 +5,7 @@ import { FaFilter, FaSearch, FaTimes } from "react-icons/fa";
 import { FaPlus } from 'react-icons/fa';
 import { BiDotsVerticalRounded } from "react-icons/bi";
 import TabContents from "@/components/purchase/Expences/TabContents";
+import { useFetchData } from "@/hook/useFetchData";
 
 
 
@@ -27,6 +28,16 @@ const Expences = () => {
 
   const openModal = useCallback(() => setShowModal(true), []);
   const closeModal = useCallback(() => setShowModal(false), []);
+
+   const {
+    isInitialLoading,
+    error,
+    data = [],
+    refetch,
+  } = useFetchData("/api/expense", ["expense"]);
+
+  console.log(data);
+  
   
 
   // 1. New state for the search input value

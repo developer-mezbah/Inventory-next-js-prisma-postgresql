@@ -4,6 +4,30 @@ import { getCompanyId } from "@/utils/GetCompanyId";
 import { NextResponse } from "next/server";
 
 
+export async function GET(req) {
+  try {
+    const expenses = await prisma.Expense.findMany({
+      where: { companyId: await getCompanyId() },
+      orderBy: { createdAt: "desc" },
+      include: {
+        transaction: true,
+        items: true,
+        invoiceData: true,
+      },
+    });
+    const expenseCategories = await prisma.ExpenseCategory.findMany({
+      where: { companyId: await getCompanyId() },
+    });
+    return NextResponse.json({ data: expenses, categories: expenseCategories, status: true });
+  } catch (error) {
+    console.log(error);
+    return NextResponse.json(
+      { error: error || "Failed to fetch Expenses" },
+      { status: 500 }
+    );
+  }
+}
+
 async function handleCategory(body) {
   if (body?.newCategory) {
     const newCategory = await prisma.ExpenseCategory.create({
