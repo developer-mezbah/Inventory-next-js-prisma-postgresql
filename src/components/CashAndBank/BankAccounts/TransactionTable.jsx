@@ -18,64 +18,6 @@ import { toast } from "react-toastify";
 import AccountInfoHeader from "./AccountInfoHeader";
 import MobileAccountAccordion from "./MobileAccountAccordion";
 
-const TRANSACTIONS_DATA = [
-  {
-    id: 1,
-    type: "Opening Balance",
-    name: "Opening Balance",
-    date: "2025-11-17",
-    amount: 15000,
-    description: "Initial account balance",
-  },
-  {
-    id: 2,
-    type: "Deposit",
-    name: "Client Payment",
-    date: "2025-11-16",
-    amount: 5000,
-    description: "Payment received from ABC Corp",
-  },
-  {
-    id: 3,
-    type: "Withdrawal",
-    name: "Office Supplies",
-    date: "2025-11-15",
-    amount: -1200,
-    description: "Stationery and office equipment",
-  },
-  {
-    id: 4,
-    type: "Transfer",
-    name: "Bank Transfer Out",
-    date: "2025-11-14",
-    amount: -2500,
-    description: "Transfer to savings account",
-  },
-  {
-    id: 5,
-    type: "Deposit",
-    name: "Interest Credit",
-    date: "2025-11-13",
-    amount: 150,
-    description: "Monthly interest credited",
-  },
-  {
-    id: 6,
-    type: "Withdrawal",
-    name: "Vendor Payment",
-    date: "2025-11-12",
-    amount: -3000,
-    description: "Payment to vendor XYZ Ltd",
-  },
-  {
-    id: 7,
-    type: "Deposit",
-    name: "Refund Received",
-    date: "2025-11-11",
-    amount: 800,
-    description: "Refund for returned goods",
-  },
-];
 
 // Desktop table row component
 const TransactionRow = ({ item, isAlternate, onAction }) => {

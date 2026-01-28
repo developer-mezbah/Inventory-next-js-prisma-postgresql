@@ -1,23 +1,10 @@
 "use client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { FaFilter, FaSearch, FaTimes } from "react-icons/fa";
-import { FaPlus } from 'react-icons/fa';
+import { FaFilter, FaPlus, FaSearch, FaTimes } from "react-icons/fa";
 import { BiDotsVerticalRounded } from "react-icons/bi";
 import TabContents from "@/components/purchase/Expences/TabContents";
 import { useFetchData } from "@/hook/useFetchData";
-
-
-
-
-  const tabs = [
-    { id: "general", label: "General", amount: 100 },
-    { id: "files-media", label: "Files & Media", amount: 2 },
-    { id: "price-stock", label: "Price & Stock", amount: 5 },
-    { id: "seo", label: "SEO", amount: 3 },
-    { id: "frequently-bought", label: "Frequently Brought", amount: 1 },
-  ];
-
 
 const Expences = () => {
   const router = useRouter();
@@ -29,30 +16,63 @@ const Expences = () => {
   const openModal = useCallback(() => setShowModal(true), []);
   const closeModal = useCallback(() => setShowModal(false), []);
 
-   const {
+  const {
     isInitialLoading,
     error,
     data = [],
     refetch,
   } = useFetchData("/api/expense", ["expense"]);
 
-  console.log(data);
+  // Extract data from the response
+  const expenseData = data?.data || [];
+  const categoriesData = data?.categories || [];
   
-  
+  // Calculate total amount for each category
+  const tabs = useMemo(() => {
+    return categoriesData.map(category => {
+      // Filter expenses for this category
+      const categoryExpenses = expenseData.filter(expense => 
+        expense.categoryId === category.id
+      );
+      
+      // Calculate total amount for the category
+      const totalAmount = categoryExpenses.reduce((sum, expense) => {
+        // Use price from expense object, default to 0 if null/undefined
+        return sum + (expense.price || 0);
+      }, 0);
+      
+      return {
+        id: category.id,
+        label: category.name || "Unnamed Category",
+        amount: totalAmount,
+        expenseType: category.expenseType,
+      };
+    });
+  }, [expenseData, categoriesData]);
 
   // 1. New state for the search input value
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Get the current active tab from the URL search parameters, default to "general"
-  const activeTab = searchParams.get('tab') || 'general';
+  // Get the current active tab from the URL search parameters
+  // Default to first category if available, otherwise empty string
+  const defaultActiveTab = tabs.length > 0 ? tabs[0].id : '';
+  const activeTab = searchParams.get('tab') || defaultActiveTab;
+  
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // For mobile view
-
   const [openDropdownId, setOpenDropdownId] = useState(null);
 
   // Placeholder functions for dropdown actions
-  const handleView = (tabId) => { console.log('Viewing tab:', tabId); /* Your view logic */ setOpenDropdownId(null); };
-  const handleDelete = (tabId) => { console.log('Deleting tab:', tabId); /* Your delete logic */ setOpenDropdownId(null); };
-
+  const handleView = (tabId) => { 
+    console.log('Viewing tab:', tabId); 
+    /* Your view logic */ 
+    setOpenDropdownId(null); 
+  };
+  
+  const handleDelete = (tabId) => { 
+    console.log('Deleting tab:', tabId); 
+    /* Your delete logic */ 
+    setOpenDropdownId(null); 
+  };
 
   // 2. Filtered Tabs based on search term
   const filteredTabs = useMemo(() => {
@@ -61,9 +81,10 @@ const Expences = () => {
     }
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
     return tabs.filter(tab =>
-      // Search by label (Party Name) or amount
+      // Search by label (Category Name) or amount
       tab.label.toLowerCase().includes(lowerCaseSearchTerm) ||
-      String(tab.amount).includes(lowerCaseSearchTerm)
+      String(tab.amount).includes(lowerCaseSearchTerm) ||
+      (tab.expenseType && tab.expenseType.toLowerCase().includes(lowerCaseSearchTerm))
     );
   }, [tabs, searchTerm]);
 
@@ -74,6 +95,8 @@ const Expences = () => {
 
   // Function to update the URL when a tab is clicked
   const handleTabChange = useCallback((tabId) => {
+    if (!tabId) return; // Don't update if no tab ID
+    
     const params = new URLSearchParams(searchParams.toString());
     params.set('tab', tabId);
     // Use replace() to update the URL without adding a new entry to browser history
@@ -84,11 +107,17 @@ const Expences = () => {
 
   // Ensure a default 'tab' parameter exists in the URL on initial load
   useEffect(() => {
-    if (!searchParams.get('tab')) {
-      handleTabChange('general');
+    if (!searchParams.get('tab') && defaultActiveTab) {
+      handleTabChange(defaultActiveTab);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [defaultActiveTab]);
+
+  // Get expenses for the active tab
+  const activeTabExpenses = useMemo(() => {
+    if (!activeTab) return [];
+    return expenseData.filter(expense => expense.categoryId === activeTab);
+  }, [expenseData, activeTab]);
 
   // Define a palette of professional text and background color utility classes.
   const colorPalette = [
@@ -98,6 +127,55 @@ const Expences = () => {
     { bg: 'bg-pink-100', text: 'text-pink-800' },  // Subtle Pink
     { bg: 'bg-purple-100', text: 'text-purple-800' }, // Light Purple
   ];
+
+  // Show loading state
+  if (isInitialLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading expenses...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center text-red-600">
+          <p className="text-lg font-semibold">Error loading expenses</p>
+          <p className="text-sm mt-2">{error.message}</p>
+          <button 
+            onClick={() => refetch()}
+            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show empty state
+  if (tabs.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <p className="text-lg font-semibold text-gray-600">No expense categories found</p>
+          <p className="text-sm mt-2 text-gray-500">Create your first expense category to get started</p>
+          <button
+            onClick={openModal}
+            className="mt-4 px-6 py-2 bg-[#F3A33A] text-white font-medium rounded-lg hover:bg-[#F5B358] transition duration-150 ease-in-out flex items-center mx-auto"
+          >
+            <FaPlus className="mr-2" />
+            Add Expense Category
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -182,17 +260,14 @@ const Expences = () => {
           <div className="flex flex-col space-y-2 mt-2">
             {filteredTabs.length > 0 ? (
               filteredTabs.map((tab, index) => {
-                // Find the original index for color styling
-                const originalIndex = tabs.findIndex(t => t.id === tab.id);
-                const colorStyle = colorPalette[originalIndex % colorPalette.length];
+                // Use index for color styling
+                const colorStyle = colorPalette[index % colorPalette.length];
                 // Check if the current tab's dropdown is open
                 const isDropdownOpen = openDropdownId === tab.id;
 
                 return (
                   <div
                     key={tab.id}
-                    // The main item is now a div or a list item to contain the button and the dropdown
-                    // The button will handle the main tab click, and the dropdown button will handle the menu
                     className={`py-2 px-4 text-left rounded-md font-medium transition-all duration-300 ease-in-out flex justify-between items-center ${activeTab === tab.id
                       ? "bg-blue-100 text-blue-600"
                       : "text-gray-600 hover:bg-gray-100"
@@ -201,7 +276,8 @@ const Expences = () => {
                     {/* Left side: Tab Label */}
                     <button
                       onClick={() => handleTabChange(tab.id)}
-                      className="flex-grow text-left focus:outline-none"
+                      className="flex-grow text-left focus:outline-none truncate"
+                      title={tab.label}
                     >
                       {tab.label}
                     </button>
@@ -212,7 +288,7 @@ const Expences = () => {
                       <span
                         className={`${colorStyle.bg} ${colorStyle.text} px-2 py-0.5 rounded-full text-xs font-semibold`}
                       >
-                        {tab?.amount}
+                        ${tab.amount.toFixed(2)}
                       </span>
 
                       {/* Three Dots Button for Dropdown */}
@@ -273,11 +349,18 @@ const Expences = () => {
           {/* Conditional rendering based on the activeTab read from the URL */}
           {/* You can add a transition here for content as well if needed */}
           <div className="transition-opacity duration-300 ease-in-out">
-            {activeTab === "general" && <TabContents />}
-            {activeTab === "files-media" && "Files & Media Tab Content Here"}
-            {activeTab === "price-stock" && "Price & Stock Tab Content Here"}
-            {activeTab === "seo" && "SEO Tab Content Here"}
-            {activeTab === "frequently-bought" && "Frequently Bought Tab Content Here"}
+            {activeTab && activeTabExpenses.length > 0 ? (
+              <TabContents expenses={activeTabExpenses} />
+            ) : activeTab ? (
+              <div className="text-center py-12">
+                <p className="text-gray-500 text-lg">No expenses found for this category</p>
+                <p className="text-gray-400 mt-2">Add expenses to see them here</p>
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-gray-500 text-lg">Select a category to view expenses</p>
+              </div>
+            )}
           </div>
 
           {/* Placeholder for any content not tied to a specific tab, like the submission buttons */}
@@ -289,7 +372,6 @@ const Expences = () => {
 
         </div>
       </div>
-
     </div>
   );
 };
