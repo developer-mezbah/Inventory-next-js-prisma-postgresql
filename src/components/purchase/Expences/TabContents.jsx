@@ -4,7 +4,6 @@ import TransactionsTable from "./TransactionsTable";
 
 const TabContents = ({ expenses = [] }) => {
   const { currencySymbol, formatPrice } = useCurrencyStore();
-  console.log(expenses);
   // Calculate totals
   const { totalAmount, balanceDue } = useMemo(() => {
     if (!expenses || expenses.length === 0) {

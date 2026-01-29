@@ -12,7 +12,6 @@ const page = async ({ searchParams }) => {
       searchParms?.partyId
     }`
   );
-console.log(getData);
 
   if (!getData?.status) {
     return <p>Someting went wrong!</p>;

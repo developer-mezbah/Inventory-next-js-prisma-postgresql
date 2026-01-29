@@ -16,6 +16,8 @@ import {
 } from "react-icons/fi";
 import { toast } from "react-toastify";
 import MobileAccountAccordion from "./MobileAccountAccordion";
+import { Router } from "next/router";
+import { useRouter, useSearchParams } from "next/navigation";
 
 // Desktop table row component
 const TransactionRow = ({ item, isAlternate, onAction }) => {
@@ -120,6 +122,10 @@ export default function TransactionTable({ transactions }) {
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
   const [filteredTransactions, setFilteredTransactions] = useState([]);
 
+  
+  const searchParams = useSearchParams();
+  const categoryId = searchParams.get('tab')
+
   useEffect(() => {
     if (transactions) {
       setFilteredTransactions(transactions);
@@ -170,9 +176,11 @@ export default function TransactionTable({ transactions }) {
     );
   };
 
+  const router = useRouter()
+
   const handleAction = (action, item) => {
     if (action === "view") {
-      toast.warning("Can not view/edit this Transaction!");
+      router.push(`/purchase/update-expense?id=${item.expenseId}&categoryId=${categoryId}`);
     }
     if (action === "delete") {
       toast.warning("Can not delete this Transaction!");
