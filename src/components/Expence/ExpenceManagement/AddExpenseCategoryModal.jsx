@@ -5,7 +5,7 @@ const AddExpenseCategoryModal = ({ isOpen, onClose, onSave }) => {
   const [expenseType, setExpenseType] = useState('Indirect Expense');
   const [categoryName, setCategoryName] = useState('');
 
-  if (!isOpen) return null;
+  if (!isOpen) return null; 
 
   const handleSave = () => {
     if (categoryName.trim()) {

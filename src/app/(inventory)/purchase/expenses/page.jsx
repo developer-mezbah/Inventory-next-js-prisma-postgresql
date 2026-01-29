@@ -5,6 +5,11 @@ import { FaFilter, FaPlus, FaSearch, FaTimes } from "react-icons/fa";
 import { BiDotsVerticalRounded } from "react-icons/bi";
 import TabContents from "@/components/purchase/Expences/TabContents";
 import { useFetchData } from "@/hook/useFetchData";
+import { useCurrencyStore } from "@/stores/useCurrencyStore";
+import client_api from "@/utils/API_FETCH";
+import AddExpenseCategoryModal from "@/components/add-expence-modal";
+import { DeleteAlert } from "@/utils/DeleteAlart";
+import { toast } from "react-toastify";
 
 const Expences = () => {
   const router = useRouter();
@@ -12,6 +17,7 @@ const Expences = () => {
   const [addItemDD, setAddItemDD] = useState(false)
   const [threeDotDD, setThreeDotDD] = useState(false)
   const [showModal, setShowModal] = useState(false);
+  const [updateData, setUpdateData] = useState(null);
 
   const openModal = useCallback(() => setShowModal(true), []);
   const closeModal = useCallback(() => setShowModal(false), []);
@@ -26,21 +32,23 @@ const Expences = () => {
   // Extract data from the response
   const expenseData = data?.data || [];
   const categoriesData = data?.categories || [];
-  
+
+  const { currencySymbol, formatPrice } = useCurrencyStore();
+
   // Calculate total amount for each category
   const tabs = useMemo(() => {
     return categoriesData.map(category => {
       // Filter expenses for this category
-      const categoryExpenses = expenseData.filter(expense => 
+      const categoryExpenses = expenseData.filter(expense =>
         expense.categoryId === category.id
       );
-      
+
       // Calculate total amount for the category
       const totalAmount = categoryExpenses.reduce((sum, expense) => {
         // Use price from expense object, default to 0 if null/undefined
         return sum + (expense.price || 0);
       }, 0);
-      
+
       return {
         id: category.id,
         label: category.name || "Unnamed Category",
@@ -57,21 +65,29 @@ const Expences = () => {
   // Default to first category if available, otherwise empty string
   const defaultActiveTab = tabs.length > 0 ? tabs[0].id : '';
   const activeTab = searchParams.get('tab') || defaultActiveTab;
-  
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(false); // For mobile view
   const [openDropdownId, setOpenDropdownId] = useState(null);
 
   // Placeholder functions for dropdown actions
-  const handleView = (tabId) => { 
-    console.log('Viewing tab:', tabId); 
-    /* Your view logic */ 
-    setOpenDropdownId(null); 
+  const handleView = (tabId) => {
+    openModal();
+    const findData = categoriesData.find(cat => cat.id === tabId);
+    setUpdateData(findData);
+    /* Your view logic */
+    setOpenDropdownId(null);
   };
-  
-  const handleDelete = (tabId) => { 
-    console.log('Deleting tab:', tabId); 
-    /* Your delete logic */ 
-    setOpenDropdownId(null); 
+
+  const handleDelete = (tabId) => {
+
+    DeleteAlert(`/api/expense/category/${tabId}`).then((res) => {
+      if (res) {
+        refetch()
+        toast.success("Expense Category deleted successfully");
+        /* Your delete logic */
+        setOpenDropdownId(null);
+      }
+    })
   };
 
   // 2. Filtered Tabs based on search term
@@ -96,7 +112,7 @@ const Expences = () => {
   // Function to update the URL when a tab is clicked
   const handleTabChange = useCallback((tabId) => {
     if (!tabId) return; // Don't update if no tab ID
-    
+
     const params = new URLSearchParams(searchParams.toString());
     params.set('tab', tabId);
     // Use replace() to update the URL without adding a new entry to browser history
@@ -128,6 +144,8 @@ const Expences = () => {
     { bg: 'bg-purple-100', text: 'text-purple-800' }, // Light Purple
   ];
 
+
+
   // Show loading state
   if (isInitialLoading) {
     return (
@@ -147,7 +165,7 @@ const Expences = () => {
         <div className="text-center text-red-600">
           <p className="text-lg font-semibold">Error loading expenses</p>
           <p className="text-sm mt-2">{error.message}</p>
-          <button 
+          <button
             onClick={() => refetch()}
             className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
           >
@@ -176,9 +194,9 @@ const Expences = () => {
       </div>
     );
   }
-
   return (
     <div>
+      <AddExpenseCategoryModal defaultData={updateData} mode={updateData ? "update" : "create"} isOpen={showModal} onClose={closeModal} refetch={refetch} />
       <div className="flex flex-col md:flex-row p-4 md:p-6 w-full mx-auto bg-white shadow rounded-lg">
         {/* 📱 Mobile Sidebar Toggle */}
         <div className="md:hidden mb-4">
@@ -198,7 +216,10 @@ const Expences = () => {
           <div className="mb-3 flex justify-between items-center">
             <div className="relative">
               <button
-                onClick={openModal} className="flex cursor-pointer items-center rounded-lg shadow-md overflow-hidden">
+                onClick={() => {
+                  openModal()
+                  setUpdateData(null);
+                }} className="flex cursor-pointer items-center rounded-lg shadow-md overflow-hidden">
                 {/* Plus icon and text section */}
                 <div className="flex items-center px-4 h-9 text-white font-medium text-base bg-[#F3A33A] hover:bg-[#F5B358] transition duration-150 ease-in-out">
                   <FaPlus className="mr-2" />
@@ -288,7 +309,7 @@ const Expences = () => {
                       <span
                         className={`${colorStyle.bg} ${colorStyle.text} px-2 py-0.5 rounded-full text-xs font-semibold`}
                       >
-                        ${tab.amount.toFixed(2)}
+                        {currencySymbol}{tab.amount.toFixed(2)}
                       </span>
 
                       {/* Three Dots Button for Dropdown */}
@@ -361,13 +382,6 @@ const Expences = () => {
                 <p className="text-gray-500 text-lg">Select a category to view expenses</p>
               </div>
             )}
-          </div>
-
-          {/* Placeholder for any content not tied to a specific tab, like the submission buttons */}
-          <div className="pt-8">
-            <p className="text-gray-500 italic">
-              *The rest of your form submission buttons/logic would follow here, outside the main tab content area.*
-            </p>
           </div>
 
         </div>

@@ -17,6 +17,7 @@ export async function GET(req) {
     });
     const expenseCategories = await prisma.ExpenseCategory.findMany({
       where: { companyId: await getCompanyId() },
+      orderBy: { createdAt: "desc" },
     });
     return NextResponse.json({ data: expenses, categories: expenseCategories, status: true });
   } catch (error) {

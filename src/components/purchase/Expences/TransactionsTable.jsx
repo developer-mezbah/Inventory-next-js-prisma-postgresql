@@ -34,12 +34,10 @@ const TransactionRow = ({ item, isAlternate, onAction }) => {
         {item.paymentType}
       </td>
       <td
-        className={`px-6 py-4 whitespace-nowrap text-sm font-semibold ${
-          item?.amount >= 0 ? "text-green-600" : "text-red-600"
+        className={`px-6 py-4 whitespace-nowrap text-sm font-semibold ${"text-red-600"
         }`}
       >
-        {item?.amount >= 0 ? "+" : "-"}
-        {Math.abs(item?.amount || 0).toFixed(2)} {currencySymbol}
+       {currencySymbol} -{Math.abs(item?.amount || 0).toFixed(2)} 
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-right">
         <ActionDropdown item={item} onAction={onAction} />

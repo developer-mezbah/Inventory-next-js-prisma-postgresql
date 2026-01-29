@@ -105,7 +105,7 @@ export default function AddExpenseCategoryModal({
 
   if (!isOpen) return null;
 
-  const handleSave = () => {
+   const handleSave = () => {
     // Validate required fields
     if (!categoryName.trim()) {
       toast.error("Expense Category Name is required!");
@@ -125,22 +125,117 @@ export default function AddExpenseCategoryModal({
 
     setFormLoading(true);
 
-   client_api.create("/api/expense/category", "token", expenseData)
-      .then((res) => {
-        if (res?.status) {
-          toast.success(
-            res?.message || `Expense Category ${mode === "create" ? "created" : "updated"} successfully.`
-          );
-          onClose();
-          refetch();
-        } else {
-          toast.error(res?.error || `Failed to ${mode === "create" ? "create" : "update"} Expense Category.`);
-        }
-      })
-      .finally(() => {
-        setFormLoading(false);
-      })
-  };
+    if (mode === "create") {
+      client_api.create("/api/expense/category", "token", expenseData)
+        .then((res) => {
+          if (res?.status) {
+            toast.success(
+              res?.message || `Expense Category ${mode === "create" ? "created" : "updated"} successfully.`
+            );
+            onClose();
+            refetch();
+          } else {
+            toast.error(res?.error || `Failed to ${mode === "create" ? "create" : "update"} Expense Category.`);
+          }
+        })
+        .finally(() => {
+          setFormLoading(false);
+        });
+    } else if (mode === "update" && defaultData?.id) {
+      client_api.update(`/api/expense/category/${defaultData.id}`, "token", expenseData)
+        .then((res) => {
+          if (res?.status) {
+            toast.success(
+              res?.message || `Expense Category ${mode === "create" ? "created" : "updated"} successfully.`
+            );
+            onClose();
+            refetch();
+          } else {
+            toast.error(res?.error || `Failed to ${mode === "create" ? "create" : "update"} Expense Category.`);
+          }
+        })
+        .finally(() => {
+          setFormLoading(false);
+        });
+    };
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center">
+        {/* Backdrop */}
+        <div
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300"
+          onClick={onClose}
+        />
+
+        {/* Modal */}
+        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col transform transition-all duration-300">
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            <h2 className="text-xl font-semibold text-gray-800">
+              {mode === "create" ? "Add Expense Category" : "Edit Expense Category"}
+            </h2>
+            <button
+              onClick={onClose}
+              className="p-2 cursor-pointer hover:bg-gray-100 rounded-lg transition-colors duration-200"
+            >
+              <IoClose className="w-5 h-5 text-gray-600" />
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="p-6 space-y-6">
+            {/* Expense Category Name */}
+            <div>
+              <FloatingInput
+                id="categoryName"
+                label="Expense Category"
+                value={categoryName}
+                onChange={(e) => setCategoryName(e.target.value)}
+                isRequired={true}
+                placeholder=" "
+              />
+            </div>
+
+            {/* Expense Type Dropdown */}
+            <div>
+              <FloatingSelect
+                id="expenseType"
+                label="Expense Type"
+                value={expenseType}
+                onChange={(e) => setExpenseType(e.target.value)}
+                options={expenseTypeOptions}
+                isRequired={true}
+              />
+            </div>
+          </div>
+
+          {/* Footer Buttons */}
+          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100">
+            <button
+              onClick={onClose}
+              className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-all duration-200"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              className="px-5 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-all duration-200 flex items-center gap-2"
+              disabled={formLoading}
+            >
+              {formLoading ? (
+                <>
+                  <BiLoader className="w-4 h-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save"
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">

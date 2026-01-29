@@ -203,16 +203,16 @@ model Item {
 }
 
 model ExpenseItem {
-  id        String    @id @default(cuid())
-  itemName  String
-  price     Float?
-  createdAt DateTime? @default(now())
-  updatedAt DateTime? @updatedAt
-  companyId String
-  company   Company   @relation(fields: [companyId], references: [id])
-  transaction         Transaction[]
-  expenseId String?
-  expense   Expense? @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  id          String        @id @default(cuid())
+  itemName    String
+  price       Float?
+  createdAt   DateTime?     @default(now())
+  updatedAt   DateTime?     @updatedAt
+  companyId   String
+  company     Company       @relation(fields: [companyId], references: [id])
+  transaction Transaction[]
+  expenseId   String?
+  expense     Expense?      @relation(fields: [expenseId], references: [id], onDelete: Cascade)
 }
 
 model ExpenseCategory {
@@ -234,10 +234,10 @@ model Expense {
   paymentTypeId String?
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
-  company       Company?      @relation(fields: [companyId], references: [id])
+  company       Company?        @relation(fields: [companyId], references: [id])
   companyId     String?
   categoryId    String
-  category      ExpenseCategory @relation(fields: [categoryId], references: [id])
+  category      ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   items         ExpenseItem[]
   transaction   Transaction[]
   invoiceData   InvoiceData[]
@@ -281,7 +281,7 @@ model Transaction {
   item             Item?           @relation(fields: [itemId], references: [id])
   itemId           String?
   expenseItem      ExpenseItem?    @relation(fields: [expenseItemId], references: [id])
-  expenseItemId           String?
+  expenseItemId    String?
   party            Party?          @relation(fields: [partyId], references: [id])
   partyId          String?
   purchase         Purchase?       @relation(fields: [purchaseId], references: [id])
