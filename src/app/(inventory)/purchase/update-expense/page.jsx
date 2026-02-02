@@ -1,4 +1,5 @@
 import ExpencePage from '@/components/Expence/ExpenceManagement/ExpencePage'
+import prisma from '@/lib/prisma';
 import React from 'react'
 
 const getData = async (expenseId, categoryId) => {
@@ -13,7 +14,7 @@ const getData = async (expenseId, categoryId) => {
   const category = await prisma.ExpenseCategory.findUnique({
     where: { id: categoryId },
   });
-  return {expense: expense, category: category};
+  return { expense: expense, category: category };
 }
 
 const page = async ({ searchParams }) => {
@@ -26,7 +27,7 @@ const page = async ({ searchParams }) => {
   }
   return (
     <div>
-        <ExpencePage mode="update" initData={data} />
+      <ExpencePage mode="update" initData={data} />
     </div>
   )
 }
