@@ -6,7 +6,6 @@ import { BiDotsVerticalRounded } from "react-icons/bi";
 import TabContents from "@/components/purchase/Expences/TabContents";
 import { useFetchData } from "@/hook/useFetchData";
 import { useCurrencyStore } from "@/stores/useCurrencyStore";
-import client_api from "@/utils/API_FETCH";
 import AddExpenseCategoryModal from "@/components/add-expence-modal";
 import { DeleteAlert } from "@/utils/DeleteAlart";
 import { toast } from "react-toastify";
@@ -14,7 +13,6 @@ import { toast } from "react-toastify";
 const Expences = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [addItemDD, setAddItemDD] = useState(false)
   const [threeDotDD, setThreeDotDD] = useState(false)
   const [showModal, setShowModal] = useState(false);
   const [updateData, setUpdateData] = useState(null);
@@ -143,7 +141,6 @@ const Expences = () => {
     { bg: 'bg-pink-100', text: 'text-pink-800' },  // Subtle Pink
     { bg: 'bg-purple-100', text: 'text-purple-800' }, // Light Purple
   ];
-
 
 
   // Show loading state

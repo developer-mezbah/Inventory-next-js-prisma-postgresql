@@ -1,9 +1,9 @@
 "use client";
 
-import ItemForm from "@/components/ItemForm/ItemForm";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { FiChevronDown, FiPlus, FiSearch, FiTrash2 } from "react-icons/fi";
+import ItemForm from "./ItemForm";
 // --- Portal Component (for rendering outside table overflow) ---
 function DropdownPortal({ children, targetRef, isOpen }) {
   const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
@@ -222,7 +222,7 @@ function SearchableItemInput({
           <div className="p-2 border-t border-gray-200">
             <button
               onClick={() => setShowItemForm(true)}
-              className="flex items-center gap-1 w-full justify-center px-3 py-1 text-blue-600 hover:bg-blue-50 rounded transition-colors font-medium text-sm"
+              className="flex items-center gap-1 w-full justify-center px-3 py-3 text-blue-600 hover:bg-blue-50 rounded transition-colors font-medium text-sm"
             >
               <FiPlus className="w-4 h-4" />
               Add New Item

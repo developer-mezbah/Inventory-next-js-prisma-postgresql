@@ -80,6 +80,7 @@ export default function AddExpenseCategoryModal({
   defaultData = null,
   mode = "create",
   refetch,
+  setSelectedCategory
 }) {
   const [categoryName, setCategoryName] = useState("");
   const [expenseType, setExpenseType] = useState("Indirect Expense");
@@ -132,6 +133,7 @@ export default function AddExpenseCategoryModal({
             toast.success(
               res?.message || `Expense Category ${mode === "create" ? "created" : "updated"} successfully.`
             );
+            setSelectedCategory && setSelectedCategory(res?.data);
             onClose();
             refetch();
           } else {

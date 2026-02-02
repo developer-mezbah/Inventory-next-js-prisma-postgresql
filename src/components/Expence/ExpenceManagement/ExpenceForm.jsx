@@ -58,39 +58,41 @@ export default function ExpenceForm({
   const [paymentType, setPaymentType] = useState("Cash");
 
   useEffect(() => {
-    if (mode === "update" && initData?.data) {
+    if (mode === "update" && initData?.expense) {
       // Set all initial values from initData
+      console.log(initData?.expense.items);
+      
       setItems(
-        initData.data.items.map((item) => ({
+        initData.expense.items.map((item) => ({
           id: item?.id || "",
           itemId: item?.id || "",
           item: item?.itemName || " ",
           qty:
-            initData.invoiceData.find((newItem) => newItem?.itemId === item?.id)
+            initData?.expense.invoiceData.find((newItem) => newItem?.itemId === item?.id)
               ?.qty || 1,
           price:
-            initData.invoiceData.find((newItem) => newItem?.itemId === item?.id)
-              ?.unitPrice || 0,
+            initData.expense.invoiceData.find((newItem) => newItem?.itemId === item?.id)
+              ?.price || 0,
           amount:
-            initData.invoiceData.find((newItem) => newItem?.itemId === item?.id)
+            initData.expense.invoiceData.find((newItem) => newItem?.itemId === item?.id)
               ?.price || 0,
         }))
       );
 
       setPaymentType(
-        initData.data.paymentType === "Cash"
+        initData.expense.paymentType === "Cash"
           ? "Cash"
           : {
-            id: initData.data.paymentTypeId,
-            accountdisplayname: initData.data.paymentType,
+            id: initData.expense.paymentTypeId,
+            accountdisplayname: initData.expense.paymentType,
           }
       );
-      setSelectedECategory({ ...initData.party, name: initData.party?.partyName });
-      setBillNumber(initData.data.billNumber || "");
-      setBillDate(initData.data.billDate || "");
+      setSelectedECategory({ ...initData.category, name: initData.category?.name });
+      setBillNumber(initData.expense.billNumber || "");
+      setBillDate(initData.expense.billDate || "");
 
       // Set payment amounts from initData
-      const initialPaidAmount = initData.data.paidAmount || 0;
+      const initialPaidAmount = initData.expense.paidAmount || 0;
     }
   }, [mode, initData]);
 
@@ -329,7 +331,7 @@ export default function ExpenceForm({
             </button>
             {mode === "update" && (
               <Link
-                href={"/purchase/expencess"}
+                href={"/purchase/expenses"}
                 className={`w-full block text-center bg-red-600 text-white py-2.5 rounded-lg hover:bg-red-700 transition-colors font-medium text-sm sm:text-base ${isSubmitting ? "opacity-50 cursor-not-allowed" : ""
                   }`}
               >

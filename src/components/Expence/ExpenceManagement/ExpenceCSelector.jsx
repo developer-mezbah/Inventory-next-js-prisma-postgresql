@@ -165,7 +165,7 @@ export default function ExpenceCSelector({
         }}
         refetch={refetch}
         onSave={handleSaveParty}
-        setSelectedParty={setSelectedExpenceC}
+        setSelectedCategory={setSelectedExpenceC}
       />
 
       <div ref={partySelectorRef} className="relative w-full">

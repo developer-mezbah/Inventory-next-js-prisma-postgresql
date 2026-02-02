@@ -20,15 +20,13 @@ const page = async ({ searchParams }) => {
   let searchParms = await searchParams;
 
   const data = await getData(searchParms?.id, searchParms?.categoryId)
-console.log(data);
-
 
   if (!data) {
     return <p>Someting went wrong!</p>;
   }
   return (
     <div>
-        <ExpencePage mode="update" initData={getData?.data} />
+        <ExpencePage mode="update" initData={data} />
     </div>
   )
 }
