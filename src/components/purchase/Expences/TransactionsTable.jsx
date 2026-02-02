@@ -18,6 +18,7 @@ import { toast } from "react-toastify";
 import MobileAccountAccordion from "./MobileAccountAccordion";
 import { Router } from "next/router";
 import { useRouter, useSearchParams } from "next/navigation";
+import { DeleteAlert } from "@/utils/DeleteAlart";
 
 // Desktop table row component
 const TransactionRow = ({ item, isAlternate, onAction }) => {
@@ -25,9 +26,8 @@ const TransactionRow = ({ item, isAlternate, onAction }) => {
 
   return (
     <tr
-      className={`${
-        isAlternate ? "bg-white" : "bg-gray-50"
-      } border-b border-gray-200 hover:bg-gray-100 transition-colors`}
+      className={`${isAlternate ? "bg-white" : "bg-gray-50"
+        } border-b border-gray-200 hover:bg-gray-100 transition-colors`}
     >
       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
         {new Date(item.date).toLocaleDateString("en-US")}
@@ -37,9 +37,9 @@ const TransactionRow = ({ item, isAlternate, onAction }) => {
       </td>
       <td
         className={`px-6 py-4 whitespace-nowrap text-sm font-semibold ${"text-red-600"
-        }`}
+          }`}
       >
-       {currencySymbol} -{Math.abs(item?.amount || 0).toFixed(2)} 
+        {currencySymbol} -{Math.abs(item?.amount || 0).toFixed(2)}
       </td>
       <td className="px-6 py-4 whitespace-nowrap text-right">
         <ActionDropdown item={item} onAction={onAction} />
@@ -117,12 +117,12 @@ const ActionDropdown = ({ item, onAction }) => {
   );
 };
 
-export default function TransactionTable({ transactions }) {
+export default function TransactionTable({ transactions, refetch }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
   const [filteredTransactions, setFilteredTransactions] = useState([]);
 
-  
+
   const searchParams = useSearchParams();
   const categoryId = searchParams.get('tab')
 
@@ -183,14 +183,19 @@ export default function TransactionTable({ transactions }) {
       router.push(`/purchase/update-expense?id=${item.expenseId}&categoryId=${categoryId}`);
     }
     if (action === "delete") {
-      toast.warning("Can not delete this Transaction!");
+      DeleteAlert(`/api/expense/delete?id=${item.expenseId}`, "Expense").then((res) => {
+        if (res) {
+          toast.success("Expense deleted successfully");
+          refetch();
+        }
+      });
     }
   };
 
   return (
     <div className="w-full mt-5">
       {/* Removed AccountInfoHeader since we don't have account prop */}
-      
+
       {/* Header with title and search */}
       <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <h1 className="text-3xl font-bold text-gray-900">Expense</h1>

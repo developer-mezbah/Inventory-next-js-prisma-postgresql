@@ -147,7 +147,6 @@ export async function POST(request) {
   try {
     const data = await request.json();
 
-console.log(data);
 
     const newCategoryId = await handleCategory(data);
     const cashId = await handleCash(data);

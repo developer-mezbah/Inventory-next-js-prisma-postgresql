@@ -37,11 +37,10 @@ export default function ExpencePage({ mode, initData }) {
 
     if (mode === "update") {
       client_api
-        .update("/api/sale-purchase/update", "token", {
+        .update("/api/expense/update", "token", {
           ...updates,
-          id: initData?.data?.id,
+          id: initData?.expense?.id,
           userId: session?.user?.id,
-          mode: type === "sale" ? "sale" : "purchase",
         })
         .then((res) => {
           if (res?.status) {

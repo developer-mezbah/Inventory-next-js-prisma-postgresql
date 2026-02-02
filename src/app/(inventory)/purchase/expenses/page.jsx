@@ -9,6 +9,7 @@ import { useCurrencyStore } from "@/stores/useCurrencyStore";
 import AddExpenseCategoryModal from "@/components/add-expence-modal";
 import { DeleteAlert } from "@/utils/DeleteAlart";
 import { toast } from "react-toastify";
+import Link from "next/link";
 
 const Expences = () => {
   const router = useRouter();
@@ -211,28 +212,33 @@ const Expences = () => {
             }`}
         >
           <div className="mb-3 flex justify-between items-center">
-            <div className="relative">
+            <div className="relative flex flex-wrap items-center gap-2">
+              {/* Add Category Button */}
               <button
                 onClick={() => {
-                  openModal()
+                  openModal();
                   setUpdateData(null);
-                }} className="flex cursor-pointer items-center rounded-lg shadow-md overflow-hidden">
-                {/* Plus icon and text section */}
-                <div className="flex items-center px-4 h-9 text-white font-medium text-base bg-[#F3A33A] hover:bg-[#F5B358] transition duration-150 ease-in-out">
-                  <FaPlus className="mr-2" />
-                  Add Expense
+                }}
+                className="group flex cursor-pointer items-center rounded-md shadow-sm hover:shadow transition-all duration-150 ease-in-out overflow-hidden focus:outline-none focus:ring-1 focus:ring-[#3B82F6] focus:ring-opacity-50 min-w-fit"
+                aria-label="Add new category"
+              >
+                <div className="flex items-center px-3 h-8 text-white font-medium text-xs bg-[#10B981] hover:bg-[#34D399] transition-all duration-150 ease-in-out">
+                  <FaPlus className="mr-1.5 w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
+                  <span className="whitespace-nowrap">Add Category</span>
                 </div>
               </button>
-            </div>
-            <div className="relative">
-              <button onClick={() => setThreeDotDD(!threeDotDD)} className="cursor-pointer"><BiDotsVerticalRounded className="text-2xl" /></button>
 
-              {threeDotDD && <div className="fixed inset-0 z-10" onClick={() => setThreeDotDD(!threeDotDD)} />}
-              <div className="absolute z-20 right-0 top-5">
-                <ul className={`flex-col bg-white border rounded-lg shadow-md mt-2 w-48 justify-start p-2 ${threeDotDD ? "animate-in flex" : "hidden"}`}>
-                  <li className="whitespace-nowrap p-1 hover:bg-gray-200 transition-all rounded">No Options available</li>
-                </ul>
-              </div>
+              {/* Add Expense Link */}
+              <Link
+                href="/purchase/add-expense"
+                className="group flex items-center rounded-md shadow-sm hover:shadow transition-all duration-150 ease-in-out overflow-hidden focus:outline-none focus:ring-1 focus:ring-[#3B82F6] focus:ring-opacity-50 min-w-fit"
+                aria-label="Add new expense"
+              >
+                <div className="flex items-center px-3 h-8 text-white font-medium text-xs bg-[#8B5CF6] hover:bg-[#A78BFA] transition-all duration-150 ease-in-out">
+                  <FaPlus className="mr-1.5 w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
+                  <span className="whitespace-nowrap">Add Expense</span>
+                </div>
+              </Link>
             </div>
           </div>
           <div className="mx-auto">
@@ -368,7 +374,7 @@ const Expences = () => {
           {/* You can add a transition here for content as well if needed */}
           <div className="transition-opacity duration-300 ease-in-out">
             {activeTab && activeTabExpenses.length > 0 ? (
-              <TabContents expenses={activeTabExpenses} />
+              <TabContents expenses={activeTabExpenses} refetch={refetch} />
             ) : activeTab ? (
               <div className="text-center py-12">
                 <p className="text-gray-500 text-lg">No expenses found for this category</p>

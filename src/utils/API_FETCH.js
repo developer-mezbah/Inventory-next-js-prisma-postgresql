@@ -53,9 +53,9 @@ class api_fetch_fun {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      });
-
-      if (response.status) {
+      })
+      const responseData = await response.json();
+      if (responseData.status === true) {
         return true;
       } else {
         return false;

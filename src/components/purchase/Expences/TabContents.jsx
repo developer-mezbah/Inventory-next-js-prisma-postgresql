@@ -2,7 +2,7 @@ import { useCurrencyStore } from "@/stores/useCurrencyStore";
 import { useState, useMemo } from "react";
 import TransactionsTable from "./TransactionsTable";
 
-const TabContents = ({ expenses = [] }) => {
+const TabContents = ({ expenses = [], refetch }) => {
   const { currencySymbol, formatPrice } = useCurrencyStore();
   // Calculate totals
   const { totalAmount, balanceDue } = useMemo(() => {
@@ -169,7 +169,7 @@ const TabContents = ({ expenses = [] }) => {
         <div className="h-0.5 bg-gray-200 border-t border-b border-gray-300"></div>
         
         {/* Pass the transactions to TransactionsTable */}
-        <TransactionsTable transactions={allTransactions} />
+        <TransactionsTable transactions={allTransactions} refetch={refetch} />
         
         {/* Optional: Additional summary section */}
         <div className="p-4 border-t border-gray-200 bg-gray-50">
