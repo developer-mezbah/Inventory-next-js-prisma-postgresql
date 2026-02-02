@@ -60,8 +60,6 @@ export default function ExpenceForm({
   useEffect(() => {
     if (mode === "update" && initData?.expense) {
       // Set all initial values from initData
-      console.log(initData?.expense.items);
-      
       setItems(
         initData.expense.items.map((item) => ({
           id: item?.id || "",
