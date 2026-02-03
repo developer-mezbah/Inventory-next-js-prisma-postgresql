@@ -2,12 +2,19 @@ import prisma from "@/lib/prisma";
 import { generateShortSecureID } from "@/utils/generateShortSecureID";
 import { getCompanyId } from "@/utils/GetCompanyId";
 import { NextResponse } from "next/server";
+import { initializeGlobalDefaultCategories } from "./category/route";
 
 
 export async function GET(req) {
   try {
+    const companyId = await getCompanyId();
+    
+    // Initialize global default categories (run once if needed)
+    await initializeGlobalDefaultCategories();
+    
+    // Fetch expenses (company-specific only)
     const expenses = await prisma.Expense.findMany({
-      where: { companyId: await getCompanyId() },
+      where: { companyId: companyId },
       orderBy: { createdAt: "desc" },
       include: {
         transaction: true,
@@ -15,19 +22,33 @@ export async function GET(req) {
         invoiceData: true,
       },
     });
+    
+    // Fetch categories for this company: BOTH global AND company-specific
     const expenseCategories = await prisma.ExpenseCategory.findMany({
-      where: { companyId: await getCompanyId() },
+      where: {
+        OR: [
+          { companyId: null },           // Global default categories
+          { companyId: companyId },      // Company-specific categories
+        ]
+      },
       orderBy: { createdAt: "desc" },
     });
-    return NextResponse.json({ data: expenses, categories: expenseCategories, status: true });
+    
+    return NextResponse.json({ 
+      data: expenses, 
+      categories: expenseCategories, 
+      status: true 
+    });
+    
   } catch (error) {
     console.log(error);
     return NextResponse.json(
-      { error: error || "Failed to fetch Expenses" },
+      { error: error.message || "Failed to fetch Expenses" },
       { status: 500 }
     );
   }
 }
+
 
 async function handleCategory(body) {
   if (body?.newCategory) {

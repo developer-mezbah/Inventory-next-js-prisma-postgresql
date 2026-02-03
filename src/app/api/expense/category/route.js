@@ -3,21 +3,68 @@ import prisma from "@/lib/prisma";
 import { getCompanyId } from "@/utils/GetCompanyId";
 import { NextResponse } from "next/server";
 
-// GET ALL
+// Initialize global default categories (run once)
+ export async function initializeGlobalDefaultCategories() {
+  try {
+    const globalCategories = [
+      { name: "Petrol", expenseType: "Operational", defaultCat: true },
+      { name: "Rent", expenseType: "Fixed", defaultCat: true },
+      { name: "Salary", expenseType: "Personnel", defaultCat: true },
+      { name: "Tea", expenseType: "Operational", defaultCat: true },
+      { name: "Transport", expenseType: "Operational", defaultCat: true },
+      { name: "Utilities", expenseType: "Fixed", defaultCat: true },
+      { name: "Office Supplies", expenseType: "Operational", defaultCat: true },
+      { name: "Marketing", expenseType: "Marketing", defaultCat: true },
+      { name: "Maintenance", expenseType: "Operational", defaultCat: true },
+      { name: "Travel", expenseType: "Operational", defaultCat: true },
+    ];
+
+    // Check if global categories already exist
+    const existingGlobalCategories = await prisma.ExpenseCategory.findMany({
+      where: { companyId: null }
+    });
+
+    if (existingGlobalCategories.length === 0) {
+      await prisma.ExpenseCategory.createMany({
+        data: globalCategories.map(cat => ({
+          ...cat,
+          companyId: null, // Global categories have null companyId
+        })),
+      });
+      console.log("Global default categories initialized");
+    }
+  } catch (error) {
+    console.error("Failed to initialize global categories:", error);
+  }
+}
+
+// GET endpoint returns global + company-specific categories
 export async function GET() {
   try {
-    const Party = await prisma.ExpenseCategory.findMany({
+    const companyId = await getCompanyId();
+    
+    // Initialize global defaults if needed (run once on server startup)
+    await initializeGlobalDefaultCategories();
+    
+    // Fetch ALL categories available to this company:
+    // 1. Global categories (companyId: null) AND
+    // 2. Company-specific categories
+    const categories = await prisma.ExpenseCategory.findMany({
       orderBy: {
         id: "desc",
       },
       where: {
-        companyId: await getCompanyId(),
+        OR: [
+          { companyId: null },           // Global defaults
+          { companyId: companyId },      // Company-specific
+        ]
       },
     });
-    return NextResponse.json(Party);
+    return NextResponse.json(categories);
+    
   } catch (error) {
     return NextResponse.json(
-      { error: error || "Failed to fetch Expence Category" },
+      { error: error.message || "Failed to fetch Expense Category" },
       { status: 500 }
     );
   }

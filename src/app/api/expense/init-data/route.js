@@ -1,26 +1,23 @@
 import prisma from "@/lib/prisma";
 import { getCompanyId } from "@/utils/GetCompanyId";
 import { NextResponse } from "next/server";
+import { initializeGlobalDefaultCategories } from "../category/route";
 
 // GET ALL
 export async function GET() {
     try {
-        console.log(await getCompanyId());
-        
-        // const categories = await prisma.category.findMany({
-        //     orderBy: {
-        //         id: 'desc',
-        //     },
-        //     where: {
-        //         companyId: await getCompanyId(),
-        //     },
-        // });
+
+        // Initialize global default categories (run once if needed)
+        await initializeGlobalDefaultCategories();
         const expenceCategory = await prisma.ExpenseCategory.findMany({
             orderBy: {
                 id: 'desc',
             },
             where: {
-                companyId: await getCompanyId(),
+                OR: [
+                    { companyId: null },           // Global default categories
+                    { companyId: await getCompanyId() },      // Company-specific categories
+                ]
             },
         });
         const expenseItem = await prisma.ExpenseItem.findMany({
@@ -47,11 +44,11 @@ export async function GET() {
                 companyId: await getCompanyId(),
             },
         });
-        
+
         return NextResponse.json({ expenceCategory, item: expenseItem, bank, cash });
     } catch (error) {
         console.log(error);
-        
+
         return NextResponse.json({ error: error || "Failed to fetch Init Data" }, { status: 500 });
     }
 }

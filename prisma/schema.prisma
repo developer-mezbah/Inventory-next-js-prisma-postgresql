@@ -219,10 +219,13 @@ model ExpenseCategory {
   id          String    @id @default(cuid())
   name        String    @unique
   expenseType String?
+  defaultCat  Boolean?  @default(false)
   createdAt   DateTime? @default(now())
-  companyId   String
-  company     Company   @relation(fields: [companyId], references: [id])
+  companyId   String? // Make companyId optional
+  company     Company?  @relation(fields: [companyId], references: [id])
   expenses    Expense[]
+
+  @@unique([name, companyId]) // Composite unique constraint
 }
 
 model Expense {
