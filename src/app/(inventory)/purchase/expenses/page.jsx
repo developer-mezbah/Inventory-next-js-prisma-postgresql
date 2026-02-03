@@ -562,23 +562,7 @@ const Expences = () => {
     );
   }
 
-  // Show error state
-  if (error) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center text-red-600">
-          <p className="text-lg font-semibold">Error loading expenses</p>
-          <p className="text-sm mt-2">{error.message}</p>
-          <button
-            onClick={() => refetch()}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
+
 
   // Show empty state
   if (tabs.length === 0) {
