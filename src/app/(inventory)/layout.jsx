@@ -105,6 +105,7 @@ const initMenuItems = [
       { name: "Notification", href: "/testing/notification" },
       { name: "Setting Modal", href: "/testing/setting-modal" },
       { name: "Category Selector", href: "/testing/category" },
+      { name: "Reports", href: "/testing/reports" },
       {
         name: "Transaction Table",
         href: "/testing/transaction-table",
