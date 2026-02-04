@@ -1095,7 +1095,7 @@ export default function TransactionsTable({
 
   const handleSalePurchaseDelete = async (id, type) => {
     const res = await DeleteAlert(
-      `/api/sale-purchase/delete?id=${id}&mode=${type}`
+      `/api/sale-purchase/delete?id=${id}&mode=${type}`, "", "Sale/Purchase transaction"
     );
     if (res) {
       refetch();
@@ -1196,12 +1196,13 @@ export default function TransactionsTable({
           transaction?.type === "Reduce Cash"
         ) {
           const res = await DeleteAlert(
-            `/api/cashadjustment/delete-transaction?id=${transaction?.id}&userId=${session?.user?.id}`
+            `/api/cashadjustment/delete-transaction?id=${transaction?.id}&userId=${session?.user?.id}`, "", "Cash adjustment transaction"
           );
           if (res) {
             refetch();
             toast.success("Transaction Deleted Successfully!");
           }
+          return;
         }
         if (invoiceType === "Sale" || invoiceType === "Purchase") {
           handleSalePurchaseDelete(

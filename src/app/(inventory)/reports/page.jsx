@@ -614,9 +614,17 @@ const Reports = () => {
     return 'dashboard-overview';
   });
   
-  // Mobile states
+  // Mobile states - Initialize based on URL
   const [isMobile, setIsMobile] = useState(false);
-  const [mobileView, setMobileView] = useState('dashboard');
+  const [mobileView, setMobileView] = useState(() => {
+    // Check if there's an active tab in URL, if yes, start in details view
+    if (typeof window !== 'undefined') {
+      const urlTab = new URLSearchParams(window.location.search).get('tab');
+      const savedTab = localStorage.getItem('dashboard-active-tab');
+      return (urlTab || savedTab) ? 'details' : 'dashboard';
+    }
+    return 'dashboard';
+  });
   const [searchTerm, setSearchTerm] = useState('');
 
   // Sync URL with active tab
@@ -625,8 +633,13 @@ const Reports = () => {
     if (currentTab && currentTab !== activeTab) {
       setActiveTab(currentTab);
       localStorage.setItem('dashboard-active-tab', currentTab);
+      
+      // If we're on mobile and URL has a tab, switch to details view
+      if (isMobile) {
+        setMobileView('details');
+      }
     }
-  }, [searchParams, activeTab]);
+  }, [searchParams, activeTab, isMobile]);
 
   // Update URL when active tab changes
   const updateUrl = useCallback((tabId) => {
@@ -664,14 +677,20 @@ const Reports = () => {
   // Check if device is mobile
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 1024);
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      
+      // If we're switching to mobile and have an active tab, show details view
+      if (mobile && activeTab && activeTab !== 'dashboard-overview') {
+        setMobileView('details');
+      }
     };
 
     checkMobile();
     window.addEventListener("resize", checkMobile);
 
     return () => window.removeEventListener("resize", checkMobile);
-  }, []);
+  }, [activeTab]);
 
   // Handle tab change with mobile view and URL update
   const handleTabChange = useCallback((tabId) => {
@@ -751,7 +770,9 @@ const Reports = () => {
             return (
               <div
                 key={item.id}
-                className={`p-4 rounded-lg shadow-sm border ${colorStyle.border}`}
+                className={`p-4 rounded-lg shadow-sm border ${colorStyle.border} ${
+                  activeTab === item.id ? 'ring-2 ring-blue-500' : ''
+                }`}
               >
                 <button
                   onClick={() => handleTabChange(item.id)}
@@ -763,6 +784,13 @@ const Reports = () => {
                   <div className="flex-grow">
                     <div className="font-semibold text-gray-800">{item.label}</div>
                     <div className="text-sm text-gray-600 mt-1">{item.description}</div>
+                    {activeTab === item.id && (
+                      <div className="mt-2">
+                        <span className="text-xs px-2 py-1 bg-blue-100 text-blue-600 rounded">
+                          Currently Active
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <FiChevronRight className="h-5 w-5 text-gray-400 flex-shrink-0" />
                 </button>
@@ -855,7 +883,7 @@ const Reports = () => {
                       onClick={() => handleTabChange(item.id)}
                       className={`flex items-center gap-2 w-full px-2 py-2 rounded text-left text-sm transition-colors ${
                         activeTab === item.id
-                          ? `${colorStyle.bg} ${colorStyle.text} font-medium`
+                          ? `${colorStyle.bg} ${colorStyle.text} font-medium border-l-2 ${colorStyle.border}`
                           : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                       }`}
                       title={item.description}
