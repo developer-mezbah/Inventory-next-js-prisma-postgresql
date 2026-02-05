@@ -1,5 +1,6 @@
 // components/TabContent/TabContentWithFilters.jsx
 "use client";
+import { useFetchData } from '@/hook/useFetchData';
 import React, { useState, useMemo, useCallback } from 'react';
 import { 
   FiFilter, 
@@ -13,7 +14,7 @@ import {
   FiX
 } from 'react-icons/fi';
 
-const TabContentWithFilters = ({ 
+const TabContentWithFilters = ({
   title = "Tab Content",
   description = "This is a tab content component",
   type = "report",
@@ -30,6 +31,16 @@ const TabContentWithFilters = ({
   const [showCalendar, setShowCalendar] = useState(false);
   const [selectedEntity, setSelectedEntity] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
+
+
+ const {
+    isInitialLoading,
+    error,
+    data = [],
+    refetch,
+  } = useFetchData("/api/reports?id=sales", ["reports-sales"]);
+console.log(data);
+
 
   // Options for dropdowns
   const entities = ['All', 'Firm A', 'Firm B', 'Firm C', 'Firm D', 'Firm E'];

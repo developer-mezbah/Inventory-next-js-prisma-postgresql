@@ -37,6 +37,8 @@ import { GiReceiveMoney, GiPayMoney } from 'react-icons/gi';
 import { AiOutlineStock } from 'react-icons/ai';
 import { BsBank } from 'react-icons/bs';
 import TabContentWithFilters from './TabContentWithFilters';
+import SalePage from '@/components/Sales/SalePage';
+import PurchaseTransactionReportPage from '@/components/purchase/PurchaseTransactionReportPage';
 
 // Menu configuration with all items from images
 const menuItems = [
@@ -56,7 +58,7 @@ const menuItems = [
     icon: <FiTrendingUp />, 
     label: 'Sale', 
     description: 'Sales reports and analytics', 
-    component: () => <div>Sale Report Component</div>,
+    component:  SalePage,
     type: 'sale'
   },
   { 
@@ -64,7 +66,7 @@ const menuItems = [
     icon: <FiShoppingCart />, 
     label: 'Purchase', 
     description: 'Purchase reports', 
-    component: () => <div>Purchase Report Component</div>,
+    component: PurchaseTransactionReportPage,
     type: 'purchase'
   },
   { 
@@ -828,8 +830,8 @@ const Reports = () => {
       </div>
 
       {/* Render the active component */}
-      <div className="flex-grow overflow-auto p-4">
-        <ActiveComponent isMobile={true} />
+      <div className="flex-grow overflow-auto sm:p-4">
+        <ActiveComponent isMobile={true} accordion={true} />
       </div>
     </div>
   );
@@ -918,8 +920,14 @@ const Reports = () => {
 
         {/* Main Content - Takes more space */}
         <div className="flex-1 min-w-0">
-          {/* Header for active tab */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4 md:p-5 mb-4">
+         
+
+          {/* Render the active component */}
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <ActiveComponent isMobile={false} accordion={true} />
+          </div>
+           {/* Bottom for active tab */}
+          <div className="bg-white mt-5 rounded-lg border border-gray-200 p-4 md:p-5 mb-4">
             <div className="flex items-center justify-between">
               <div className="min-w-0">
                 <h1 className="text-xl md:text-2xl font-bold text-gray-800 truncate">
@@ -937,11 +945,6 @@ const Reports = () => {
                 </div>
               )}
             </div>
-          </div>
-
-          {/* Render the active component */}
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <ActiveComponent isMobile={false} />
           </div>
         </div>
       </div>

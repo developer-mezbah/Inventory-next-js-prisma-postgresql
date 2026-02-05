@@ -32,7 +32,7 @@ import { useCurrencyStore } from "@/stores/useCurrencyStore";
 import { printAndPdfData } from "@/utils/handlePrintAndPdf";
 import { useSession } from "next-auth/react";
 
-// Dropdown Component
+// Dropdown Component (unchanged)
 const ProfessionalDropdown = ({
   items,
   position = { x: 0, y: 0 },
@@ -57,7 +57,7 @@ const ProfessionalDropdown = ({
       {/* <div className="fixed inset-0 z-40" onClick={onClose} /> */}
       <div
         className="z-50 min-w-[180px] rounded-lg border border-gray-200 bg-white shadow-lg animate-in fade-in zoom-in-95 duration-200"
-        // style={getPositionStyle()}
+      // style={getPositionStyle()}
       >
         {items.map((item, index) => {
           const Icon = item.icon;
@@ -68,11 +68,9 @@ const ProfessionalDropdown = ({
                 item.action();
                 onClose();
               }}
-              className={`flex w-full items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-gray-50 transition-colors ${
-                index !== items.length - 1 ? "border-b border-gray-100" : ""
-              } ${item.color || "text-gray-700"} ${
-                item.disabled ? "opacity-50 cursor-not-allowed" : ""
-              }`}
+              className={`flex w-full items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-gray-50 transition-colors ${index !== items.length - 1 ? "border-b border-gray-100" : ""
+                } ${item.color || "text-gray-700"} ${item.disabled ? "opacity-50 cursor-not-allowed" : ""
+                }`}
               disabled={item.disabled}
               title={item.tooltip}
             >
@@ -86,7 +84,7 @@ const ProfessionalDropdown = ({
   );
 };
 
-// Helper function to calculate status
+// Helper function to calculate status (unchanged)
 const calculateStatus = (transaction) => {
   // Check if user already provided a status field
   if (transaction.status && typeof transaction.status === "string") {
@@ -116,26 +114,107 @@ const calculateStatus = (transaction) => {
   }
 };
 
-// Mobile Accordion Component
+// Mobile Accordion Component - Optimized for Mobile
 function MobileTransactionAccordion({
   transaction,
   menuItems,
   onAction,
   columns,
   customRenderers,
+  size = "medium",
+  showStatusBadge = true,
+  showQuickActions = true,
+  theme = "default",
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { currencySymbol } = useCurrencyStore();
   const hiderBoxRef = useOutsideClick(() => setIsMenuOpen(false));
 
-  const renderValue = (column, value) => {
+  // Theme configuration
+  const themes = {
+    default: {
+      bg: "bg-white",
+      border: "border-gray-200",
+      headerBg: "bg-white",
+      headerHover: "hover:bg-gray-50",
+      expandedBg: "bg-gray-50",
+      text: "text-gray-900",
+      subtext: "text-gray-600",
+    },
+    modern: {
+      bg: "bg-gradient-to-r from-white to-gray-50",
+      border: "border-gray-300",
+      headerBg: "bg-gradient-to-r from-white to-blue-50",
+      headerHover: "hover:from-blue-50 hover:to-white",
+      expandedBg: "bg-gradient-to-r from-gray-50 to-blue-50",
+      text: "text-gray-900",
+      subtext: "text-gray-700",
+    },
+    dark: {
+      bg: "bg-gray-900",
+      border: "border-gray-700",
+      headerBg: "bg-gray-900",
+      headerHover: "hover:bg-gray-800",
+      expandedBg: "bg-gray-800",
+      text: "text-white",
+      subtext: "text-gray-300",
+    },
+  };
+
+  const currentTheme = themes[theme] || themes.default;
+
+  // Size configuration optimized for mobile
+  const sizeClasses = {
+    small: {
+      padding: "p-2",
+      text: "text-xs",
+      icon: "text-sm",
+      badge: "text-xs px-1.5 py-0.5",
+    },
+    medium: {
+      padding: "p-3",
+      text: "text-sm",
+      icon: "text-base",
+      badge: "text-xs px-2 py-0.5",
+    },
+    large: {
+      padding: "p-3",
+      text: "text-base",
+      icon: "text-lg",
+      badge: "text-sm px-2 py-1",
+    },
+  };
+
+  const currentSize = sizeClasses[size] || sizeClasses.medium;
+
+  // Get primary and secondary columns
+  const primaryColumns = columns.slice(0, 2); // Reduced to 2 for mobile
+  const secondaryColumns = columns.slice(2);
+
+  // Find status column
+  const statusColumn = columns.find(col => col.key === "status");
+  const statusValue = statusColumn ? transaction[statusColumn.key] : null;
+
+  // Find amount column
+  const amountColumn = columns.find(col =>
+    col.type === "currency" || col.type === "currency_with_sign"
+  );
+
+  // Smart truncation function for mobile
+  const truncateText = (text, maxLength = 20) => {
+    if (!text || typeof text !== 'string') return text || "-";
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength - 3) + "...";
+  };
+
+  const renderValue = (column, value, truncate = true) => {
     if (customRenderers && customRenderers[column.key]) {
       return customRenderers[column.key](value, transaction);
     }
 
     if (column.type === "currency") {
-      return `${value.toFixed(2)} ${currencySymbol}`;
+      return `${currencySymbol} ${parseFloat(value || 0).toFixed(2)}`;
     }
 
     if (column.type === "currency_with_sign") {
@@ -150,133 +229,331 @@ function MobileTransactionAccordion({
     }
 
     if (column.type === "date" && column.format) {
-      // You can add date formatting logic here
+      // Format date for mobile
+      if (value) {
+        const date = new Date(value);
+        return date.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric'
+        });
+      }
       return value;
     }
 
-    return value || "-";
+    if (column.type === "status") {
+      const status = value;
+      let statusClass = "bg-gray-100 text-gray-800";
+      if (status === "Paid") statusClass = "bg-green-100 text-green-800";
+      if (status === "Partially Paid") statusClass = "bg-yellow-100 text-yellow-800";
+      if (status === "Unpaid") statusClass = "bg-red-100 text-red-800";
+      if (status === "N/A") statusClass = "bg-gray-100 text-gray-800";
+      return (
+        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${statusClass} whitespace-nowrap`}>
+          {truncate ? truncateText(status, 10) : status}
+        </span>
+      );
+    }
+
+    const displayValue = value || "-";
+    return truncate ? truncateText(displayValue.toString(), 15) : displayValue;
+  };
+
+  // Get status color for indicator
+  const getStatusColor = (status) => {
+    if (!status) return "bg-gray-400";
+    switch (status.toLowerCase()) {
+      case "paid": return "bg-green-500";
+      case "partially paid": return "bg-yellow-500";
+      case "unpaid": return "bg-red-500";
+      default: return "bg-gray-400";
+    }
   };
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
+    <div className={`rounded-lg ${currentTheme.border} border ${currentTheme.bg} shadow-sm transition-all duration-200 hover:shadow-md ${isExpanded ? 'shadow-lg' : ''}`}>
+      {/* Header - Optimized for mobile */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+        className={`w-full ${currentSize.padding} flex items-start gap-2 ${currentTheme.headerBg} ${currentTheme.headerHover} transition-all duration-200`}
       >
-        <div className="flex items-center gap-3">
-          <BiChevronDown
-            size={18}
-            className={`text-gray-400 transition-transform duration-200 ${
-              isExpanded ? "rotate-180" : ""
-            }`}
-          />
-          <div className="text-left">
-            <div className="flex items-center gap-2">
-              {columns.slice(0, 2).map((column) => (
-                <span
-                  key={column.key}
-                  className="text-sm font-medium text-gray-900"
-                >
-                  {renderValue(column, transaction[column.key])}
+        {/* Left Section: Chevron and Status */}
+        <div className="flex flex-col items-center pt-1">
+          {/* Status Dot */}
+          {showStatusBadge && statusValue && (
+            <div className={`w-2 h-2 rounded-full mb-1 ${getStatusColor(statusValue)}`} />
+          )}
+
+          {/* Chevron */}
+          <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
+            <BiChevronDown
+              size={currentSize.icon === "text-lg" ? 20 : 16}
+              className={currentTheme.subtext}
+            />
+          </div>
+        </div>
+
+        {/* Middle Section: Transaction Info */}
+        <div className="flex-1 min-w-0">
+          <div className="space-y-1">
+            {primaryColumns.map((column) => (
+              <div key={column.key} className="flex items-center gap-2">
+                {column.key === "date" ? (
+                  <span className={`${currentSize.text} ${currentTheme.text} font-medium whitespace-nowrap`}>
+                    {renderValue(column, transaction[column.key], false)}
+                  </span>
+                ) : column.type === "status" ? (
+                  <span className="whitespace-nowrap">
+                    {renderValue(column, transaction[column.key], false)}
+                  </span>
+                ) : (
+                  <span className={`${currentSize.text} ${currentTheme.text} truncate`}>
+                    {renderValue(column, transaction[column.key])}
+                  </span>
+                )}
+              </div>
+            ))}
+
+            {/* Show first secondary column if not expanded */}
+            {!isExpanded && secondaryColumns.length > 0 && (
+              <div className="flex items-center gap-1">
+                <span className={`${currentSize.text} ${currentTheme.subtext} truncate`}>
+                  {renderValue(secondaryColumns[0], transaction[secondaryColumns[0].key])}
                 </span>
-              ))}
-            </div>
-            {columns.length > 2 && (
-              <p className="text-xs text-gray-500 mt-1">
-                {renderValue(columns[2], transaction[columns[2].key])}
-              </p>
+                {secondaryColumns.length > 1 && (
+                  <span className={`${currentSize.text} ${currentTheme.subtext} opacity-75`}>
+                    +{secondaryColumns.length - 1} more
+                  </span>
+                )}
+              </div>
             )}
           </div>
         </div>
-        {columns.find(
-          (c) => c.type === "currency" || c.type === "currency_with_sign"
-        ) && (
-          <div className="text-right">
-            <p className="text-sm font-semibold text-gray-900">
-              {renderValue(
-                columns.find(
-                  (c) =>
-                    c.type === "currency" || c.type === "currency_with_sign"
-                ),
-                transaction[
-                  columns.find(
-                    (c) =>
-                      c.type === "currency" || c.type === "currency_with_sign"
-                  ).key
-                ]
-              )}
-            </p>
-          </div>
-        )}
-      </button>
 
-      {isExpanded && (
-        <div className="border-t border-gray-200 bg-gray-50 px-4 py-4 animate-in fade-in duration-200">
-          <div className="space-y-3 mb-4">
-            {columns.map((column, idx) => (
-              <div key={idx} className="flex justify-between">
-                <span className="text-xs font-semibold text-gray-600 uppercase">
-                  {column.label}
-                </span>
-                <span className="text-sm font-medium text-gray-900">
-                  {renderValue(column, transaction[column.key])}
-                </span>
+        {/* Right Section: Amount and Actions */}
+        <div className="flex flex-col items-end gap-2 pt-1">
+          {/* Amount Display */}
+          {amountColumn && (
+            <div className="text-right whitespace-nowrap">
+              <div className={`font-bold ${currentSize.text} ${currentTheme.text}`}>
+                {renderValue(amountColumn, transaction[amountColumn.key], false)}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
 
-          <div className="flex justify-center items-center gap-2">
-            <button
-              // onClick={() => onAction("print", transaction)}
-              onClick={() => {
-                /* Print action */
-                const findAction = menuItems.find(
-                  (item) => item?.label === "Print"
-                );
-                findAction?.action();
-              }}
-              className="rounded-lg p-2 text-gray-500 hover:bg-gray-200 transition-all duration-200"
-              title="Print"
-            >
-              <IoMdPrint />
-            </button>
-            {/* <button
-              onClick={() => onAction("share", transaction)}
-              className="rounded-lg p-2 text-gray-500 hover:bg-gray-200 transition-all duration-200"
-              title="Share"
-            >
-              <PiShareFatLight />
-            </button> */}
-            <div ref={hiderBoxRef} className="relative">
+          {/* Quick Actions - Only icons on mobile */}
+          {showQuickActions && !isExpanded && (
+            <div className="flex items-center gap-1">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  setIsMenuOpen(true);
+                  const printAction = menuItems.find(item => item?.label === "Print");
+                  printAction?.action();
                 }}
-                className="rounded-lg p-2 text-gray-500 hover:bg-gray-200 transition-all duration-200 relative"
-                title="More actions"
+                className={`p-1 rounded ${currentTheme.subtext} hover:bg-gray-200 transition-colors`}
+                title="Print"
               >
-                <GrMoreVertical size={18} />
+                <IoMdPrint className={currentSize.icon} />
               </button>
-
-              <div className={`absolute z-10 -left-[130px] bottom-0`}>
+              <div ref={hiderBoxRef} className="relative">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsMenuOpen(!isMenuOpen);
+                  }}
+                  className={`p-1 rounded ${currentTheme.subtext} hover:bg-gray-200 transition-colors`}
+                  title="More actions"
+                >
+                  <GrMoreVertical className={currentSize.icon} />
+                </button>
                 {isMenuOpen && (
-                  <ProfessionalDropdown
-                    items={menuItems}
-                    // position={clickPosition}
-                    onClose={() => setIsMenuOpen(false)}
+                  <div
+                    className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-end md:items-center md:justify-center"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      className="
+      bg-white p-4 max-h-[70vh] overflow-y-auto
+      w-full rounded-t-xl
+      md:w-[400px] md:rounded-xl
+    "
+                    >
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="font-semibold text-lg">Actions</h3>
+                        <button
+                          onClick={() => setIsMenuOpen(false)}
+                          className="p-2 rounded-full hover:bg-gray-100"
+                        >
+                          <IoClose size={20} />
+                        </button>
+                      </div>
+                      <div className="space-y-2">
+                        {menuItems.map((item, index) => {
+                          const Icon = item.icon;
+                          const isDanger = item.label === "Delete";
+                          return (
+                            <button
+                              key={index}
+                              onClick={() => {
+                                item.action();
+                                setIsMenuOpen(false);
+                              }}
+                              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors ${isDanger
+                                  ? 'text-red-600 hover:bg-red-50'
+                                  : 'text-gray-700 hover:bg-gray-50'
+                                }`}
+                            >
+                              <Icon size={20} />
+                              <span className="font-medium">{item.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </button>
+
+      {/* Expanded Content - Optimized for mobile */}
+      {isExpanded && (
+        <div className={`border-t ${currentTheme.border} ${currentTheme.expandedBg} ${currentSize.padding} animate-in slide-in-from-top-3 duration-200`}>
+          {/* Details Grid - Responsive */}
+          <div className="space-y-4">
+            {/* All Columns Details */}
+            <div className="space-y-3">
+              <div className={`${currentSize.text} ${currentTheme.subtext} font-semibold mb-2`}>
+                Transaction Details
+              </div>
+              {columns.map((column) => (
+                <div key={column.key} className="flex flex-col gap-1 pb-2 border-b border-gray-200 last:border-0">
+                  <div className="flex justify-between items-start">
+                    <span className={`${currentSize.text} ${currentTheme.subtext} font-medium`}>
+                      {column.label}
+                    </span>
+                    <span className={`${currentSize.text} ${currentTheme.text} font-semibold text-right break-words max-w-[60%] ml-2`}>
+                      {renderValue(column, transaction[column.key], false)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Progress Bar for Partially Paid */}
+            {statusValue === "Partially Paid" && transaction.amount && transaction.paidAmount && (
+              <div className="bg-white rounded-lg p-3 border border-gray-200">
+                <div className="flex justify-between items-center mb-2">
+                  <span className={`${currentSize.text} font-medium`}>Payment Progress</span>
+                  <span className={`${currentSize.text} font-semibold`}>
+                    {Math.round((transaction.paidAmount / transaction.amount) * 100)}%
+                  </span>
+                </div>
+                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-full transition-all duration-500"
+                    style={{ width: `${Math.min(100, (transaction.paidAmount / transaction.amount) * 100)}%` }}
                   />
+                </div>
+                <div className="flex justify-between mt-2">
+                  <span className={`${currentSize.text} ${currentTheme.subtext}`}>
+                    Paid: {currencySymbol}{transaction.paidAmount?.toFixed(2) || '0.00'}
+                  </span>
+                  <span className={`${currentSize.text} ${currentTheme.subtext}`}>
+                    Due: {currencySymbol}{(transaction.amount - transaction.paidAmount)?.toFixed(2) || '0.00'}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons - Stacked on mobile */}
+            <div className="space-y-2">
+              <div className={`${currentSize.text} ${currentTheme.subtext} font-semibold mb-2`}>
+                Quick Actions
+              </div>
+              {menuItems.map((item, index) => {
+                const Icon = item.icon;
+                const isPrimary = item.label === "View/Edit";
+                const isDanger = item.label === "Delete";
+
+                return (
+                  <button
+                    key={index}
+                    onClick={() => {
+                      item.action();
+                      if (item.label !== "View/Edit") {
+                        setIsExpanded(false);
+                      }
+                    }}
+                    className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg transition-all duration-200 ${isPrimary
+                        ? 'bg-blue-600 text-white hover:bg-blue-700'
+                        : isDanger
+                          ? 'bg-red-100 text-red-700 hover:bg-red-200 border border-red-200'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                  >
+                    <Icon size={18} />
+                    <span className="font-medium">{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Metadata */}
+            <div className="pt-3 border-t border-gray-300">
+              <div className="flex flex-wrap gap-3">
+                {transaction.invoiceNo && (
+                  <div className="flex items-center gap-1">
+                    <span className={`${currentSize.text} ${currentTheme.subtext}`}>#</span>
+                    <span className={`${currentSize.text} ${currentTheme.text} font-semibold`}>
+                      {transaction.invoiceNo}
+                    </span>
+                  </div>
+                )}
+                {transaction.transactionType && (
+                  <div className="flex items-center gap-1">
+                    <span className={`${currentSize.text} ${currentTheme.subtext}`}>Type:</span>
+                    <span className={`${currentSize.text} px-2 py-1 rounded-full bg-gray-200 ${currentTheme.text}`}>
+                      {transaction.transactionType}
+                    </span>
+                  </div>
+                )}
+                {transaction.date && (
+                  <div className="flex items-center gap-1">
+                    <span className={`${currentSize.text} ${currentTheme.subtext}`}>
+                      {new Date(transaction.date).toLocaleDateString()}
+                    </span>
+                  </div>
                 )}
               </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* Footer Status - Always visible */}
+      <div className={`border-t ${currentTheme.border} px-3 py-2 flex items-center justify-between`}>
+        <div className="flex items-center gap-2">
+          <span className={`${currentSize.text} ${currentTheme.subtext}`}>
+            {isExpanded ? "Tap to collapse" : "Tap to expand"}
+          </span>
+        </div>
+        {statusValue && (
+          <div className="flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${getStatusColor(statusValue)}`} />
+            <span className={`${currentSize.text} ${currentTheme.subtext}`}>
+              {statusValue}
+            </span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-// Table Row Component
+// Table Row Component (unchanged)
 function TransactionRow({
   transaction,
   isAlternate,
@@ -376,9 +653,8 @@ function TransactionRow({
     // Default renderers based on column type
     switch (column.type) {
       case "currency":
-        return `${currencySymbol} ${
-          transaction[column.key]?.toFixed(2) || "0.00"
-        }`;
+        return `${currencySymbol} ${transaction[column.key]?.toFixed(2) || "0.00"
+          }`;
       case "currency_with_sign":
         const amount = parseFloat(transaction[column.key]) || 0;
         const sign = amount >= 0 ? "+" : "-";
@@ -399,9 +675,8 @@ function TransactionRow({
       case "badge":
         return (
           <span
-            className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${
-              column.badgeColor || "bg-blue-100 text-blue-800"
-            }`}
+            className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${column.badgeColor || "bg-blue-100 text-blue-800"
+              }`}
           >
             {transaction[column.key]}
           </span>
@@ -430,16 +705,14 @@ function TransactionRow({
   const hasHiddenColumns = visibleColumns.length < columns.length;
   return (
     <tr
-      className={`border-b border-gray-200 max-h-10 overflow-hidden hover:bg-blue-50 transition-colors ${
-        isAlternate ? "bg-white" : "bg-gray-50"
-      }`}
+      className={`border-b border-gray-200 max-h-10 overflow-hidden hover:bg-blue-50 transition-colors ${isAlternate ? "bg-white" : "bg-gray-50"
+        }`}
     >
       {visibleColumns.map((column) => (
         <td
           key={column.key}
-          className={`${getSizeClasses()} ${column.className || ""} ${
-            column.cellClassName || ""
-          }`}
+          className={`${getSizeClasses()} ${column.className || ""} ${column.cellClassName || ""
+            }`}
           style={column.cellStyle}
         >
           <div
@@ -490,9 +763,8 @@ function TransactionRow({
             </button>
 
             <div
-              className={`absolute z-10 -left-[130px] ${
-                isLastItem ? "-top-25" : "top-10"
-              }`}
+              className={`absolute z-10 -left-[130px] ${isLastItem ? "-top-25" : "top-10"
+                }`}
             >
               {isMenuOpen && (
                 <ProfessionalDropdown
@@ -509,7 +781,7 @@ function TransactionRow({
   );
 }
 
-// Pagination Component
+// Pagination Component (unchanged)
 const Pagination = ({
   currentPage,
   totalPages,
@@ -594,11 +866,10 @@ const Pagination = ({
           <button
             key={page}
             onClick={() => handlePageClick(page)}
-            className={`${getButtonSize()} flex items-center justify-center rounded-lg border font-medium transition-colors ${
-              currentPage === page
+            className={`${getButtonSize()} flex items-center justify-center rounded-lg border font-medium transition-colors ${currentPage === page
                 ? "border-blue-500 bg-blue-50 text-blue-600"
                 : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-            }`}
+              }`}
           >
             {page}
           </button>
@@ -631,6 +902,7 @@ export default function TransactionsTable({
   columnOrder = [],
   defaultSort = null,
   onEditOfCash,
+  isMobile = false, // New prop with default value false
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1007,8 +1279,8 @@ export default function TransactionsTable({
         return defaultSort.direction === "asc"
           ? String(a[defaultSort.key]).localeCompare(String(b[defaultSort.key]))
           : String(b[defaultSort.key]).localeCompare(
-              String(a[defaultSort.key])
-            );
+            String(a[defaultSort.key])
+          );
       });
       setFilteredTransactions(sorted);
       setSortConfig({ key: defaultSort.key, direction: defaultSort.direction });
@@ -1258,9 +1530,8 @@ export default function TransactionsTable({
       {/* Header */}
       <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <h1
-          className={`text-3xl font-bold text-gray-900 ${
-            size === "small" ? "text-2xl" : size === "large" ? "text-4xl" : ""
-          }`}
+          className={`text-3xl font-bold text-gray-900 ${size === "small" ? "text-2xl" : size === "large" ? "text-4xl" : ""
+            }`}
         >
           {title}
         </h1>
@@ -1291,86 +1562,105 @@ export default function TransactionsTable({
         )}
       </div>
 
-      {/* Desktop Table */}
-      <div
-        className={`hidden md:block rounded-lg border border-gray-200 bg-white shadow-sm ${
-          size === "small" ? "text-xs" : ""
-        }`}
-      >
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-gray-200 bg-gray-50">
-              {responsiveColumns.map((column, index) => (
-                <th
-                  key={column.key}
-                  className={`px-6 py-3 text-left ${
-                    column.className || ""
-                  } ${getResponsiveHeaderClasses(column, index)}`}
-                  style={column.headerStyle}
-                >
-                  <div className="flex items-center justify-between gap-2">
+      {/* Conditionally render based on isMobile prop */}
+      {!isMobile ? (
+        <>
+          {/* Desktop Table */}
+          <div
+            className={`hidden md:block rounded-lg border border-gray-200 bg-white shadow-sm ${size === "small" ? "text-xs" : ""
+              }`}
+          >
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200 bg-gray-50">
+                  {responsiveColumns.map((column, index) => (
+                    <th
+                      key={column.key}
+                      className={`px-6 py-3 text-left ${column.className || ""
+                        } ${getResponsiveHeaderClasses(column, index)}`}
+                      style={column.headerStyle}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span
+                          className={`font-semibold text-gray-700 uppercase tracking-wider ${getSizeClasses()}`}
+                        >
+                          {column.label}
+                        </span>
+                        {showFilters && column.sortable && (
+                          <button
+                            onClick={() => handleSort(column.key)}
+                            className="text-gray-400 hover:text-gray-600"
+                            title={`Sort by ${column.label}`}
+                          >
+                            <FaFilter size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </th>
+                  ))}
+                  <th className="px-6 py-3 text-center">
                     <span
                       className={`font-semibold text-gray-700 uppercase tracking-wider ${getSizeClasses()}`}
                     >
-                      {column.label}
+                      Actions
                     </span>
-                    {showFilters && column.sortable && (
-                      <button
-                        onClick={() => handleSort(column.key)}
-                        className="text-gray-400 hover:text-gray-600"
-                        title={`Sort by ${column.label}`}
-                      >
-                        <FaFilter size={14} />
-                      </button>
-                    )}
-                  </div>
-                </th>
-              ))}
-              <th className="px-6 py-3 text-center">
-                <span
-                  className={`font-semibold text-gray-700 uppercase tracking-wider ${getSizeClasses()}`}
-                >
-                  Actions
-                </span>
-              </th>
-            </tr>
-          </thead>
+                  </th>
+                </tr>
+              </thead>
 
-          <tbody>
-            {currentItems.map((transaction, index) => (
-              <TransactionRow
+              <tbody>
+                {currentItems.map((transaction, index) => (
+                  <TransactionRow
+                    key={transaction.id}
+                    transaction={transaction}
+                    isAlternate={index % 2 === 0}
+                    setInvoiceData={setInvoiceData}
+                    invoiceType={invoiceType}
+                    refetch={refetch}
+                    columns={responsiveColumns} // Use responsive columns here
+                    menuItems={getMenuItems(transaction)}
+                    size={size}
+                    customRenderers={customRenderers}
+                    isLastItem={index === currentItems.length - 1}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile View (only shown on actual mobile devices) */}
+          <div className="md:hidden space-y-3">
+            {currentItems.map((transaction) => (
+              <MobileTransactionAccordion
                 key={transaction.id}
                 transaction={transaction}
-                isAlternate={index % 2 === 0}
-                setInvoiceData={setInvoiceData}
-                invoiceType={invoiceType}
-                refetch={refetch}
-                columns={responsiveColumns} // Use responsive columns here
                 menuItems={getMenuItems(transaction)}
-                size={size}
+                columns={orderedColumns} // Use all columns for mobile accordion
                 customRenderers={customRenderers}
-                isLastItem={index === currentItems.length - 1}
+                onAction={(action, transaction) => {
+                  // Handle mobile actions
+                }}
               />
             ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Mobile View */}
-      <div className="md:hidden space-y-3">
-        {currentItems.map((transaction) => (
-          <MobileTransactionAccordion
-            key={transaction.id}
-            transaction={transaction}
-            menuItems={getMenuItems(transaction)}
-            columns={orderedColumns} // Use all columns for mobile accordion
-            customRenderers={customRenderers}
-            onAction={(action, transaction) => {
-              // Handle mobile actions
-            }}
-          />
-        ))}
-      </div>
+          </div>
+        </>
+      ) : (
+        // Mobile accordion view when isMobile is true (regardless of device)
+        <div className="space-y-3">
+          {currentItems.map((transaction) => (
+            <MobileTransactionAccordion
+              key={transaction.id}
+              transaction={transaction}
+              menuItems={getMenuItems(transaction)}
+              columns={orderedColumns} // Use all columns for mobile accordion
+              customRenderers={customRenderers}
+              onAction={(action, transaction) => {
+                // Handle mobile actions
+              }}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Empty State */}
       {filteredTransactions.length === 0 && (
