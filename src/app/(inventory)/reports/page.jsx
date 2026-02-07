@@ -39,6 +39,7 @@ import { BsBank } from 'react-icons/bs';
 import TabContentWithFilters from './TabContentWithFilters';
 import SalePage from '@/components/Sales/SalePage';
 import PurchaseTransactionReportPage from '@/components/purchase/PurchaseTransactionReportPage';
+import AllTransactionPage from './AllTransactionsPage';
 
 // Menu configuration with all items from images
 const menuItems = [
@@ -82,7 +83,7 @@ const menuItems = [
     icon: <FiFileText />, 
     label: 'All Transactions', 
     description: 'Complete transaction history', 
-    component: () => <div>All Transactions Component</div>,
+    component: AllTransactionPage,
     type: 'report'
   },
   { 
