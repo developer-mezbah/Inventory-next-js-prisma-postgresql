@@ -272,9 +272,9 @@ function MobileTransactionAccordion({
   return (
     <div className={`rounded-lg ${currentTheme.border} border ${currentTheme.bg} shadow-sm transition-all duration-200 hover:shadow-md ${isExpanded ? 'shadow-lg' : ''}`}>
       {/* Header - Optimized for mobile */}
-      <button
+      <div
         onClick={() => setIsExpanded(!isExpanded)}
-        className={`w-full ${currentSize.padding} flex items-start gap-2 ${currentTheme.headerBg} ${currentTheme.headerHover} transition-all duration-200`}
+        className={`w-full ${currentSize.padding} flex items-start gap-2 ${currentTheme.headerBg} ${currentTheme.headerHover} transition-all duration-200 cursor-pointer`}
       >
         {/* Left Section: Chevron and Status */}
         <div className="flex flex-col items-center pt-1">
@@ -416,7 +416,7 @@ function MobileTransactionAccordion({
             </div>
           )}
         </div>
-      </button>
+      </div>
 
       {/* Expanded Content - Optimized for mobile */}
       {isExpanded && (

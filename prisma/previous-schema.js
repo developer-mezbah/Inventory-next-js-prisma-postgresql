@@ -93,7 +93,6 @@ model Company {
   expenceCategory  ExpenseCategory[]
   currencies       Currency[]
   expenses         Expense[]
-  loanAccounts     LoanAccount[]     // Added loan accounts relation
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 }
@@ -165,6 +164,14 @@ model Category {
   companyId     String
   company       Company   @relation(fields: [companyId], references: [id])
 }
+
+// Converted from "type Subcategory"
+// model Subcategory {
+//   id         Int      @id @default(autoincrement())
+//   name       String
+//   categoryId String
+//   category   Category @relation(fields: [categoryId], references: [id])
+// }
 
 model Item {
   id                  String        @id @default(cuid())
@@ -239,6 +246,18 @@ model Expense {
   invoiceData   InvoiceData[]
 }
 
+// Converted from "type StockInfo"
+// model StockInfo {
+//   id                 String  @id @default(cuid())
+//   openingQuantity    Float?
+//   atPrice            Float?
+//   asOfDate           String?
+//   minStockToMaintain Float?
+//   location           String?
+//   itemId             String  @unique
+//   item               Item    @relation(fields: [itemId], references: [id])
+// }
+
 model Transaction {
   id               String          @id @default(cuid())
   createdAt        DateTime?       @default(now())
@@ -276,8 +295,6 @@ model Transaction {
   saleId           String?
   expense          Expense?        @relation(fields: [expenseId], references: [id])
   expenseId        String?
-  loanAccount      LoanAccount?    @relation(fields: [loanAccountId], references: [id]) // Added loan account relation
-  loanAccountId    String?
 }
 
 model Party {
@@ -294,11 +311,19 @@ model Party {
   creditLimit      Float?
   balanceType      String?
   additionalFields Json?   @default("[]")
-  transaction      Transaction[]
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
-  companyId        String
-  company          Company       @relation(fields: [companyId], references: [id])
+  //   type AdditionalField {
+  //   id          Int
+  //   name        String
+  //   value       String
+  //   showInPrint Boolean @default(false)
+  //   isDate      Boolean @default(false)
+  // }
+
+  transaction Transaction[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  companyId   String
+  company     Company       @relation(fields: [companyId], references: [id])
 
   @@map("parties")
 }
@@ -399,28 +424,4 @@ model CashAndBank {
   transaction        Transaction[]
   companyId          String
   company            Company       @relation(fields: [companyId], references: [id])
-}
-
-// NEW LOAN ACCOUNT MODEL
-model LoanAccount {
-  id                      String        @id @default(cuid())
-  accountName             String        // Account Name *
-  lenderBank              String?       // Lender Bank
-  accountNumber           String?       // Account Number
-  description             String?       // Description
-  balanceAsOfDate         DateTime?     // Balance as of specific date
-  currentBalance          Float         // Current Balance *
-  loanReceivedInCash      Boolean       @default(false) // Loan received In Cash
-  interestRate            Float?        // Interest Rate % per annum
-  termDurationMonths      Int?          // Term Duration(in Months)
-  processingFee           Float?        // Processing Fee
-  processingFeePaidFromCash Boolean?    @default(false) // Processing Fee Paid from Cash
-  createdAt               DateTime      @default(now())
-  updatedAt               DateTime      @updatedAt
-  companyId               String
-  company                 Company       @relation(fields: [companyId], references: [id])
-  transactions            Transaction[] // Relation to track loan transactions
-  
-  @@unique([accountNumber, companyId]) // Ensure account number is unique per company
-  @@index([companyId])
 }

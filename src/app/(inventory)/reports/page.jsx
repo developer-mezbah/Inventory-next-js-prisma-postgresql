@@ -40,6 +40,7 @@ import TabContentWithFilters from './TabContentWithFilters';
 import SalePage from '@/components/Sales/SalePage';
 import PurchaseTransactionReportPage from '@/components/purchase/PurchaseTransactionReportPage';
 import AllTransactionPage from './AllTransactionsPage';
+import FinancialStatement from './FinancialStatement';
 
 // Menu configuration with all items from images
 const menuItems = [
@@ -91,7 +92,7 @@ const menuItems = [
     icon: <FiTrendingDown />, 
     label: 'Profit And Loss', 
     description: 'Financial performance', 
-    component: () => <div>Profit And Loss Component</div>,
+    component: FinancialStatement,
     type: 'financial'
   },
   { 

@@ -1,11 +1,11 @@
 "use client"
 
+import BankAccountForm from "@/components/CashAndBank/BankAccounts/BankAccountForm"
 import useOutsideClick from "@/hook/useOutsideClick"
 import { useState } from "react"
 import { FiChevronDown, FiPlus } from "react-icons/fi"
-import BankAccountForm from "../../CashAndBank/BankAccounts/BankAccountForm"
 
-export default function PaymentSection({ paymentType, onPaymentTypeChange, cashData, bankData, refetch }) {
+export default function PaymentSection({ paymentType, onPaymentTypeChange, cashData, bankData, refetch, title }) {
   const [isOpen, setIsOpen] = useState(false)
   const [isCreateModal, setCreateModal] = useState(false)
 
@@ -21,7 +21,7 @@ export default function PaymentSection({ paymentType, onPaymentTypeChange, cashD
         }} refetch={refetch} onPaymentTypeChange={onPaymentTypeChange} /></div></div>}
       <div className="space-y-4">
         <div ref={dropdowRef} className="relative">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Payment Type</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">{title || "Payment Type"}</label>
           <button
             onClick={() => setIsOpen(!isOpen)}
             className="w-full sm:w-48 px-4 py-2 border border-gray-300 rounded-lg bg-white text-left flex items-center justify-between hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -43,10 +43,10 @@ export default function PaymentSection({ paymentType, onPaymentTypeChange, cashD
                 Add Payment Type
               </button>
               <button
-              onClick={() => {
-                    onPaymentTypeChange("Cash")
-                    setIsOpen(false)
-                  }}
+                onClick={() => {
+                  onPaymentTypeChange("Cash")
+                  setIsOpen(false)
+                }}
                 className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors text-sm"
               >
                 Cash
