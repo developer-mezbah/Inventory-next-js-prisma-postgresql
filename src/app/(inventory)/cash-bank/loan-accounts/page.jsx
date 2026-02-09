@@ -23,24 +23,27 @@ const LoanAccounts = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [mobileView, setMobileView] = useState("list"); // 'list' or 'details'
 
+
   const {
     isInitialLoading,
     error,
-    data = [],
+    data = {},
     refetch,
-  } = useFetchData("/api/party", ["party"]);
+  } = useFetchData("/api/loan-accounts", ["loan-accounts-data"]);
+
+  const accountData = data?.accountData || [];
 
   const tabs =
-    data && data.length > 0
-      ? data.map((item) => ({ id: item?.id, label: item?.partyName }))
+    accountData && accountData.length > 0
+      ? accountData.map((item) => ({ id: item?.id, label: item?.partyName }))
       : [];
 
   const activePartyData = useMemo(() => {
-    if (activeTab === "general" || !data || data.length === 0) {
+    if (activeTab === "general" || !accountData || accountData.length === 0) {
       return null;
     }
-    return data.find((item) => item.id === activeTab);
-  }, [data, activeTab]);
+    return accountData.find((item) => item.id === activeTab);
+  }, [accountData, activeTab]);
 
   const filteredTabs = useMemo(() => {
     if (!searchTerm) {
@@ -130,7 +133,7 @@ const LoanAccounts = () => {
 
   const handleEdit = (tabId) => {
     setIsUpdateModalOpen(true);
-    const findData = data.find((item) => item?.id === tabId);
+    const findData = accountData.find((item) => item?.id === tabId);
     setUpdateFormData(findData);
   };
 
@@ -171,7 +174,7 @@ const LoanAccounts = () => {
   // Render list box view for mobile
   const renderMobileListBox = () => (
     <div className="p-4">
-      <HeaderSection setIsModalOpen={setIsModalOpen} />
+      <HeaderSection data={data} refetch={refetch} setIsModalOpen={setIsModalOpen} />
 
       {/* Search Bar */}
       <div className="flex items-center space-x-3 p-3 bg-white border border-gray-200 rounded-xl shadow-sm mb-4">
@@ -225,9 +228,8 @@ const LoanAccounts = () => {
                         e.stopPropagation();
                         setOpenDropdownId(isDropdownOpen ? null : tab.id);
                       }}
-                      className={`p-2 rounded-full hover:bg-gray-200 ${
-                        isDropdownOpen ? "bg-gray-200" : ""
-                      }`}
+                      className={`p-2 rounded-full hover:bg-gray-200 ${isDropdownOpen ? "bg-gray-200" : ""
+                        }`}
                     >
                       <span className="text-xl leading-none">...</span>
                     </button>
@@ -289,7 +291,7 @@ const LoanAccounts = () => {
         {activePartyData ? (
           <TabContents
             phoneNumber={activePartyData.phoneNumber}
-            transaction={activePartyData.transaction}
+            transaction={activePartyData.transaction || []}
             partyName={activePartyData.partyName}
             refetch={refetch}
           />
@@ -303,7 +305,7 @@ const LoanAccounts = () => {
   // Desktop view remains unchanged
   const renderDesktopView = () => (
     <div>
-      <HeaderSection setIsModalOpen={setIsModalOpen} />
+      <HeaderSection data={data} refetch={refetch} setIsModalOpen={setIsModalOpen} />
 
       <AddPartyModal
         refetch={refetch}
@@ -333,9 +335,8 @@ const LoanAccounts = () => {
 
         {/* Desktop Sidebar */}
         <div
-          className={`md:w-1/5 min-w-[200px] w-full overflow-x-hidden md:border-r pr-4 transition-all ${
-            isSidebarOpen ? "block" : "hidden md:block"
-          }`}
+          className={`md:w-1/5 min-w-[200px] w-full overflow-x-hidden md:border-r pr-4 transition-all ${isSidebarOpen ? "block" : "hidden md:block"
+            }`}
         >
           <div className="mx-auto">
             <div className="flex items-center space-x-3 p-3 bg-white border border-gray-200 rounded-xl shadow-sm mb-0">
@@ -380,11 +381,10 @@ const LoanAccounts = () => {
                 return (
                   <div
                     key={tab.id}
-                    className={`py-2 px-4 text-left rounded-md font-medium transition-all duration-300 ease-in-out flex justify-between items-center ${
-                      activeTab === tab.id
-                        ? "bg-blue-100 text-blue-600"
-                        : "text-gray-600 hover:bg-gray-100"
-                    }`}
+                    className={`py-2 px-4 text-left rounded-md font-medium transition-all duration-300 ease-in-out flex justify-between items-center ${activeTab === tab.id
+                      ? "bg-blue-100 text-blue-600"
+                      : "text-gray-600 hover:bg-gray-100"
+                      }`}
                   >
                     <button
                       onClick={() => handleTabChange(tab.id)}
@@ -402,9 +402,8 @@ const LoanAccounts = () => {
                           e.stopPropagation();
                           setOpenDropdownId(isDropdownOpen ? null : tab.id);
                         }}
-                        className={`p-1 rounded-full hover:bg-gray-200 focus:outline-none ${
-                          isDropdownOpen ? "bg-gray-200" : ""
-                        }`}
+                        className={`p-1 rounded-full hover:bg-gray-200 focus:outline-none ${isDropdownOpen ? "bg-gray-200" : ""
+                          }`}
                         aria-expanded={isDropdownOpen}
                         aria-label="More options"
                       >
@@ -451,7 +450,7 @@ const LoanAccounts = () => {
             {activePartyData && activeTab !== "general" ? (
               <TabContents
                 phoneNumber={activePartyData.phoneNumber}
-                transaction={activePartyData.transaction}
+                transaction={activePartyData.transaction || []}
                 partyName={activePartyData.partyName}
                 refetch={refetch}
               />

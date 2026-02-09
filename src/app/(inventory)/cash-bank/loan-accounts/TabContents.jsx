@@ -1,18 +1,17 @@
+import { useState } from "react";
 import TransactionsTable from "@/components/purchase/PurchaseBills/TransactionsTable";
-import { FaRegEdit } from "react-icons/fa";
+import { FaRegEdit, FaTimes } from "react-icons/fa";
 import { RiWhatsappFill } from "react-icons/ri";
-// import TransactionsTable from './TransactionsTable';
+import useOutsideClick from "@/hook/useOutsideClick";
 
 const TimeNotificationIcon = (props) => {
   const { size = 24, color = "currentColor", ...rest } = props;
 
-  // Colors inspired by the uploaded image
-  const outerStrokeColor = "#f59e0b"; // Amber 500
+  const outerStrokeColor = "#f59e0b";
   const clockFillColor = "#ffffff";
-  const handColor = "#3b88c7"; // Sky Blue 600
-  const badgeColor = "#ef4444"; // Red 500
+  const handColor = "#3b88c7";
+  const badgeColor = "#ef4444";
 
-  // Standard 24x24 viewBox for easy sizing
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -22,7 +21,6 @@ const TimeNotificationIcon = (props) => {
       fill="none"
       {...rest}
     >
-      {/* 1. Outer Orange/Yellow Clock Border */}
       <circle
         cx="12"
         cy="12"
@@ -31,9 +29,6 @@ const TimeNotificationIcon = (props) => {
         strokeWidth="1.5"
         fill={clockFillColor}
       />
-
-      {/* 2. Clock Hands (Indicating a time, e.g., 1 o'clock) */}
-      {/* Hour hand - thicker and shorter */}
       <line
         x1="12"
         y1="12"
@@ -43,8 +38,6 @@ const TimeNotificationIcon = (props) => {
         strokeWidth="1.5"
         strokeLinecap="round"
       />
-
-      {/* Minute hand - thinner and longer */}
       <line
         x1="12"
         y1="12"
@@ -54,18 +47,13 @@ const TimeNotificationIcon = (props) => {
         strokeWidth="1.2"
         strokeLinecap="round"
       />
-
-      {/* Center dot */}
       <circle cx="12" cy="12" r="0.8" fill={handColor} />
-
-      {/* 3. The Red Notification Badge */}
-      {/* Positioned near the top-right edge of the 24x24 viewBox */}
       <circle
         cx="18"
         cy="6"
         r="3"
         fill={badgeColor}
-        stroke={clockFillColor} // Add a slight white border for separation/pop
+        stroke={clockFillColor}
         strokeWidth="0.5"
       />
     </svg>
@@ -73,50 +61,223 @@ const TimeNotificationIcon = (props) => {
 };
 
 const TabContents = ({ partyName, phoneNumber, transaction, refetch }) => {
+  const [showMakePaymentModal, setShowMakePaymentModal] = useState(false);
+  const [showTakeLoanModal, setShowTakeLoanModal] = useState(false);
+  const [showChargesModal, setShowChargesModal] = useState(false);
+
+  // Modal state for Make Payment
+  const [makePaymentData, setMakePaymentData] = useState({
+    principalAmount: "0",
+    interestAmount: "0",
+    totalAmount: "0",
+    date: "09/02/2026",
+    paidFrom: "Cash"
+  });
+
+  // Modal state for Take More Loan
+  const [takeLoanData, setTakeLoanData] = useState({
+    increaseLoanBy: "0",
+    date: "09/02/2026",
+    loanReceivedIn: "Cash"
+  });
+
+  // Modal state for Charges on Loan
+  const [chargesData, setChargesData] = useState({
+    amount: "0",
+    transactionTypeName: "",
+    date: "09/02/2026",
+    loanReceivedIn: "Cash"
+  });
+
+    const chargesRef = useOutsideClick(() => setShowChargesModal(false));
+    const takeloanRef = useOutsideClick(() => setShowTakeLoanModal(false));
+    const makepaymentRef = useOutsideClick(() => setShowMakePaymentModal(false));
+
+
+  // Calculate total amount when principal or interest changes
+  const updateTotalAmount = () => {
+    const principal = parseFloat(makePaymentData.principalAmount) || 0;
+    const interest = parseFloat(makePaymentData.interestAmount) || 0;
+    setMakePaymentData(prev => ({
+      ...prev,
+      totalAmount: (principal + interest).toString()
+    }));
+  };
+
+  // Handle Make Payment form changes
+  const handleMakePaymentChange = (e) => {
+    const { name, value } = e.target;
+    setMakePaymentData(prev => ({ ...prev, [name]: value }));
+    
+    if (name === "principalAmount" || name === "interestAmount") {
+      setTimeout(updateTotalAmount, 0);
+    }
+  };
+
+  // Handle Take Loan form changes
+  const handleTakeLoanChange = (e) => {
+    const { name, value } = e.target;
+    setTakeLoanData(prev => ({ ...prev, [name]: value }));
+  };
+
+  // Handle Charges form changes
+  const handleChargesChange = (e) => {
+    const { name, value } = e.target;
+    setChargesData(prev => ({ ...prev, [name]: value }));
+  };
+
+  // Save handlers
+  const handleSaveMakePayment = () => {
+    console.log("Make Payment Data:", makePaymentData);
+    // Add your API call here
+    setShowMakePaymentModal(false);
+  };
+
+  const handleSaveTakeLoan = () => {
+    console.log("Take Loan Data:", takeLoanData);
+    // Add your API call here
+    setShowTakeLoanModal(false);
+  };
+
+  const handleSaveCharges = () => {
+    console.log("Charges Data:", chargesData);
+    // Add your API call here
+    setShowChargesModal(false);
+  };
+
   return (
     <div className="font-inter antialiased">
       {/* Main Card Container */}
       <div className="w-full bg-white border border-gray-300 rounded-xl shadow-md">
-        {/* Header Section */}
+        {/* Header Section - Updated Design */}
         <div className="hidden md:block">
           <div className="p-4 border-b border-gray-200 bg-white">
+            {/* Main Header Row */}
+            <div className="flex justify-between items-center mb-3">
+              {/* Left Side: Party Name with Edit Icon */}
+              <div className="flex items-center">
+                <h2 className="text-lg font-semibold text-gray-800 mr-2">
+                  {partyName}
+                </h2>
+              </div>
+
+              {/* Right Side: NCC and Balance Amount */}
+              <div className="flex items-center space-x-6">
+                {/* NCC Section */}
+                <div className="text-right">
+                  <div className="text-sm text-gray-500 font-medium">NCC</div>
+                  <div className="text-lg font-bold text-gray-800">10,000.00 ₺</div>
+                </div>
+
+                {/* Balance Amount Section */}
+                <div className="text-right">
+                  <div className="text-sm text-gray-500 font-medium">Balance Amount</div>
+                  <div className="text-lg font-bold text-gray-800">10,000.00 ₺</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons Row */}
             <div className="flex justify-between items-center">
-              {/* Title and Link Icon (Left Side) */}
-              <div className="flex items-center text-lg font-semibold text-gray-800">
-                <span className="mr-1">{partyName}</span>
-                <FaRegEdit className="w-5 h-5 ml-1 text-blue-600 cursor-pointer hover:text-blue-700 transition duration-150" />
+              {/* Left Side: Phone Number */}
+              <div>
+                <div className="text-sm font-medium text-gray-500">Phone Number</div>
+                <div className="text-lg font-bold text-gray-800">{phoneNumber}</div>
               </div>
 
-              {/* Action/Status Icons (Right Side) */}
-              <div className="flex space-x-2 items-center">
-                <button>
-                  <RiWhatsappFill className="text-green-500 text-[28px]" />
-                </button>
-                <button>
-                  <TimeNotificationIcon size={25} className="text-gray-900" />
-                </button>
+              {/* Right Side: Action Buttons and Icons */}
+              <div className="flex items-center space-x-4">
+                {/* Action Buttons */}
+                <div className="flex space-x-2">
+                  <button 
+                    onClick={() => setShowMakePaymentModal(true)}
+                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition duration-150"
+                  >
+                    Make Payment
+                  </button>
+                  <button 
+                    onClick={() => setShowTakeLoanModal(true)}
+                    className="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 transition duration-150"
+                  >
+                    Take more loan
+                  </button>
+                  <button 
+                    onClick={() => setShowChargesModal(true)}
+                    className="px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition duration-150"
+                  >
+                    Charges on Loan
+                  </button>
+                </div>
               </div>
-            </div>
-          </div>
-
-          {/* Content Section - Phone Number Detail */}
-          <div className="p-4 space-y-3 bg-white">
-            {/* Phone Number Label */}
-            <div className="text-sm font-medium text-gray-500">
-              Phone Number
-            </div>
-            {/* Phone Number Value */}
-            <div className="text-xl font-bold text-gray-800 -mt-1">
-              {phoneNumber}
             </div>
           </div>
         </div>
 
-        {/* Subtle Bottom Border (Matching the bottom line in the image) */}
+        {/* Mobile View */}
+        <div className="md:hidden p-4 border-b border-gray-200 bg-white">
+          {/* Top Row: Party Name and Icons */}
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex items-center">
+              <h2 className="text-lg font-semibold text-gray-800 mr-2">
+                {partyName}
+              </h2>
+              <FaRegEdit className="w-4 h-4 text-blue-600 cursor-pointer" />
+            </div>
+            <div className="flex items-center space-x-2">
+              <button>
+                <RiWhatsappFill className="text-green-500 text-2xl" />
+              </button>
+              <button>
+                <TimeNotificationIcon size={22} className="text-gray-900" />
+              </button>
+            </div>
+          </div>
+
+          {/* NCC and Balance Stacked */}
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div>
+              <div className="text-sm text-gray-500 font-medium">NCC</div>
+              <div className="text-lg font-bold text-gray-800">10,000.00 ₺</div>
+            </div>
+            <div>
+              <div className="text-sm text-gray-500 font-medium">Balance Amount</div>
+              <div className="text-lg font-bold text-gray-800">10,000.00 ₺</div>
+            </div>
+          </div>
+
+          {/* Phone Number */}
+          <div className="mb-4">
+            <div className="text-sm font-medium text-gray-500">Phone Number</div>
+            <div className="text-lg font-bold text-gray-800">{phoneNumber}</div>
+          </div>
+
+          {/* Action Buttons - Stacked on Mobile */}
+          <div className="space-y-2">
+            <button 
+              onClick={() => setShowMakePaymentModal(true)}
+              className="w-full px-4 py-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition duration-150"
+            >
+              Make Payment
+            </button>
+            <button 
+              onClick={() => setShowTakeLoanModal(true)}
+              className="w-full px-4 py-3 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 transition duration-150"
+            >
+              Take more loan
+            </button>
+            <button 
+              onClick={() => setShowChargesModal(true)}
+              className="w-full px-4 py-3 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition duration-150"
+            >
+              Charges on Loan
+            </button>
+          </div>
+        </div>
+
+        {/* Subtle Bottom Border */}
         <div className="h-0.5 bg-gray-200 border-t border-b border-gray-300"></div>
-        {/* <TransactionsTable transaction={transaction} /> */}
+        
         <TransactionsTable
-          //   columnOrder={["type", "amount"]}
           data={transaction.map((t) => {
             const originalAmount = t.totalAmount;
             const balanceDue = t.balanceDue;
@@ -126,18 +287,14 @@ const TabContents = ({ partyName, phoneNumber, transaction, refetch }) => {
 
             if (balanceDue === 0) {
               status = "Paid";
-              // When fully paid, show the original total amount
               statusAmount = originalAmount;
             } else if (balanceDue > 0 && balanceDue < originalAmount) {
               status = "Partially Paid";
-              // When partially paid, show the amount paid (original - balance)
               statusAmount = originalAmount - balanceDue;
             } else if (balanceDue === originalAmount) {
               status = "Unpaid";
-              // When fully unpaid, show the original amount due (or balanceDue)
               statusAmount = originalAmount;
             } else {
-              // Fallback for cases like refunds or overpayments, if applicable
               status = "Pending/Other";
               statusAmount = originalAmount;
             }
@@ -181,6 +338,309 @@ const TabContents = ({ partyName, phoneNumber, transaction, refetch }) => {
           ]}
         />
       </div>
+
+      {/* Make Payment Modal */}
+      {showMakePaymentModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div ref={makepaymentRef} className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center p-6 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-800"># Make Payment</h2>
+              <button
+                onClick={() => setShowMakePaymentModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <FaTimes className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                   Principal Amount
+                </label>
+                <input
+                  type="number"
+                  name="principalAmount"
+                  value={makePaymentData.principalAmount}
+                  onChange={handleMakePaymentChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Interest Amount
+                </label>
+                <input
+                  type="number"
+                  name="interestAmount"
+                  value={makePaymentData.interestAmount}
+                  onChange={handleMakePaymentChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Total Amount
+                </label>
+                <input
+                  type="text"
+                  value={makePaymentData.totalAmount}
+                  readOnly
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Date
+                </label>
+                <input
+                  type="text"
+                  name="date"
+                  value={makePaymentData.date}
+                  onChange={handleMakePaymentChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Paid From
+                </label>
+                <select
+                  name="paidFrom"
+                  value={makePaymentData.paidFrom}
+                  onChange={handleMakePaymentChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="Cash">Cash</option>
+                  <option value="Bank Transfer">Bank Transfer</option>
+                  <option value="Credit Card">Credit Card</option>
+                  <option value="Check">Check</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
+              <button
+                onClick={() => setShowMakePaymentModal(false)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition duration-150"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveMakePayment}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Take More Loan Modal */}
+      {showTakeLoanModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div ref={takeloanRef} className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center p-6 border-b border-gray-200">
+              <div>
+                <h2 className="text-lg font-bold text-gray-800">NCC</h2>
+                <h3 className="text-xl font-bold text-gray-800">Take More Loan</h3>
+              </div>
+              <button
+                onClick={() => setShowTakeLoanModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <FaTimes className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Increase Loan By*
+                </label>
+                <input
+                  type="number"
+                  name="increaseLoanBy"
+                  value={takeLoanData.increaseLoanBy}
+                  onChange={handleTakeLoanChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Date
+                </label>
+                <input
+                  type="text"
+                  name="date"
+                  value={takeLoanData.date}
+                  onChange={handleTakeLoanChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Loan Received In
+                </label>
+                <select
+                  name="loanReceivedIn"
+                  value={takeLoanData.loanReceivedIn}
+                  onChange={handleTakeLoanChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="Cash">Cash</option>
+                  <option value="Bank Transfer">Bank Transfer</option>
+                  <option value="Credit Card">Credit Card</option>
+                  <option value="Check">Check</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
+              <button
+                onClick={() => setShowTakeLoanModal(false)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition duration-150"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveTakeLoan}
+                className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition duration-150"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Charges on Loan Modal */}
+      {showChargesModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div ref={chargesRef} className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center p-6 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-800"># Charges On Loan</h2>
+              <button
+                onClick={() => setShowChargesModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <FaTimes className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Amount
+                </label>
+                <input
+                  type="number"
+                  name="amount"
+                  value={chargesData.amount}
+                  onChange={handleChargesChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Transaction Type Name*
+                  <span className="text-xs text-gray-500 ml-1">Example: Penalty on Missing EMI</span>
+                </label>
+                <input
+                  type="text"
+                  name="transactionTypeName"
+                  value={chargesData.transactionTypeName}
+                  onChange={handleChargesChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter transaction type name"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Date
+                </label>
+                <input
+                  type="text"
+                  name="date"
+                  value={chargesData.date}
+                  onChange={handleChargesChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Amount
+                </label>
+                <input
+                  type="text"
+                  value={chargesData.amount}
+                  readOnly
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Loan Received In
+                </label>
+                <select
+                  name="loanReceivedIn"
+                  value={chargesData.loanReceivedIn}
+                  onChange={handleChargesChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="Cash">Cash</option>
+                  <option value="Bank Transfer">Bank Transfer</option>
+                  <option value="Credit Card">Credit Card</option>
+                  <option value="Check">Check</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
+              <button
+                onClick={() => setShowChargesModal(false)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition duration-150"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveCharges}
+                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-150"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

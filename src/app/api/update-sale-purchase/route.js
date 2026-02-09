@@ -7,7 +7,6 @@ export async function GET(req, { params }) {
     const id = url.searchParams.get("id");
     const type = url.searchParams.get("type");
     const partyId = url.searchParams.get("partyId");
-    console.log({ id, type });
 
     const party = await prisma.Party.findUnique({
       where: {

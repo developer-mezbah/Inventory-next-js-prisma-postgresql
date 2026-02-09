@@ -2,31 +2,28 @@ import { useFetchData } from '@/hook/useFetchData';
 import React, { useState } from 'react';
 import { BiPlus } from 'react-icons/bi';
 import PaymentSection from './PaymentSection';
+import useOutsideClick from '@/hook/useOutsideClick';
+import client_api from '@/utils/API_FETCH';
+import { useSession } from 'next-auth/react';
 
-const HeaderSection = () => {
+const HeaderSection = ({data, refetch}) => {
   const [showModal, setShowModal] = useState(false);
   const [paymentType, setPaymentType] = useState("Cash");
   const [processingFeePaymentType, setProcessingFeePaymentType] = useState("Cash");
   const [formData, setFormData] = useState({
     accountName: '',
+    lenderBank: '',
     accountNumber: '',
     description: '',
-    balanceAsOf: '08-02-2026',
+    balanceAsOfDate: '08-02-2026',
     currentBalance: '',
     interestRate: '',
     termDuration: '',
     processingFee: '',
   });
-
-  const {
-    isInitialLoading,
-    error,
-    data = {},
-    refetch,
-  } = useFetchData("/api/purchase-init-data", ["purchase-init-data"]);
+  const modalRef = useOutsideClick(() => setShowModal(false));
 
   const formatDateForInput = (dateStr) => {
-    // Convert dd-mm-yyyy to yyyy-mm-dd for input type="date"
     const parts = dateStr.split('-');
     if (parts.length === 3) {
       return `${parts[2]}-${parts[1]}-${parts[0]}`;
@@ -35,7 +32,6 @@ const HeaderSection = () => {
   };
 
   const formatDateForDisplay = (dateStr) => {
-    // Convert yyyy-mm-dd to dd-mm-yyyy for display
     const parts = dateStr.split('-');
     if (parts.length === 3) {
       return `${parts[2]}-${parts[1]}-${parts[0]}`;
@@ -45,38 +41,62 @@ const HeaderSection = () => {
 
   const handleInputChange = (e) => {
     const { name, value, type } = e.target;
-    if (name === 'balanceAsOf') {
-      const formattedDate = formatDateForDisplay(value);
-      // For date input, we need to handle the conversion
+    if (name === 'balanceAsOfDate') {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    } else {
       setFormData(prev => ({
         ...prev,
         [name]: value
       }));
     }
   };
-
+ const { data: session } = useSession()
   const handleSubmit = () => {
-    // Handle form submission logic here
+    // Prepare submission data according to your specified format
     const submissionData = {
-      ...formData,
-      loanReceivedIn: paymentType,
-      processingFeePaidFrom: processingFeePaymentType,
+      accountName: formData.accountName,
+      lenderBank: formData.lenderBank,
+      accountNumber: formData.accountNumber,
+      description: formData.description,
+      balanceAsOfDate: formData.balanceAsOfDate ? new Date(formData.balanceAsOfDate) : null,
+      currentBalance: parseFloat(formData.currentBalance) || 0,
+      loanReceivedIn: paymentType, 
+      loanReceivedInId: paymentType?.id || "",
+      interestRate: formData.interestRate ? parseFloat(formData.interestRate) : null,
+      termDurationMonths: formData.termDuration ? parseInt(formData.termDuration) : null,
+      processingFee: formData.processingFee ? parseFloat(formData.processingFee) : null,
+      processingFeePaidFrom: processingFeePaymentType, // Convert to boolean
+      processingFeePaidFromId: processingFeePaymentType?.id || "",
+      paymentType,
+      userId: session?.user?.id
     };
-    console.log('Form submitted:', submissionData);
-    setShowModal(false);
+
+    client_api.create("/api/loan-accounts", "", submissionData).then(res => {
+      console.log(res);
+    })
+    
     // Reset form
-    setFormData({
-      accountName: '',
-      accountNumber: '',
-      description: '',
-      balanceAsOf: '08-02-2026',
-      currentBalance: '',
-      interestRate: '',
-      termDuration: '',
-      processingFee: '',
-    });
+    // setFormData({
+    //   accountName: '',
+    //   lenderBank: '',
+    //   accountNumber: '',
+    //   description: '',
+    //   balanceAsOfDate: '08-02-2026',
+    //   currentBalance: '',
+    //   interestRate: '',
+    //   termDuration: '',
+    //   processingFee: '',
+    // });
     setPaymentType("Cash");
     setProcessingFeePaymentType("Cash");
+
+    // Optionally refetch data if needed
+    if (refetch) {
+      refetch();
+    }
   };
 
   return (
@@ -123,7 +143,7 @@ const HeaderSection = () => {
       {/* Modal for Add Loan Account */}
       {showModal && (
         <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+          <div ref={modalRef} className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-3 rounded-t-xl">
               <div className="flex items-center justify-between">
@@ -141,20 +161,35 @@ const HeaderSection = () => {
 
             {/* Modal Body - Reduced spacing */}
             <div className="p-4 space-y-4">
-              {/* Account Name (Required) */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Account Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="accountName"
-                  value={formData.accountName}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
-                  placeholder="Lender Bank"
-                  required
-                />
+              {/* Account Name (Required) and Lender Bank */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Account Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="accountName"
+                    value={formData.accountName}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+                    placeholder="Enter account name"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Lender Bank
+                  </label>
+                  <input
+                    type="text"
+                    name="lenderBank"
+                    value={formData.lenderBank}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+                    placeholder="Enter lender bank name"
+                  />
+                </div>
               </div>
 
               {/* Account Number & Description */}
@@ -192,14 +227,14 @@ const HeaderSection = () => {
                 <div>
                   <label htmlFor='calanderBa' className="block text-sm font-medium text-gray-700 mb-1">
                     Balance as of
-                    <span>{formatDateForDisplay(formData.balanceAsOf)}</span>
+                    <span>{formatDateForDisplay(formData.balanceAsOfDate)}</span>
                   </label>
                   
                   <input
                   id='calanderBa'
                     type="date"
-                    name="balanceAsOf"
-                    value={formData.balanceAsOf}
+                    name="balanceAsOfDate"
+                    value={formData.balanceAsOfDate}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
                   />
@@ -224,7 +259,6 @@ const HeaderSection = () => {
 
               {/* Payment Type Section */}
               <div className="pt-3 border-t border-gray-200">
-                <h3 className="text-sm font-semibold text-gray-800 mb-2">Payment Information</h3>
                 <div className="mb-3">
                   <PaymentSection
                     refetch={refetch}
@@ -290,9 +324,6 @@ const HeaderSection = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Processing Fee Paid from
-                    </label>
                     <PaymentSection
                       refetch={refetch}
                       bankData={data?.bank || []}
@@ -301,6 +332,7 @@ const HeaderSection = () => {
                       onPaymentTypeChange={setProcessingFeePaymentType}
                       compact={true}
                       showTitle={false}
+                      title="Processing Fee Paid from"
                     />
                   </div>
                 </div>

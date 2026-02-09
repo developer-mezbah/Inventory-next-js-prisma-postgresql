@@ -410,17 +410,16 @@ model LoanAccount {
   description             String?       // Description
   balanceAsOfDate         DateTime?     // Balance as of specific date
   currentBalance          Float         // Current Balance *
-  loanReceivedInCash      Boolean       @default(false) // Loan received In Cash
+  loanReceivedIn      String
+  loanReceivedId      String?
   interestRate            Float?        // Interest Rate % per annum
   termDurationMonths      Int?          // Term Duration(in Months)
   processingFee           Float?        // Processing Fee
-  processingFeePaidFromCash Boolean?    @default(false) // Processing Fee Paid from Cash
+  processingFeePaidFrom String // Processing Fee Paid from Cash
+  processingFeePaidFromId String? 
   createdAt               DateTime      @default(now())
   updatedAt               DateTime      @updatedAt
   companyId               String
   company                 Company       @relation(fields: [companyId], references: [id])
   transactions            Transaction[] // Relation to track loan transactions
-  
-  @@unique([accountNumber, companyId]) // Ensure account number is unique per company
-  @@index([companyId])
 }
