@@ -1,12 +1,13 @@
 import { useFetchData } from '@/hook/useFetchData';
 import React, { useState } from 'react';
-import { BiPlus } from 'react-icons/bi';
+import { BiLoader, BiPlus } from 'react-icons/bi';
 import PaymentSection from './PaymentSection';
 import useOutsideClick from '@/hook/useOutsideClick';
 import client_api from '@/utils/API_FETCH';
 import { useSession } from 'next-auth/react';
+import { toast } from 'react-toastify';
 
-const HeaderSection = ({data, refetch}) => {
+const HeaderSection = ({ data, refetch }) => {
   const [showModal, setShowModal] = useState(false);
   const [paymentType, setPaymentType] = useState("Cash");
   const [processingFeePaymentType, setProcessingFeePaymentType] = useState("Cash");
@@ -15,12 +16,13 @@ const HeaderSection = ({data, refetch}) => {
     lenderBank: '',
     accountNumber: '',
     description: '',
-    balanceAsOfDate: '08-02-2026',
+    balanceAsOfDate: '',
     currentBalance: '',
     interestRate: '',
     termDuration: '',
     processingFee: '',
   });
+  const [loading, setLoading] = useState(false);
   const modalRef = useOutsideClick(() => setShowModal(false));
 
   const formatDateForInput = (dateStr) => {
@@ -53,8 +55,15 @@ const HeaderSection = ({data, refetch}) => {
       }));
     }
   };
- const { data: session } = useSession()
+
+  const { data: session } = useSession()
   const handleSubmit = () => {
+
+    if (!formData.accountName || !formData.currentBalance) {
+      toast.error("Please fill in all required fields (Account Name and Current Balance).");
+      return;
+    }
+    setLoading(true);
     // Prepare submission data according to your specified format
     const submissionData = {
       accountName: formData.accountName,
@@ -63,40 +72,52 @@ const HeaderSection = ({data, refetch}) => {
       description: formData.description,
       balanceAsOfDate: formData.balanceAsOfDate ? new Date(formData.balanceAsOfDate) : null,
       currentBalance: parseFloat(formData.currentBalance) || 0,
-      loanReceivedIn: paymentType, 
+      loanReceivedIn: paymentType,
       loanReceivedInId: paymentType?.id || "",
       interestRate: formData.interestRate ? parseFloat(formData.interestRate) : null,
       termDurationMonths: formData.termDuration ? parseInt(formData.termDuration) : null,
       processingFee: formData.processingFee ? parseFloat(formData.processingFee) : null,
-      processingFeePaidFrom: processingFeePaymentType, // Convert to boolean
+      processingFeePaidFrom: processingFeePaymentType || "Cash", // Convert to boolean
       processingFeePaidFromId: processingFeePaymentType?.id || "",
-      paymentType,
       userId: session?.user?.id
     };
 
     client_api.create("/api/loan-accounts", "", submissionData).then(res => {
-      console.log(res);
-    })
-    
-    // Reset form
-    // setFormData({
-    //   accountName: '',
-    //   lenderBank: '',
-    //   accountNumber: '',
-    //   description: '',
-    //   balanceAsOfDate: '08-02-2026',
-    //   currentBalance: '',
-    //   interestRate: '',
-    //   termDuration: '',
-    //   processingFee: '',
-    // });
-    setPaymentType("Cash");
-    setProcessingFeePaymentType("Cash");
+      if (res.status) {
+        toast.success("Loan account created successfully:");
+        // Optionally refetch data if needed
+        if (refetch) {
+          refetch();
+        }
+      } else {
+        console.error("Failed to create loan account:", res.message);
+      }
+    }).catch(err => {
+      console.error("Error creating loan account:", err);
+      toast.error("Failed to create loan account. Please try again.")
+    }).finally(() => {
+      setLoading(false);
+      setShowModal(false);
+      setPaymentType("Cash");
+      setProcessingFeePaymentType("Cash");
+      // Reset form
+      setFormData({
+        accountName: '',
+        lenderBank: '',
+        accountNumber: '',
+        description: '',
+        balanceAsOfDate: '',
+        currentBalance: '',
+        interestRate: '',
+        termDuration: '',
+        processingFee: '',
+      });
+    });
 
-    // Optionally refetch data if needed
-    if (refetch) {
-      refetch();
-    }
+
+
+
+
   };
 
   return (
@@ -229,9 +250,9 @@ const HeaderSection = ({data, refetch}) => {
                     Balance as of
                     <span>{formatDateForDisplay(formData.balanceAsOfDate)}</span>
                   </label>
-                  
+
                   <input
-                  id='calanderBa'
+                    id='calanderBa'
                     type="date"
                     name="balanceAsOfDate"
                     value={formData.balanceAsOfDate}
@@ -349,9 +370,10 @@ const HeaderSection = ({data, refetch}) => {
                   </button>
                   <button
                     onClick={handleSubmit}
+                    disabled={loading}
                     className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:ring-offset-1 transition-colors"
                   >
-                    Save Loan Account
+                    {loading ? <span><BiLoader className="inline mr-2 animate-spin" /> Saving...</span> : "Save Loan Account"}
                   </button>
                 </div>
               </div>

@@ -28,6 +28,9 @@ export async function GET() {
             where: {
                 companyId: await getCompanyId(),
             },
+            include: {
+                transactions: true
+            }
         });
 
 
@@ -36,7 +39,85 @@ export async function GET() {
         return NextResponse.json({ error: error || "Failed to fetch Accounts Data" }, { status: 500 });
     }
 }
+export async function PUT(request) {
+    try {
 
+        const body = await request.json();
+        console.log("Received POST data:", body);
+        return NextResponse.json({ message: "POST endpoint is working" });
+    } catch (error) {
+        return NextResponse.json({ error: error || "Failed to fetch Accounts Data" }, { status: 500 });
+    }
+}
+
+
+const cashProcessing = async (body, companyId, processingFee = false) => {
+    // Create transaction data function
+    const createTransactionData = () => ({
+        amount: processingFee ? -parseFloat(body.processingFee) : parseFloat(body.currentBalance),
+        paymentType: 'CASH',
+        description: body.description || `Initial loan disbursement for ${body.accountName}`,
+        type: processingFee ? 'LOAN_PROCESSING_FEE' : 'LOAN_DISBURSEMENT',
+        date: new Date(),
+        companyId: companyId
+    });
+
+
+    const res = await prisma.cashAdjustment.upsert({
+        where: {
+            userId: body.userId,  // userId is @unique in your schema
+        },
+        update: {
+            cashInHand: {
+                [processingFee ? "decrement" : "increment"]: parseFloat(body.currentBalance),
+            },
+            transaction: {
+                create: createTransactionData()
+            }
+        },
+        create: {
+            userId: body.userId,
+            companyId: companyId,
+            cashInHand: processingFee ? -parseFloat(body.processingFee) : parseFloat(body.currentBalance),
+            transaction: {
+                create: createTransactionData()
+            }
+        },
+    });
+
+    return res;
+}
+
+const bankProcessing = async (body, companyId, processingFee = false) => {
+    // Create transaction data function
+    const createTransactionData = () => ({
+        amount: processingFee ? -parseFloat(body.processingFee) : parseFloat(body.currentBalance),
+        paymentType: processingFee ? body.processingFeePaidFrom?.accountdisplayname || "" : body.loanReceivedIn?.accountdisplayname || "",
+        description: body.description || `Initial loan disbursement for ${body.accountName}`,
+        type: processingFee ? 'LOAN_PROCESSING_FEE' : 'LOAN_DISBURSEMENT',
+        date: new Date(),
+        companyId: companyId
+    });
+
+    // Fix: Get the correct value - use parseFloat for both cases but ensure it's positive
+    const amount = processingFee ? parseFloat(body.processingFee) : parseFloat(body.currentBalance);
+
+    const res = await prisma.cashAndBank.update({
+        where: {
+            id: processingFee ? body?.processingFeePaidFromId : body?.loanReceivedInId
+        },
+        data: {
+            openingbalance: {
+                [processingFee ? "decrement" : "increment"]: amount,
+            },
+            transaction: {
+                create: createTransactionData()
+            }
+        }
+    });
+
+    return res;
+}
 
 // POST create new loan account
 export async function POST(request) {
@@ -72,92 +153,55 @@ export async function POST(request) {
             }
         }
 
-        const transaction = {
-                create: {
-                  amount: parseFloat(body.currentBalance),
-                  paymentType: 'CASH',
-                  description: body.description || `Initial loan disbursement for ${body.accountName}`,
-                  type: 'LOAN_DISBURSEMENT',
-                  date: new Date(),
-                  companyId: companyId
+
+
+        // Create loan account
+        const loanAccount = await prisma.loanAccount.create({
+            data: {
+                accountName: body.accountName,
+                lenderBank: body.lenderBank,
+                accountNumber: body.accountNumber,
+                description: body.description,
+                balanceAsOfDate: body.balanceAsOfDate ? new Date(body.balanceAsOfDate) : null,
+                currentBalance: parseFloat(body.currentBalance),
+                loanReceivedIn: body.loanReceivedIn?.accountdisplayname || body.loanReceivedIn || "Cash",
+                loanReceivedId: body?.loanReceivedInId || "",
+                processingFeePaidFrom: body.processingFeePaidFrom?.accountdisplayname || body.processingFeePaidFrom || "Cash",
+                processingFeePaidFromId: body?.processingFeePaidFromId || "",
+                interestRate: body.interestRate ? parseFloat(body.interestRate) : null,
+                termDurationMonths: body.termDurationMonths ? parseInt(body.termDurationMonths) : null,
+                processingFee: body.processingFee ? parseFloat(body.processingFee) : null,
+                company: {
+                    connect: { id: companyId }
                 }
-              }
-        const res = await prisma.CashAdjustment.upsert({
-            where: {
-                userId: body?.userId,
-                companyId: await getCompanyId(),
-            },
-            update: {
-                cashInHand: {
-                    increment: body?.paidAmount,
-                },
-            },
-            create: {
-                userId: body?.userId,
-                companyId: await getCompanyId(),
-                cashInHand:
-                    { increment: body?.paidAmount, }
-            },
+            }
         });
 
-
-        // Create loan account with transaction if received in cash
-        let loanAccount;
-
-        if (body.loanReceivedInCash) {
-          // Create with transaction in one operation
-          loanAccount = await prisma.loanAccount.create({
-            data: {
-              accountName: body.accountName,
-              lenderBank: body.lenderBank,
-              accountNumber: body.accountNumber,
-              description: body.description,
-              balanceAsOfDate: body.balanceAsOfDate ? new Date(body.balanceAsOfDate) : null,
-              currentBalance: parseFloat(body.currentBalance),
-              loanReceivedInCash: body.loanReceivedInCash || false,
-              interestRate: body.interestRate ? parseFloat(body.interestRate) : null,
-              termDurationMonths: body.termDurationMonths ? parseInt(body.termDurationMonths) : null,
-              processingFee: body.processingFee ? parseFloat(body.processingFee) : null,
-              processingFeePaidFromCash: body.processingFeePaidFromCash || false,
-              companyId: companyId,
-              // Create initial disbursement transaction
-              transactions: {
-                create: {
-                  amount: parseFloat(body.currentBalance),
-                  paymentType: 'CASH',
-                  description: body.description || `Initial loan disbursement for ${body.accountName}`,
-                  type: 'LOAN_DISBURSEMENT',
-                  date: new Date(),
-                  companyId: companyId
+        if (loanAccount) {
+            // Process loan processing fee first if applicable
+            if (body?.processingFee > 0) {
+                if (body?.processingFeePaidFrom === "Cash" || body.processingFeePaidFrom?.accountdisplayname === "Cash") {
+                    await cashProcessing(body, companyId, true);
+                } else {
+                    await bankProcessing(body, companyId, true);
                 }
-              }
-            },
-            include: { transactions: true }
-          });
-        } else {
-          // Create without initial transaction
-          loanAccount = await prisma.loanAccount.create({
-            data: {
-              accountName: body.accountName,
-              lenderBank: body.lenderBank,
-              accountNumber: body.accountNumber,
-              description: body.description,
-              balanceAsOfDate: body.balanceAsOfDate ? new Date(body.balanceAsOfDate) : null,
-              currentBalance: parseFloat(body.currentBalance),
-              loanReceivedInCash: body.loanReceivedInCash || false,
-              interestRate: body.interestRate ? parseFloat(body.interestRate) : null,
-              termDurationMonths: body.termDurationMonths ? parseInt(body.termDurationMonths) : null,
-              processingFee: body.processingFee ? parseFloat(body.processingFee) : null,
-              processingFeePaidFromCash: body.processingFeePaidFromCash || false,
-              companyId: companyId
             }
-          });
+
+            // Process loan disbursement after processing fee
+            if (body?.currentBalance > 0) {
+                if (body?.loanReceivedIn === "Cash" || body.loanReceivedIn?.accountdisplayname === "Cash") {
+                    await cashProcessing(body, companyId, false);
+                } else {
+                    await bankProcessing(body, companyId, false);
+                }
+            }
         }
 
         return NextResponse.json(
             {
                 message: 'Loan account created successfully',
-                data: "loanAccount"
+                data: loanAccount,
+                status: true
             },
             { status: 201 }
         );

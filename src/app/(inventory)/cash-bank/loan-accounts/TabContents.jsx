@@ -3,6 +3,7 @@ import TransactionsTable from "@/components/purchase/PurchaseBills/TransactionsT
 import { FaRegEdit, FaTimes } from "react-icons/fa";
 import { RiWhatsappFill } from "react-icons/ri";
 import useOutsideClick from "@/hook/useOutsideClick";
+import { useCurrencyStore } from "@/stores/useCurrencyStore";
 
 const TimeNotificationIcon = (props) => {
   const { size = 24, color = "currentColor", ...rest } = props;
@@ -60,24 +61,27 @@ const TimeNotificationIcon = (props) => {
   );
 };
 
-const TabContents = ({ partyName, phoneNumber, transaction, refetch }) => {
+const TabContents = ({ transaction = [], refetch, accountData }) => {
+  console.log(transaction);
   const [showMakePaymentModal, setShowMakePaymentModal] = useState(false);
   const [showTakeLoanModal, setShowTakeLoanModal] = useState(false);
   const [showChargesModal, setShowChargesModal] = useState(false);
 
+  const { currencySymbol, formatPrice } = useCurrencyStore();
+  
   // Modal state for Make Payment
   const [makePaymentData, setMakePaymentData] = useState({
     principalAmount: "0",
     interestAmount: "0",
     totalAmount: "0",
-    date: "09/02/2026",
+    date: new Date().toLocaleDateString('en-GB'),
     paidFrom: "Cash"
   });
 
   // Modal state for Take More Loan
   const [takeLoanData, setTakeLoanData] = useState({
     increaseLoanBy: "0",
-    date: "09/02/2026",
+    date: new Date().toLocaleDateString('en-GB'),
     loanReceivedIn: "Cash"
   });
 
@@ -85,14 +89,13 @@ const TabContents = ({ partyName, phoneNumber, transaction, refetch }) => {
   const [chargesData, setChargesData] = useState({
     amount: "0",
     transactionTypeName: "",
-    date: "09/02/2026",
+    date: new Date().toLocaleDateString('en-GB'),
     loanReceivedIn: "Cash"
   });
 
-    const chargesRef = useOutsideClick(() => setShowChargesModal(false));
-    const takeloanRef = useOutsideClick(() => setShowTakeLoanModal(false));
-    const makepaymentRef = useOutsideClick(() => setShowMakePaymentModal(false));
-
+  const chargesRef = useOutsideClick(() => setShowChargesModal(false));
+  const takeloanRef = useOutsideClick(() => setShowTakeLoanModal(false));
+  const makepaymentRef = useOutsideClick(() => setShowMakePaymentModal(false));
 
   // Calculate total amount when principal or interest changes
   const updateTotalAmount = () => {
@@ -145,6 +148,23 @@ const TabContents = ({ partyName, phoneNumber, transaction, refetch }) => {
     setShowChargesModal(false);
   };
 
+
+
+  // Get account name
+  const accountName = accountData?.accountName || "";
+  
+  // Get current balance from account data
+  const currentBalance = accountData?.currentBalance || 0;
+  
+  // Calculate total amount from transactions
+  const totalLoanAmount = transaction.reduce((sum, t) => sum + (t.amount || 0), 0);
+  
+  // Get processing fee
+  const processingFee = accountData?.processingFee || 0;
+  
+  // Get loan received method
+  const loanReceivedIn = accountData?.loanReceivedIn || "Cash";
+
   return (
     <div className="font-inter antialiased">
       {/* Main Card Container */}
@@ -157,32 +177,35 @@ const TabContents = ({ partyName, phoneNumber, transaction, refetch }) => {
               {/* Left Side: Party Name with Edit Icon */}
               <div className="flex items-center">
                 <h2 className="text-lg font-semibold text-gray-800 mr-2">
-                  {partyName}
+                  {accountName}
                 </h2>
+                <FaRegEdit className="w-4 h-4 text-blue-600 cursor-pointer" />
               </div>
 
-              {/* Right Side: NCC and Balance Amount */}
+              {/* Right Side: Total Loan and Current Balance */}
               <div className="flex items-center space-x-6">
-                {/* NCC Section */}
+                {/* Total Loan Amount Section */}
                 <div className="text-right">
-                  <div className="text-sm text-gray-500 font-medium">NCC</div>
-                  <div className="text-lg font-bold text-gray-800">10,000.00 ₺</div>
+                  <div className="text-sm text-gray-500 font-medium">Total Loan</div>
+                  <div className="text-lg font-bold text-gray-800">{formatPrice(totalLoanAmount)}</div>
                 </div>
 
-                {/* Balance Amount Section */}
+                {/* Current Balance Section */}
                 <div className="text-right">
-                  <div className="text-sm text-gray-500 font-medium">Balance Amount</div>
-                  <div className="text-lg font-bold text-gray-800">10,000.00 ₺</div>
+                  <div className="text-sm text-gray-500 font-medium">Current Balance</div>
+                  <div className="text-lg font-bold text-gray-800">{formatPrice(currentBalance)}</div>
                 </div>
               </div>
             </div>
 
             {/* Action Buttons Row */}
             <div className="flex justify-between items-center">
-              {/* Left Side: Phone Number */}
+              {/* Left Side: Loan Details */}
               <div>
-                <div className="text-sm font-medium text-gray-500">Phone Number</div>
-                <div className="text-lg font-bold text-gray-800">{phoneNumber}</div>
+                <div className="text-sm font-medium text-gray-500">Loan Details</div>
+                <div className="text-lg font-bold text-gray-800">
+                  {loanReceivedIn} • Processing Fee: {formatPrice(processingFee)}
+                </div>
               </div>
 
               {/* Right Side: Action Buttons and Icons */}
@@ -219,7 +242,7 @@ const TabContents = ({ partyName, phoneNumber, transaction, refetch }) => {
           <div className="flex justify-between items-center mb-4">
             <div className="flex items-center">
               <h2 className="text-lg font-semibold text-gray-800 mr-2">
-                {partyName}
+                {accountName}
               </h2>
               <FaRegEdit className="w-4 h-4 text-blue-600 cursor-pointer" />
             </div>
@@ -233,22 +256,24 @@ const TabContents = ({ partyName, phoneNumber, transaction, refetch }) => {
             </div>
           </div>
 
-          {/* NCC and Balance Stacked */}
+          {/* Total Loan and Current Balance Stacked */}
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
-              <div className="text-sm text-gray-500 font-medium">NCC</div>
-              <div className="text-lg font-bold text-gray-800">10,000.00 ₺</div>
+              <div className="text-sm text-gray-500 font-medium">Total Loan</div>
+              <div className="text-lg font-bold text-gray-800">{formatPrice(totalLoanAmount)}</div>
             </div>
             <div>
-              <div className="text-sm text-gray-500 font-medium">Balance Amount</div>
-              <div className="text-lg font-bold text-gray-800">10,000.00 ₺</div>
+              <div className="text-sm text-gray-500 font-medium">Current Balance</div>
+              <div className="text-lg font-bold text-gray-800">{formatPrice(currentBalance)}</div>
             </div>
           </div>
 
-          {/* Phone Number */}
+          {/* Loan Details */}
           <div className="mb-4">
-            <div className="text-sm font-medium text-gray-500">Phone Number</div>
-            <div className="text-lg font-bold text-gray-800">{phoneNumber}</div>
+            <div className="text-sm font-medium text-gray-500">Loan Details</div>
+            <div className="text-lg font-bold text-gray-800">
+              {loanReceivedIn} • Processing Fee: {formatPrice(processingFee)}
+            </div>
           </div>
 
           {/* Action Buttons - Stacked on Mobile */}
@@ -266,7 +291,7 @@ const TabContents = ({ partyName, phoneNumber, transaction, refetch }) => {
               Take more loan
             </button>
             <button 
-              onClick={() => setShowChargesModal(true)}
+              onClick={() => setShowChargesModal(false)}
               className="w-full px-4 py-3 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition duration-150"
             >
               Charges on Loan
@@ -278,42 +303,49 @@ const TabContents = ({ partyName, phoneNumber, transaction, refetch }) => {
         <div className="h-0.5 bg-gray-200 border-t border-b border-gray-300"></div>
         
         <TransactionsTable
+        isMobile={true}
           data={transaction.map((t) => {
-            const originalAmount = t.totalAmount;
-            const balanceDue = t.balanceDue;
+            // For loan transactions, we need to handle different fields
+            let displayType = t.type;
+            let displayPaymentType = t.paymentType || "N/A";
+            let displayAmount = t.amount || 0;
+            let transactionDate = t.date ? new Date(t.date).toLocaleDateString() : "N/A";
 
-            let status;
-            let statusAmount;
-
-            if (balanceDue === 0) {
-              status = "Paid";
-              statusAmount = originalAmount;
-            } else if (balanceDue > 0 && balanceDue < originalAmount) {
-              status = "Partially Paid";
-              statusAmount = originalAmount - balanceDue;
-            } else if (balanceDue === originalAmount) {
-              status = "Unpaid";
-              statusAmount = originalAmount;
-            } else {
-              status = "Pending/Other";
-              statusAmount = originalAmount;
+            // Format the transaction type for better display
+            if (displayType === "LOAN_DISBURSEMENT") {
+              displayType = "Loan Disbursement";
             }
 
             return {
               id: t.id,
               transactionId: t.transactionId,
-              amount: t.totalAmount,
-              transactionType: t.type,
-              purchaseId: t.purchaseId,
-              saleId: t.saleId,
-              type: t?.type,
-              paymentType: t?.paymentType,
+              amount: displayAmount,
+              transactionType: displayType,
+              type: displayType,
+              paymentType: displayPaymentType,
+              date: transactionDate,
+              description: t.description || "No description",
+              invoiceNo: t.invoiceNo || "N/A"
             };
           })}
           itemsPerPage={10}
           refetch={refetch}
           showPagination={true}
           userProvidedColumns={[
+            {
+              key: "date",
+              label: "Date",
+              sortable: true,
+              type: "text",
+              className: "text-left font-semibold",
+            },
+            {
+              key: "invoiceNo",
+              label: "Invoice No",
+              sortable: true,
+              type: "text",
+              className: "text-left font-semibold",
+            },
             {
               key: "type",
               label: "Type",
@@ -335,6 +367,13 @@ const TabContents = ({ partyName, phoneNumber, transaction, refetch }) => {
               type: "currency",
               className: "text-left font-semibold",
             },
+            {
+              key: "description",
+              label: "Description",
+              sortable: true,
+              type: "text",
+              className: "text-left font-semibold",
+            },
           ]}
         />
       </div>
@@ -345,7 +384,7 @@ const TabContents = ({ partyName, phoneNumber, transaction, refetch }) => {
           <div ref={makepaymentRef} className="bg-white rounded-xl shadow-xl w-full max-w-md">
             {/* Modal Header */}
             <div className="flex justify-between items-center p-6 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-800"># Make Payment</h2>
+              <h2 className="text-xl font-bold text-gray-800">Make Payment - {accountName}</h2>
               <button
                 onClick={() => setShowMakePaymentModal(false)}
                 className="text-gray-500 hover:text-gray-700"
@@ -358,7 +397,7 @@ const TabContents = ({ partyName, phoneNumber, transaction, refetch }) => {
             <div className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                   Principal Amount
+                  Principal Amount
                 </label>
                 <input
                   type="number"
@@ -403,7 +442,7 @@ const TabContents = ({ partyName, phoneNumber, transaction, refetch }) => {
                   Date
                 </label>
                 <input
-                  type="text"
+                  type="date"
                   name="date"
                   value={makePaymentData.date}
                   onChange={handleMakePaymentChange}
@@ -425,6 +464,7 @@ const TabContents = ({ partyName, phoneNumber, transaction, refetch }) => {
                   <option value="Bank Transfer">Bank Transfer</option>
                   <option value="Credit Card">Credit Card</option>
                   <option value="Check">Check</option>
+                  <option value="Bkash">Bkash</option>
                 </select>
               </div>
             </div>
@@ -455,7 +495,7 @@ const TabContents = ({ partyName, phoneNumber, transaction, refetch }) => {
             {/* Modal Header */}
             <div className="flex justify-between items-center p-6 border-b border-gray-200">
               <div>
-                <h2 className="text-lg font-bold text-gray-800">NCC</h2>
+                <h2 className="text-lg font-bold text-gray-800">{accountName}</h2>
                 <h3 className="text-xl font-bold text-gray-800">Take More Loan</h3>
               </div>
               <button
@@ -488,7 +528,7 @@ const TabContents = ({ partyName, phoneNumber, transaction, refetch }) => {
                   Date
                 </label>
                 <input
-                  type="text"
+                  type="date"
                   name="date"
                   value={takeLoanData.date}
                   onChange={handleTakeLoanChange}
@@ -510,6 +550,7 @@ const TabContents = ({ partyName, phoneNumber, transaction, refetch }) => {
                   <option value="Bank Transfer">Bank Transfer</option>
                   <option value="Credit Card">Credit Card</option>
                   <option value="Check">Check</option>
+                  <option value="Bkash">Bkash</option>
                 </select>
               </div>
             </div>
@@ -539,7 +580,7 @@ const TabContents = ({ partyName, phoneNumber, transaction, refetch }) => {
           <div ref={chargesRef} className="bg-white rounded-xl shadow-xl w-full max-w-md">
             {/* Modal Header */}
             <div className="flex justify-between items-center p-6 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-800"># Charges On Loan</h2>
+              <h2 className="text-xl font-bold text-gray-800">Charges On Loan - {accountName}</h2>
               <button
                 onClick={() => setShowChargesModal(false)}
                 className="text-gray-500 hover:text-gray-700"
@@ -585,7 +626,7 @@ const TabContents = ({ partyName, phoneNumber, transaction, refetch }) => {
                   Date
                 </label>
                 <input
-                  type="text"
+                  type="date"
                   name="date"
                   value={chargesData.date}
                   onChange={handleChargesChange}
@@ -595,7 +636,7 @@ const TabContents = ({ partyName, phoneNumber, transaction, refetch }) => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Amount
+                  Charge Amount
                 </label>
                 <input
                   type="text"
@@ -607,7 +648,7 @@ const TabContents = ({ partyName, phoneNumber, transaction, refetch }) => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Loan Received In
+                  Paid From
                 </label>
                 <select
                   name="loanReceivedIn"
@@ -619,6 +660,7 @@ const TabContents = ({ partyName, phoneNumber, transaction, refetch }) => {
                   <option value="Bank Transfer">Bank Transfer</option>
                   <option value="Credit Card">Credit Card</option>
                   <option value="Check">Check</option>
+                  <option value="Bkash">Bkash</option>
                 </select>
               </div>
             </div>

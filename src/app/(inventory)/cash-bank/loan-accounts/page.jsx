@@ -8,6 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FaChevronLeft, FaFilter, FaSearch, FaTimes } from "react-icons/fa";
 import { toast } from "react-toastify";
+import { useCurrencyStore } from "@/stores/useCurrencyStore";
 
 const LoanAccounts = () => {
   const router = useRouter();
@@ -22,7 +23,7 @@ const LoanAccounts = () => {
   const activeTab = searchParams.get("tab") || "general";
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [mobileView, setMobileView] = useState("list"); // 'list' or 'details'
-
+  const [hasSetDefaultTab, setHasSetDefaultTab] = useState(false);
 
   const {
     isInitialLoading,
@@ -32,10 +33,12 @@ const LoanAccounts = () => {
   } = useFetchData("/api/loan-accounts", ["loan-accounts-data"]);
 
   const accountData = data?.accountData || [];
+  const { formatPrice } = useCurrencyStore();
 
+  // Updated: Changed from partyName to accountName
   const tabs =
     accountData && accountData.length > 0
-      ? accountData.map((item) => ({ id: item?.id, label: item?.partyName }))
+      ? accountData.map((item) => ({ id: item?.id, label: item?.accountName }))
       : [];
 
   const activePartyData = useMemo(() => {
@@ -44,6 +47,16 @@ const LoanAccounts = () => {
     }
     return accountData.find((item) => item.id === activeTab);
   }, [accountData, activeTab]);
+
+  // Fetch transaction data for the active account
+  const {
+    data: transactionData = {},
+    refetch: refetchTransactions,
+  } = useFetchData(
+    activeTab && activeTab !== "general" ? `/api/loan-accounts/${activeTab}/transactions` : null,
+    ["loan-transactions", activeTab]
+  );
+
 
   const filteredTabs = useMemo(() => {
     if (!searchTerm) {
@@ -69,15 +82,32 @@ const LoanAccounts = () => {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
+  // Set default tab when component loads or when data is fetched
+  useEffect(() => {
+    if (!hasSetDefaultTab && tabs.length > 0 && !searchParams.get("tab")) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("tab", tabs[0].id);
+      router.replace(`?${params.toString()}`);
+      setHasSetDefaultTab(true);
+    }
+    
+    // If no tabs and no tab is set, set to general
+    if (tabs.length === 0 && !searchParams.get("tab")) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("tab", "general");
+      router.replace(`?${params.toString()}`);
+      setHasSetDefaultTab(true);
+    }
+  }, [tabs, searchParams, router, hasSetDefaultTab]);
+
   // Set mobile view based on active tab
   useEffect(() => {
     if (isMobile) {
       if (activeTab === "general" || !activeTab) {
         setMobileView("list");
+      } else {
+        setMobileView("details");
       }
-      // else {
-      //   setMobileView("details");
-      // }
     }
   }, [activeTab, isMobile]);
 
@@ -103,25 +133,8 @@ const LoanAccounts = () => {
   const handleBackToList = useCallback(() => {
     if (isMobile) {
       setMobileView("list");
-      // Optionally clear the tab from URL or keep it
-      // const params = new URLSearchParams(searchParams.toString());
-      // params.delete("tab");
-      // router.replace(`?${params.toString()}`);
     }
   }, [isMobile]);
-
-  useEffect(() => {
-    if (!searchParams.get("tab") && tabs.length === 0) {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("tab", "general");
-      router.replace(`?${params.toString()}`);
-    } else if (!searchParams.get("tab") && tabs.length > 0) {
-      const params = new URLSearchParams(searchParams.toString());
-      params.set("tab", tabs[0].id);
-      router.replace(`?${params.toString()}`);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tabs]);
 
   const colorPalette = [
     { bg: "bg-indigo-100", text: "text-indigo-800" },
@@ -138,10 +151,10 @@ const LoanAccounts = () => {
   };
 
   const handleDelete = (tabId) => {
-    DeleteAlert(`/api/party/${tabId}`).then((res) => {
+    DeleteAlert(`/api/loan-accounts/${tabId}`).then((res) => {
       if (res) {
         refetch();
-        toast.success("Item Deleted Successfully!");
+        toast.success("Loan Account Deleted Successfully!");
         setOpenDropdownId(null);
         // If on mobile and deleting current active tab, go back to list
         if (isMobile && tabId === activeTab) {
@@ -171,6 +184,12 @@ const LoanAccounts = () => {
     };
   }, [openDropdownId]);
 
+  // Get account balance for display
+  const getAccountBalance = (accountId) => {
+    const account = accountData.find((item) => item.id === accountId);
+    return account ? account.currentBalance : 0;
+  };
+
   // Render list box view for mobile
   const renderMobileListBox = () => (
     <div className="p-4">
@@ -181,7 +200,7 @@ const LoanAccounts = () => {
         <FaSearch className="h-5 w-5 text-gray-400" />
         <input
           type="text"
-          placeholder="Search Party Name"
+          placeholder="Search Account Name"
           className="w-full text-base text-gray-600 placeholder-gray-400 focus:outline-none"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -197,7 +216,7 @@ const LoanAccounts = () => {
         )}
       </div>
 
-      {/* Party List Box */}
+      {/* Account List Box */}
       <div className="space-y-3">
         {filteredTabs.length > 0 ? (
           filteredTabs.map((tab, index) => {
@@ -205,6 +224,7 @@ const LoanAccounts = () => {
             const colorStyle =
               colorPalette[originalIndex % colorPalette.length];
             const isDropdownOpen = openDropdownId === tab.id;
+            const balance = getAccountBalance(tab.id);
 
             return (
               <div
@@ -212,16 +232,21 @@ const LoanAccounts = () => {
                 className={`p-4 rounded-lg shadow-sm border ${colorStyle.bg} ${colorStyle.text}`}
               >
                 <div className="flex justify-between items-center">
-                  <button
-                    onClick={() => handleTabChange(tab.id)}
-                    className="flex-grow text-left font-medium"
-                  >
-                    {tab.label}
-                  </button>
+                  <div className="flex-grow">
+                    <button
+                      onClick={() => handleTabChange(tab.id)}
+                      className="text-left w-full"
+                    >
+                      <div className="flex justify-between items-center">
+                        <div className="font-medium">{tab.label}</div>
+                        <div className="font-semibold">{formatPrice(balance)}</div>
+                      </div>
+                    </button>
+                  </div>
 
                   <div
                     ref={isDropdownOpen ? dropdownRef : null}
-                    className="relative"
+                    className="relative ml-2"
                   >
                     <button
                       onClick={(e) => {
@@ -263,7 +288,7 @@ const LoanAccounts = () => {
           })
         ) : (
           <div className="p-4 text-center text-gray-500 italic">
-            No parties found for "{searchTerm}".
+            No accounts found for "{searchTerm}".
           </div>
         )}
       </div>
@@ -282,7 +307,7 @@ const LoanAccounts = () => {
           <FaChevronLeft className="h-5 w-5" />
         </button>
         <h2 className="text-lg font-semibold truncate">
-          {activePartyData?.partyName || "Party Details"}
+          {activePartyData?.accountName || "Account Details"}
         </h2>
       </div>
 
@@ -290,25 +315,33 @@ const LoanAccounts = () => {
       <div className="flex-grow overflow-auto">
         {activePartyData ? (
           <TabContents
-            phoneNumber={activePartyData.phoneNumber}
-            transaction={activePartyData.transaction || []}
-            partyName={activePartyData.partyName}
+            // Updated: Pass loan account data with actual transaction data
+            accountData={activePartyData}
             refetch={refetch}
+            transaction={activePartyData?.transactions} // Pass actual transaction data
           />
         ) : (
-          <div className="p-4 text-gray-600">No party data available.</div>
+          <div className="p-4 text-gray-600">No account data available.</div>
         )}
       </div>
     </div>
   );
 
-  // Desktop view remains unchanged
+  // Combined refetch function
+  const handleCombinedRefetch = useCallback(() => {
+    refetch();
+    if (activeTab && activeTab !== "general") {
+      refetchTransactions();
+    }
+  }, [refetch, refetchTransactions, activeTab]);
+
+  // Desktop view with updated fields
   const renderDesktopView = () => (
     <div>
       <HeaderSection data={data} refetch={refetch} setIsModalOpen={setIsModalOpen} />
 
       <AddPartyModal
-        refetch={refetch}
+        refetch={handleCombinedRefetch}
         isOpen={isUpdateModalOpen}
         onClose={handleClose}
         mode="update"
@@ -316,7 +349,7 @@ const LoanAccounts = () => {
       />
 
       <AddPartyModal
-        refetch={refetch}
+        refetch={handleCombinedRefetch}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         mode="create"
@@ -343,7 +376,7 @@ const LoanAccounts = () => {
               <FaSearch className="h-5 w-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search Party Name or Amount"
+                placeholder="Search Account Name"
                 className="w-full text-base text-gray-600 placeholder-gray-400 focus:outline-none"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -365,7 +398,7 @@ const LoanAccounts = () => {
                 <FaFilter className="h-4 w-4 text-red-500 cursor-pointer hover:text-red-600 transition-colors" />
               </div>
               <div className="w-28 p-3 flex items-center justify-start bg-blue-50">
-                <span>Amount</span>
+                <span>Balance</span>
               </div>
             </div>
           </div>
@@ -377,6 +410,7 @@ const LoanAccounts = () => {
                 const colorStyle =
                   colorPalette[originalIndex % colorPalette.length];
                 const isDropdownOpen = openDropdownId === tab.id;
+                const balance = getAccountBalance(tab.id);
 
                 return (
                   <div
@@ -388,14 +422,17 @@ const LoanAccounts = () => {
                   >
                     <button
                       onClick={() => handleTabChange(tab.id)}
-                      className="flex-grow text-left focus:outline-none"
+                      className="flex-grow text-left focus:outline-none flex justify-between items-center w-full"
                     >
-                      {tab.label}
+                      <div className="font-medium truncate pr-2">{tab.label}</div>
+                      <div className="font-semibold whitespace-nowrap">
+                        {formatPrice(balance)}
+                      </div>
                     </button>
 
                     <div
                       ref={isDropdownOpen ? dropdownRef : null}
-                      className="flex items-center space-x-3 relative"
+                      className="flex items-center space-x-3 relative ml-2"
                     >
                       <button
                         onClick={(e) => {
@@ -438,7 +475,7 @@ const LoanAccounts = () => {
               })
             ) : (
               <div className="p-4 text-center text-gray-500 italic">
-                No parties found for "{searchTerm}".
+                No accounts found for "{searchTerm}".
               </div>
             )}
           </div>
@@ -449,18 +486,17 @@ const LoanAccounts = () => {
           <div className="transition-opacity duration-300 ease-in-out">
             {activePartyData && activeTab !== "general" ? (
               <TabContents
-                phoneNumber={activePartyData.phoneNumber}
-                transaction={activePartyData.transaction || []}
-                partyName={activePartyData.partyName}
-                refetch={refetch}
+                accountData={activePartyData}
+                refetch={handleCombinedRefetch}
+                transaction={activePartyData?.transactions}
               />
             ) : activeTab === "general" ? (
               <div className="p-4 text-gray-600">
-                Select a party from the left panel to view its details.
+                Select a loan account from the left panel to view its details.
               </div>
             ) : (
               <div className="p-4 text-gray-600">
-                No party data available or party not found.
+                No account data available or account not found.
               </div>
             )}
           </div>
@@ -474,7 +510,7 @@ const LoanAccounts = () => {
     return (
       <>
         <AddPartyModal
-          refetch={refetch}
+          refetch={handleCombinedRefetch}
           isOpen={isUpdateModalOpen}
           onClose={handleClose}
           mode="update"
@@ -482,7 +518,7 @@ const LoanAccounts = () => {
         />
 
         <AddPartyModal
-          refetch={refetch}
+          refetch={handleCombinedRefetch}
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           mode="create"

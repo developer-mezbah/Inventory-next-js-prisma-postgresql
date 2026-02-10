@@ -10,8 +10,8 @@ export const useCurrencyStore = create(
   persist(
     (set, get) => ({
       // Current currency state
-      currencySymbol: "৳",
-      currencyCode: "BDT",
+      currencySymbol: "$",
+      currencyCode: "USD",
 
       // Available currencies
       availableCurrencies: defaultCurrencyData,
