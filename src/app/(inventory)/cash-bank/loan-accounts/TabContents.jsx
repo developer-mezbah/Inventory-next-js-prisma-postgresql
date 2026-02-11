@@ -7,6 +7,8 @@ import { useCurrencyStore } from "@/stores/useCurrencyStore";
 import PaymentSection from "./PaymentSection";
 import client_api from "@/utils/API_FETCH";
 import { useSession } from "next-auth/react";
+import { toast } from "react-toastify";
+import { BiLoader } from "react-icons/bi";
 
 const TimeNotificationIcon = (props) => {
   const { size = 24, color = "currentColor", ...rest } = props;
@@ -71,6 +73,7 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
   const [showChargesModal, setShowChargesModal] = useState(false);
   const [paymentPaidFrom, setPaymentPaidFrom] = useState("Cash");
   const { currencySymbol, formatPrice } = useCurrencyStore();
+  const [loading, setLoading] = useState(false);
 
   // Modal state for Make Payment
   const [makePaymentData, setMakePaymentData] = useState({
@@ -145,9 +148,12 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
 
   // Save handlers
   const handleSaveMakePayment = () => {
-    console.log("Make Payment Data:", makePaymentData, paymentPaidFrom);
-
-    client_api.update("/api/loan-accounts/make-payment","", {
+    if (makePaymentData.totalAmount === "0") {
+      toast.error("Total amount cannot be zero");
+      return;
+    }
+setLoading(true);
+    client_api.update("/api/loan-accounts/make-payment", "", {
       accountId: accountData.id,
       principalAmount: parseFloat(makePaymentData.principalAmount) || 0,
       interestAmount: parseFloat(makePaymentData.interestAmount) || 0,
@@ -156,12 +162,22 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
       paymentType: paymentPaidFrom,
       userId: session?.user?.id || null, // Pass userId for cash payments
     }).then(response => {
-      console.log("Payment successful:", response);
       setShowMakePaymentModal(false);
       refetch();
+      // Reset form data
+      setMakePaymentData({
+        principalAmount: "0",
+        interestAmount: "0",
+        totalAmount: "0",
+        date: new Date().toLocaleDateString('en-GB')
+      });
+      setLoading(false);
+      toast.success("Payment made successfully");
     }).catch(error => {
       console.error("Error making payment:", error);
       // Optionally show an error message to the user
+      toast.error("Failed to make payment. Please try again.");
+      setLoading(false);
     });
   };
 
@@ -499,10 +515,11 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
                 Cancel
               </button>
               <button
+                disabled={loading}
                 onClick={handleSaveMakePayment}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150"
               >
-                Save
+                {loading ? <span className="flex items-center"><BiLoader className="mr-2" /> Saving</span> : 'Save'}
               </button>
             </div>
           </div>
