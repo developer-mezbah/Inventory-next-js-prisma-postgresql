@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import TransactionsTable from "@/components/purchase/PurchaseBills/TransactionsTable";
 import { FaRegEdit, FaTimes } from "react-icons/fa";
 import { RiWhatsappFill } from "react-icons/ri";
 import useOutsideClick from "@/hook/useOutsideClick";
 import { useCurrencyStore } from "@/stores/useCurrencyStore";
+import PaymentSection from "./PaymentSection";
+import client_api from "@/utils/API_FETCH";
+import { useSession } from "next-auth/react";
 
 const TimeNotificationIcon = (props) => {
   const { size = 24, color = "currentColor", ...rest } = props;
@@ -61,21 +64,20 @@ const TimeNotificationIcon = (props) => {
   );
 };
 
-const TabContents = ({ transaction = [], refetch, accountData }) => {
-  console.log(transaction);
+const TabContents = ({ transaction = [], refetch, accountData, data }) => {
+
   const [showMakePaymentModal, setShowMakePaymentModal] = useState(false);
   const [showTakeLoanModal, setShowTakeLoanModal] = useState(false);
   const [showChargesModal, setShowChargesModal] = useState(false);
-
+  const [paymentPaidFrom, setPaymentPaidFrom] = useState("Cash");
   const { currencySymbol, formatPrice } = useCurrencyStore();
-  
+
   // Modal state for Make Payment
   const [makePaymentData, setMakePaymentData] = useState({
     principalAmount: "0",
     interestAmount: "0",
     totalAmount: "0",
-    date: new Date().toLocaleDateString('en-GB'),
-    paidFrom: "Cash"
+    date: new Date().toLocaleDateString('en-GB')
   });
 
   // Modal state for Take More Loan
@@ -97,24 +99,36 @@ const TabContents = ({ transaction = [], refetch, accountData }) => {
   const takeloanRef = useOutsideClick(() => setShowTakeLoanModal(false));
   const makepaymentRef = useOutsideClick(() => setShowMakePaymentModal(false));
 
+  const { data: session } = useSession()
+
   // Calculate total amount when principal or interest changes
-  const updateTotalAmount = () => {
+  const calculateTotalAmount = () => {
     const principal = parseFloat(makePaymentData.principalAmount) || 0;
     const interest = parseFloat(makePaymentData.interestAmount) || 0;
+    const total = principal + interest;
+
     setMakePaymentData(prev => ({
       ...prev,
-      totalAmount: (principal + interest).toString()
+      totalAmount: total.toString()
     }));
   };
+
+  // Calculate total when principalAmount or interestAmount changes
+  useEffect(() => {
+    calculateTotalAmount();
+  }, [makePaymentData.principalAmount, makePaymentData.interestAmount]);
 
   // Handle Make Payment form changes
   const handleMakePaymentChange = (e) => {
     const { name, value } = e.target;
-    setMakePaymentData(prev => ({ ...prev, [name]: value }));
-    
-    if (name === "principalAmount" || name === "interestAmount") {
-      setTimeout(updateTotalAmount, 0);
-    }
+
+    // Parse the value to ensure it's a number, but keep as string for input
+    const parsedValue = value === "" ? "0" : value;
+
+    setMakePaymentData(prev => ({
+      ...prev,
+      [name]: parsedValue
+    }));
   };
 
   // Handle Take Loan form changes
@@ -131,9 +145,24 @@ const TabContents = ({ transaction = [], refetch, accountData }) => {
 
   // Save handlers
   const handleSaveMakePayment = () => {
-    console.log("Make Payment Data:", makePaymentData);
-    // Add your API call here
-    setShowMakePaymentModal(false);
+    console.log("Make Payment Data:", makePaymentData, paymentPaidFrom);
+
+    client_api.update("/api/loan-accounts/make-payment","", {
+      accountId: accountData.id,
+      principalAmount: parseFloat(makePaymentData.principalAmount) || 0,
+      interestAmount: parseFloat(makePaymentData.interestAmount) || 0,
+      totalAmount: parseFloat(makePaymentData.totalAmount) || 0,
+      date: makePaymentData.date,
+      paymentType: paymentPaidFrom,
+      userId: session?.user?.id || null, // Pass userId for cash payments
+    }).then(response => {
+      console.log("Payment successful:", response);
+      setShowMakePaymentModal(false);
+      refetch();
+    }).catch(error => {
+      console.error("Error making payment:", error);
+      // Optionally show an error message to the user
+    });
   };
 
   const handleSaveTakeLoan = () => {
@@ -148,20 +177,18 @@ const TabContents = ({ transaction = [], refetch, accountData }) => {
     setShowChargesModal(false);
   };
 
-
-
   // Get account name
   const accountName = accountData?.accountName || "";
-  
+
   // Get current balance from account data
   const currentBalance = accountData?.currentBalance || 0;
-  
+
   // Calculate total amount from transactions
   const totalLoanAmount = transaction.reduce((sum, t) => sum + (t.amount || 0), 0);
-  
+
   // Get processing fee
   const processingFee = accountData?.processingFee || 0;
-  
+
   // Get loan received method
   const loanReceivedIn = accountData?.loanReceivedIn || "Cash";
 
@@ -212,19 +239,19 @@ const TabContents = ({ transaction = [], refetch, accountData }) => {
               <div className="flex items-center space-x-4">
                 {/* Action Buttons */}
                 <div className="flex space-x-2">
-                  <button 
+                  <button
                     onClick={() => setShowMakePaymentModal(true)}
                     className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition duration-150"
                   >
                     Make Payment
                   </button>
-                  <button 
+                  <button
                     onClick={() => setShowTakeLoanModal(true)}
                     className="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 transition duration-150"
                   >
                     Take more loan
                   </button>
-                  <button 
+                  <button
                     onClick={() => setShowChargesModal(true)}
                     className="px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition duration-150"
                   >
@@ -278,19 +305,19 @@ const TabContents = ({ transaction = [], refetch, accountData }) => {
 
           {/* Action Buttons - Stacked on Mobile */}
           <div className="space-y-2">
-            <button 
+            <button
               onClick={() => setShowMakePaymentModal(true)}
               className="w-full px-4 py-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition duration-150"
             >
               Make Payment
             </button>
-            <button 
+            <button
               onClick={() => setShowTakeLoanModal(true)}
               className="w-full px-4 py-3 bg-amber-500 text-white text-sm font-medium rounded-lg hover:bg-amber-600 transition duration-150"
             >
               Take more loan
             </button>
-            <button 
+            <button
               onClick={() => setShowChargesModal(false)}
               className="w-full px-4 py-3 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition duration-150"
             >
@@ -301,9 +328,9 @@ const TabContents = ({ transaction = [], refetch, accountData }) => {
 
         {/* Subtle Bottom Border */}
         <div className="h-0.5 bg-gray-200 border-t border-b border-gray-300"></div>
-        
+
         <TransactionsTable
-        isMobile={true}
+          isMobile={true}
           data={transaction.map((t) => {
             // For loan transactions, we need to handle different fields
             let displayType = t.type;
@@ -381,7 +408,7 @@ const TabContents = ({ transaction = [], refetch, accountData }) => {
       {/* Make Payment Modal */}
       {showMakePaymentModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div ref={makepaymentRef} className="bg-white rounded-xl shadow-xl w-full max-w-md">
+          <div ref={makepaymentRef} className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex justify-between items-center p-6 border-b border-gray-200">
               <h2 className="text-xl font-bold text-gray-800">Make Payment - {accountName}</h2>
@@ -431,8 +458,8 @@ const TabContents = ({ transaction = [], refetch, accountData }) => {
                 </label>
                 <input
                   type="text"
-                  value={makePaymentData.totalAmount}
                   readOnly
+                  value={makePaymentData.totalAmount}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
                 />
               </div>
@@ -451,21 +478,15 @@ const TabContents = ({ transaction = [], refetch, accountData }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Paid From
-                </label>
-                <select
-                  name="paidFrom"
-                  value={makePaymentData.paidFrom}
-                  onChange={handleMakePaymentChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="Cash">Cash</option>
-                  <option value="Bank Transfer">Bank Transfer</option>
-                  <option value="Credit Card">Credit Card</option>
-                  <option value="Check">Check</option>
-                  <option value="Bkash">Bkash</option>
-                </select>
+                <PaymentSection
+                  refetch={refetch}
+                  bankData={data?.bank || []}
+                  cashData={data?.cash || []}
+                  paymentType={paymentPaidFrom}
+                  onPaymentTypeChange={setPaymentPaidFrom}
+                  title="Paid From"
+                  compact={true}
+                />
               </div>
             </div>
 

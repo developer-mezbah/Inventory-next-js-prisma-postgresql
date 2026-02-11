@@ -90,7 +90,7 @@ const LoanAccounts = () => {
       router.replace(`?${params.toString()}`);
       setHasSetDefaultTab(true);
     }
-    
+
     // If no tabs and no tab is set, set to general
     if (tabs.length === 0 && !searchParams.get("tab")) {
       const params = new URLSearchParams(searchParams.toString());
@@ -318,6 +318,7 @@ const LoanAccounts = () => {
             // Updated: Pass loan account data with actual transaction data
             accountData={activePartyData}
             refetch={refetch}
+            data={data}
             transaction={activePartyData?.transactions} // Pass actual transaction data
           />
         ) : (
@@ -489,6 +490,7 @@ const LoanAccounts = () => {
                 accountData={activePartyData}
                 refetch={handleCombinedRefetch}
                 transaction={activePartyData?.transactions}
+                data={data}
               />
             ) : activeTab === "general" ? (
               <div className="p-4 text-gray-600">

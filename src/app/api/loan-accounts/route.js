@@ -39,16 +39,6 @@ export async function GET() {
         return NextResponse.json({ error: error || "Failed to fetch Accounts Data" }, { status: 500 });
     }
 }
-export async function PUT(request) {
-    try {
-
-        const body = await request.json();
-        console.log("Received POST data:", body);
-        return NextResponse.json({ message: "POST endpoint is working" });
-    } catch (error) {
-        return NextResponse.json({ error: error || "Failed to fetch Accounts Data" }, { status: 500 });
-    }
-}
 
 
 const cashProcessing = async (body, companyId, processingFee = false) => {
