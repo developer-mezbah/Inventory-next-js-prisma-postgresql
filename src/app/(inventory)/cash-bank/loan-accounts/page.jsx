@@ -34,7 +34,6 @@ const LoanAccounts = () => {
 
   const accountData = data?.accountData || [];
   const { formatPrice } = useCurrencyStore();
-
   // Updated: Changed from partyName to accountName
   const tabs =
     accountData && accountData.length > 0
@@ -47,15 +46,6 @@ const LoanAccounts = () => {
     }
     return accountData.find((item) => item.id === activeTab);
   }, [accountData, activeTab]);
-
-  // Fetch transaction data for the active account
-  const {
-    data: transactionData = {},
-    refetch: refetchTransactions,
-  } = useFetchData(
-    activeTab && activeTab !== "general" ? `/api/loan-accounts/${activeTab}/transactions` : null,
-    ["loan-transactions", activeTab]
-  );
 
 
   const filteredTabs = useMemo(() => {
@@ -151,7 +141,7 @@ const LoanAccounts = () => {
   };
 
   const handleDelete = (tabId) => {
-    DeleteAlert(`/api/loan-accounts/${tabId}`).then((res) => {
+    DeleteAlert(`/api/loan-accounts?id=${tabId}`).then((res) => {
       if (res) {
         refetch();
         toast.success("Loan Account Deleted Successfully!");
@@ -331,10 +321,7 @@ const LoanAccounts = () => {
   // Combined refetch function
   const handleCombinedRefetch = useCallback(() => {
     refetch();
-    if (activeTab && activeTab !== "general") {
-      refetchTransactions();
-    }
-  }, [refetch, refetchTransactions, activeTab]);
+  }, [refetch, activeTab]);
 
   // Desktop view with updated fields
   const renderDesktopView = () => (

@@ -33,7 +33,6 @@ export async function GET() {
             }
         });
 
-
         return NextResponse.json({ bank, cash, accountData });
     } catch (error) {
         return NextResponse.json({ error: error || "Failed to fetch Accounts Data" }, { status: 500 });
@@ -41,7 +40,7 @@ export async function GET() {
 }
 
 
-const cashProcessing = async (body, companyId, processingFee = false) => {
+const cashProcessing = async (body, companyId, processingFee = false, loanAccountId = "") => {
     // Create transaction data function
     const createTransactionData = () => ({
         amount: processingFee ? -parseFloat(body.processingFee) : parseFloat(body.currentBalance),
@@ -49,7 +48,8 @@ const cashProcessing = async (body, companyId, processingFee = false) => {
         description: body.description || `Initial loan disbursement for ${body.accountName}`,
         type: processingFee ? 'LOAN_PROCESSING_FEE' : 'LOAN_DISBURSEMENT',
         date: new Date(),
-        companyId: companyId
+        companyId: companyId,
+        loanAccountId
     });
 
 
@@ -78,7 +78,7 @@ const cashProcessing = async (body, companyId, processingFee = false) => {
     return res;
 }
 
-const bankProcessing = async (body, companyId, processingFee = false) => {
+const bankProcessing = async (body, companyId, processingFee = false, loanAccountId = "") => {
     // Create transaction data function
     const createTransactionData = () => ({
         amount: processingFee ? -parseFloat(body.processingFee) : parseFloat(body.currentBalance),
@@ -86,7 +86,8 @@ const bankProcessing = async (body, companyId, processingFee = false) => {
         description: body.description || `Initial loan disbursement for ${body.accountName}`,
         type: processingFee ? 'LOAN_PROCESSING_FEE' : 'LOAN_DISBURSEMENT',
         date: new Date(),
-        companyId: companyId
+        companyId: companyId,
+        loanAccountId
     });
 
     // Fix: Get the correct value - use parseFloat for both cases but ensure it's positive
@@ -171,18 +172,18 @@ export async function POST(request) {
             // Process loan processing fee first if applicable
             if (body?.processingFee > 0) {
                 if (body?.processingFeePaidFrom === "Cash" || body.processingFeePaidFrom?.accountdisplayname === "Cash") {
-                    await cashProcessing(body, companyId, true);
+                    await cashProcessing(body, companyId, true, loanAccount.id);
                 } else {
-                    await bankProcessing(body, companyId, true);
+                    await bankProcessing(body, companyId, true, loanAccount.id);
                 }
             }
 
             // Process loan disbursement after processing fee
             if (body?.currentBalance > 0) {
                 if (body?.loanReceivedIn === "Cash" || body.loanReceivedIn?.accountdisplayname === "Cash") {
-                    await cashProcessing(body, companyId, false);
+                    await cashProcessing(body, companyId, false, loanAccount.id);
                 } else {
-                    await bankProcessing(body, companyId, false);
+                    await bankProcessing(body, companyId, false, loanAccount.id);
                 }
             }
         }
@@ -199,6 +200,166 @@ export async function POST(request) {
         console.error('Error creating loan account:', error);
         return NextResponse.json(
             { error: 'Failed to create loan account' },
+            { status: 500 }
+        );
+    }
+}
+
+// DELETE loan account with reversal of cash/bank entries
+export async function DELETE(request) {
+    try {
+        const { searchParams } = new URL(request.url);
+        const id = searchParams.get('id');
+        
+        if (!id) {
+            return NextResponse.json(
+                { error: 'Loan account ID is required' },
+                { status: 400 }
+            );
+        }
+
+        const companyId = await getCompanyId();
+
+        // First, check if the loan account exists and belongs to the company
+        const existingLoanAccount = await prisma.loanAccount.findFirst({
+            where: {
+                id: id, // id is String in your schema (cuid)
+                companyId: companyId
+            },
+            include: {
+                transactions: {
+                    where: {
+                        type: {
+                            in: ['LOAN_DISBURSEMENT', 'LOAN_PROCESSING_FEE']
+                        }
+                    }
+                }
+            }
+        });
+
+        if (!existingLoanAccount) {
+            return NextResponse.json(
+                { error: 'Loan account not found or access denied' },
+                { status: 404 }
+            );
+        }
+
+        // Start a transaction to handle all related reversals and deletions
+        const result = await prisma.$transaction(async (prisma) => {
+            // Reverse cash/bank entries for each transaction
+            for (const transaction of existingLoanAccount.transactions) {
+                const isProcessingFee = transaction.type === 'LOAN_PROCESSING_FEE';
+                const amount = Math.abs(transaction.amount || 0); // Get absolute value for reversal
+                
+                if (transaction.paymentType === 'CASH') {
+                    // Find the cash adjustment record (assuming there's a default or specific user)
+                    // Note: You might need to adjust this based on your business logic
+                    const cashAdjustment = await prisma.cashAdjustment.findFirst({
+                        where: {
+                            companyId: companyId
+                        }
+                    });
+
+                    if (cashAdjustment) {
+                        // Reverse cash entry
+                        await prisma.cashAdjustment.update({
+                            where: {
+                                id: cashAdjustment.id
+                            },
+                            data: {
+                                cashInHand: {
+                                    [isProcessingFee ? "increment" : "decrement"]: amount, // Reverse the original operation
+                                },
+                                transaction: {
+                                    create: {
+                                        amount: -(transaction.amount || 0), // Reverse the sign
+                                        paymentType: 'CASH',
+                                        description: `Reversal: ${transaction.description || 'Loan account deletion'}`,
+                                        type: 'REVERSAL',
+                                        date: new Date(),
+                                        companyId: companyId,
+                                        loanAccountId: id // Link reversal to loan account
+                                    }
+                                }
+                            }
+                        });
+                    }
+                } else {
+                    // Reverse bank entry - find the bank account based on transaction paymentType
+                    const bankAccount = await prisma.cashAndBank.findFirst({
+                        where: {
+                            accountdisplayname: transaction.paymentType,
+                            companyId: companyId
+                        }
+                    });
+                    
+                    if (bankAccount) {
+                        await prisma.cashAndBank.update({
+                            where: {
+                                id: bankAccount.id
+                            },
+                            data: {
+                                openingbalance: {
+                                    [isProcessingFee ? "increment" : "decrement"]: amount, // Reverse the original operation
+                                },
+                                transaction: {
+                                    create: {
+                                        amount: -(transaction.amount || 0),
+                                        paymentType: transaction.paymentType,
+                                        description: `Reversal: ${transaction.description || 'Loan account deletion'}`,
+                                        type: 'REVERSAL',
+                                        date: new Date(),
+                                        companyId: companyId,
+                                        loanAccountId: id // Link reversal to loan account
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+            }
+
+            // Delete all related transactions
+            if (existingLoanAccount.transactions.length > 0) {
+                await prisma.transaction.deleteMany({
+                    where: {
+                        loanAccountId: id
+                    }
+                });
+            }
+
+            // Delete the loan account
+            const deletedAccount = await prisma.loanAccount.delete({
+                where: {
+                    id: id
+                }
+            });
+
+            return deletedAccount;
+        });
+
+        return NextResponse.json(
+            {
+                message: 'Loan account deleted successfully with all reversals',
+                data: result,
+                status: true
+            },
+            { status: 200 }
+        );
+
+    } catch (error) {
+        console.error('Error deleting loan account:', error);
+        
+        // Handle specific Prisma errors
+        if (error.code === 'P2025') {
+            return NextResponse.json(
+                { error: 'Loan account not found' },
+                { status: 404 }
+            );
+        }
+        
+        return NextResponse.json(
+            { error: 'Failed to delete loan account: ' + error.message },
             { status: 500 }
         );
     }
