@@ -29,7 +29,7 @@ export async function GET() {
                 companyId: await getCompanyId(),
             },
             include: {
-                transactions: true
+                transactions: true,
             }
         });
 
@@ -39,6 +39,397 @@ export async function GET() {
     }
 }
 
+// PUT - Update all kinds of queries with reversal and payment method change handling
+export async function PUT(request) {
+    try {
+        const body = await request.json();
+        const companyId = await getCompanyId();
+        
+        // Validate that we have an ID to update
+        if (!body.id) {
+            return NextResponse.json(
+                { error: 'ID is required for update' },
+                { status: 400 }
+            );
+        }
+
+        // Check if the loan account exists and belongs to the company
+        const existingAccount = await prisma.loanAccount.findFirst({
+            where: {
+                id: body.id,
+                companyId: companyId
+            },
+            include: {
+                transactions: {
+                    where: {
+                        type: {
+                            in: ['LOAN_DISBURSEMENT', 'LOAN_PROCESSING_FEE']
+                        }
+                    },
+                    orderBy: {
+                        date: 'desc'
+                    }
+                }
+            }
+        });
+
+        if (!existingAccount) {
+            return NextResponse.json(
+                { error: 'Loan account not found or access denied' },
+                { status: 404 }
+            );
+        }
+
+        // Check if account number already exists for this company (excluding current account)
+        if (body.accountNumber && body.accountNumber !== existingAccount.accountNumber) {
+            const existing = await prisma.loanAccount.findFirst({
+                where: {
+                    accountNumber: body.accountNumber,
+                    companyId: companyId,
+                    NOT: {
+                        id: body.id
+                    }
+                }
+            });
+
+            if (existing) {
+                return NextResponse.json(
+                    { error: 'Account number already exists for this company' },
+                    { status: 409 }
+                );
+            }
+        }
+
+        // Prepare update data
+        const updateData = {};
+        const updatableFields = [
+            'accountName',
+            'lenderBank',
+            'accountNumber',
+            'description',
+            'balanceAsOfDate',
+            'interestRate',
+            'termDurationMonths'
+        ];
+
+        updatableFields.forEach(field => {
+            if (body[field] !== undefined) {
+                if (field === 'balanceAsOfDate' && body[field]) {
+                    updateData[field] = new Date(body[field]);
+                } else if (field === 'interestRate') {
+                    updateData[field] = body[field] ? parseFloat(body[field]) : null;
+                } else if (field === 'termDurationMonths') {
+                    updateData[field] = body[field] ? parseInt(body[field]) : null;
+                } else {
+                    updateData[field] = body[field];
+                }
+            }
+        });
+
+        // Handle payment method fields
+        const getPaymentMethod = (paymentField) => {
+            if (typeof paymentField === 'object' && paymentField?.accountdisplayname) {
+                return {
+                    name: paymentField.accountdisplayname,
+                    id: paymentField.id || ""
+                };
+            }
+            return {
+                name: paymentField || "Cash",
+                id: ""
+            };
+        };
+
+        const newLoanReceived = getPaymentMethod(body.loanReceivedIn);
+        const newProcessingFeePaidFrom = getPaymentMethod(body.processingFeePaidFrom);
+
+        // Check if payment methods changed
+        const loanReceivedMethodChanged = newLoanReceived.name !== existingAccount.loanReceivedIn;
+        const processingFeeMethodChanged = newProcessingFeePaidFrom.name !== existingAccount.processingFeePaidFrom;
+
+        // Determine if we need financial changes
+        const currentBalanceChanged = body.currentBalance !== undefined && 
+            parseFloat(body.currentBalance) !== existingAccount.currentBalance;
+        
+        const processingFeeChanged = body.processingFee !== undefined && 
+            parseFloat(body.processingFee || 0) !== (existingAccount.processingFee || 0);
+
+        const needsFinancialUpdate = currentBalanceChanged || processingFeeChanged || 
+                                    loanReceivedMethodChanged || processingFeeMethodChanged;
+
+        // If no financial changes, just update non-financial fields (no transaction needed)
+        if (!needsFinancialUpdate) {
+            const updatedAccount = await prisma.loanAccount.update({
+                where: { id: body.id },
+                data: updateData
+            });
+            
+            return NextResponse.json(
+                {
+                    message: 'Loan account updated successfully',
+                    data: updatedAccount,
+                    status: true
+                },
+                { status: 200 }
+            );
+        }
+
+        // For financial updates, use transaction with increased timeout
+        const result = await prisma.$transaction(async (prisma) => {
+            // Get cash adjustment once
+            const cashAdjustment = await prisma.cashAdjustment.findFirst({
+                where: { companyId: companyId }
+            });
+
+            // Reverse existing transactions in batch where possible
+            if (existingAccount.transactions.length > 0) {
+                // Group transactions by payment type for batch processing
+                const cashTransactions = existingAccount.transactions.filter(t => t.paymentType === 'CASH');
+                const bankTransactions = existingAccount.transactions.filter(t => t.paymentType !== 'CASH');
+
+                // Process cash reversals
+                if (cashTransactions.length > 0 && cashAdjustment) {
+                    const totalCashAmount = cashTransactions.reduce((sum, t) => {
+                        const isProcessingFee = t.type === 'LOAN_PROCESSING_FEE';
+                        return sum + (isProcessingFee ? Math.abs(t.amount) : -Math.abs(t.amount));
+                    }, 0);
+
+                    await prisma.cashAdjustment.update({
+                        where: { id: cashAdjustment.id },
+                        data: {
+                            cashInHand: {
+                                decrement: totalCashAmount
+                            }
+                        }
+                    });
+                }
+
+                // Process bank reversals individually (since they're different accounts)
+                for (const transaction of bankTransactions) {
+                    const isProcessingFee = transaction.type === 'LOAN_PROCESSING_FEE';
+                    const amount = Math.abs(transaction.amount || 0);
+                    
+                    const bankAccount = await prisma.cashAndBank.findFirst({
+                        where: {
+                            accountdisplayname: transaction.paymentType,
+                            companyId: companyId
+                        }
+                    });
+                    
+                    if (bankAccount) {
+                        await prisma.cashAndBank.update({
+                            where: { id: bankAccount.id },
+                            data: {
+                                openingbalance: {
+                                    [isProcessingFee ? "increment" : "decrement"]: amount,
+                                }
+                            }
+                        });
+                    }
+                }
+
+                // Create reversal transactions in batch
+                const reversalTransactions = existingAccount.transactions.map(t => ({
+                    amount: -(t.amount || 0),
+                    paymentType: t.paymentType,
+                    description: `Reversal: Update of loan account ${body.accountName || existingAccount.accountName}`,
+                    type: 'REVERSAL',
+                    date: new Date(),
+                    companyId: companyId,
+                    loanAccountId: body.id
+                }));
+
+                await prisma.transaction.createMany({
+                    data: reversalTransactions
+                });
+
+                // Delete old transactions
+                await prisma.transaction.deleteMany({
+                    where: {
+                        loanAccountId: body.id,
+                        type: {
+                            in: ['LOAN_DISBURSEMENT', 'LOAN_PROCESSING_FEE']
+                        }
+                    }
+                });
+            }
+
+            // Update financial fields
+            if (body.currentBalance !== undefined) {
+                updateData.currentBalance = parseFloat(body.currentBalance);
+            } else {
+                updateData.currentBalance = existingAccount.currentBalance;
+                body.currentBalance = existingAccount.currentBalance;
+            }
+            
+            if (body.processingFee !== undefined) {
+                updateData.processingFee = body.processingFee ? parseFloat(body.processingFee) : null;
+            } else {
+                updateData.processingFee = existingAccount.processingFee;
+                body.processingFee = existingAccount.processingFee;
+            }
+
+            // Update payment method fields
+            updateData.loanReceivedIn = newLoanReceived.name;
+            updateData.loanReceivedId = newLoanReceived.id || body.loanReceivedId || "";
+            updateData.processingFeePaidFrom = newProcessingFeePaidFrom.name;
+            updateData.processingFeePaidFromId = newProcessingFeePaidFrom.id || body.processingFeePaidFromId || "";
+
+            // Update the loan account
+            const updatedAccount = await prisma.loanAccount.update({
+                where: { id: body.id },
+                data: updateData
+            });
+
+            // Create new transactions with updated amounts and payment methods
+            const newTransactions = [];
+
+            // Process processing fee first if applicable
+            if (body.processingFee > 0) {
+                const amount = parseFloat(body.processingFee);
+                if (newProcessingFeePaidFrom.name === "Cash") {
+                    // Update cash
+                    if (cashAdjustment) {
+                        await prisma.cashAdjustment.update({
+                            where: { id: cashAdjustment.id },
+                            data: {
+                                cashInHand: {
+                                    decrement: amount
+                                }
+                            }
+                        });
+                    }
+
+                    newTransactions.push({
+                        amount: -amount,
+                        paymentType: 'CASH',
+                        description: body.description || `Updated loan processing fee for ${body.accountName}`,
+                        type: 'LOAN_PROCESSING_FEE',
+                        date: new Date(),
+                        companyId: companyId,
+                        loanAccountId: body.id
+                    });
+                } else {
+                    const bankAccountId = newProcessingFeePaidFrom.id || body.processingFeePaidFromId;
+                    if (bankAccountId) {
+                        await prisma.cashAndBank.update({
+                            where: { id: bankAccountId },
+                            data: {
+                                openingbalance: {
+                                    decrement: amount
+                                }
+                            }
+                        });
+
+                        newTransactions.push({
+                            amount: -amount,
+                            paymentType: newProcessingFeePaidFrom.name,
+                            description: body.description || `Updated loan processing fee for ${body.accountName}`,
+                            type: 'LOAN_PROCESSING_FEE',
+                            date: new Date(),
+                            companyId: companyId,
+                            loanAccountId: body.id
+                        });
+                    }
+                }
+            }
+
+            // Process loan disbursement
+            if (body.currentBalance > 0) {
+                const amount = parseFloat(body.currentBalance);
+                if (newLoanReceived.name === "Cash") {
+                    // Update cash
+                    if (cashAdjustment) {
+                        await prisma.cashAdjustment.update({
+                            where: { id: cashAdjustment.id },
+                            data: {
+                                cashInHand: {
+                                    increment: amount
+                                }
+                            }
+                        });
+                    }
+
+                    newTransactions.push({
+                        amount: amount,
+                        paymentType: 'CASH',
+                        description: body.description || `Updated loan disbursement for ${body.accountName}`,
+                        type: 'LOAN_DISBURSEMENT',
+                        date: new Date(),
+                        companyId: companyId,
+                        loanAccountId: body.id
+                    });
+                } else {
+                    const bankAccountId = newLoanReceived.id || body.loanReceivedId;
+                    if (bankAccountId) {
+                        await prisma.cashAndBank.update({
+                            where: { id: bankAccountId },
+                            data: {
+                                openingbalance: {
+                                    increment: amount
+                                }
+                            }
+                        });
+
+                        newTransactions.push({
+                            amount: amount,
+                            paymentType: newLoanReceived.name,
+                            description: body.description || `Updated loan disbursement for ${body.accountName}`,
+                            type: 'LOAN_DISBURSEMENT',
+                            date: new Date(),
+                            companyId: companyId,
+                            loanAccountId: body.id
+                        });
+                    }
+                }
+            }
+
+            // Create all new transactions in batch
+            if (newTransactions.length > 0) {
+                await prisma.transaction.createMany({
+                    data: newTransactions
+                });
+            }
+
+            return updatedAccount;
+        }, {
+            timeout: 30000, // Increase timeout to 30 seconds
+            maxWait: 30000, // Maximum time to wait for transaction to start
+            isolationLevel: 'ReadCommitted' // Less strict isolation level for better performance
+        });
+
+        return NextResponse.json(
+            {
+                message: 'Loan account updated successfully',
+                data: result,
+                status: true
+            },
+            { status: 200 }
+        );
+
+    } catch (error) {
+        console.error('Error updating loan account:', error);
+        
+        if (error.code === 'P2028') {
+            return NextResponse.json(
+                { error: 'Transaction timeout. Please try again with fewer changes.' },
+                { status: 408 }
+            );
+        }
+        
+        if (error.code === 'P2025') {
+            return NextResponse.json(
+                { error: 'Loan account not found' },
+                { status: 404 }
+            );
+        }
+        
+        return NextResponse.json(
+            { error: 'Failed to update loan account: ' + error.message },
+            { status: 500 }
+        );
+    }
+}
 
 const cashProcessing = async (body, companyId, processingFee = false, loanAccountId = "") => {
     // Create transaction data function
@@ -51,7 +442,6 @@ const cashProcessing = async (body, companyId, processingFee = false, loanAccoun
         companyId: companyId,
         loanAccountId
     });
-
 
     const res = await prisma.cashAdjustment.upsert({
         where: {
@@ -143,8 +533,6 @@ export async function POST(request) {
                 );
             }
         }
-
-
 
         // Create loan account
         const loanAccount = await prisma.loanAccount.create({
@@ -246,87 +634,77 @@ export async function DELETE(request) {
 
         // Start a transaction to handle all related reversals and deletions
         const result = await prisma.$transaction(async (prisma) => {
-            // Reverse cash/bank entries for each transaction
-            for (const transaction of existingLoanAccount.transactions) {
-                const isProcessingFee = transaction.type === 'LOAN_PROCESSING_FEE';
-                const amount = Math.abs(transaction.amount || 0); // Get absolute value for reversal
-                
-                if (transaction.paymentType === 'CASH') {
-                    // Find the cash adjustment record (assuming there's a default or specific user)
-                    // Note: You might need to adjust this based on your business logic
-                    const cashAdjustment = await prisma.cashAdjustment.findFirst({
-                        where: {
-                            companyId: companyId
-                        }
-                    });
+            // Get cash adjustment once
+            const cashAdjustment = await prisma.cashAdjustment.findFirst({
+                where: { companyId: companyId }
+            });
 
-                    if (cashAdjustment) {
-                        // Reverse cash entry
-                        await prisma.cashAdjustment.update({
-                            where: {
-                                id: cashAdjustment.id
-                            },
-                            data: {
-                                cashInHand: {
-                                    [isProcessingFee ? "increment" : "decrement"]: amount, // Reverse the original operation
-                                },
-                                transaction: {
-                                    create: {
-                                        amount: -(transaction.amount || 0), // Reverse the sign
-                                        paymentType: 'CASH',
-                                        description: `Reversal: ${transaction.description || 'Loan account deletion'}`,
-                                        type: 'REVERSAL',
-                                        date: new Date(),
-                                        companyId: companyId,
-                                        loanAccountId: id // Link reversal to loan account
-                                    }
-                                }
-                            }
-                        });
-                    }
-                } else {
-                    // Reverse bank entry - find the bank account based on transaction paymentType
-                    const bankAccount = await prisma.cashAndBank.findFirst({
-                        where: {
-                            accountdisplayname: transaction.paymentType,
-                            companyId: companyId
-                        }
-                    });
-                    
-                    if (bankAccount) {
-                        await prisma.cashAndBank.update({
-                            where: {
-                                id: bankAccount.id
-                            },
-                            data: {
-                                openingbalance: {
-                                    [isProcessingFee ? "increment" : "decrement"]: amount, // Reverse the original operation
-                                },
-                                transaction: {
-                                    create: {
-                                        amount: -(transaction.amount || 0),
-                                        paymentType: transaction.paymentType,
-                                        description: `Reversal: ${transaction.description || 'Loan account deletion'}`,
-                                        type: 'REVERSAL',
-                                        date: new Date(),
-                                        companyId: companyId,
-                                        loanAccountId: id // Link reversal to loan account
-                                    }
-                                }
-                            }
-                        });
-                    }
-                }
-            }
+            // Separate cash and bank transactions
+            const cashTransactions = existingLoanAccount.transactions.filter(t => t.paymentType === 'CASH');
+            const bankTransactions = existingLoanAccount.transactions.filter(t => t.paymentType !== 'CASH');
 
-            // Delete all related transactions
-            if (existingLoanAccount.transactions.length > 0) {
-                await prisma.transaction.deleteMany({
-                    where: {
-                        loanAccountId: id
+            // Process cash reversals in batch
+            if (cashTransactions.length > 0 && cashAdjustment) {
+                const totalCashAmount = cashTransactions.reduce((sum, t) => {
+                    const isProcessingFee = t.type === 'LOAN_PROCESSING_FEE';
+                    return sum + (isProcessingFee ? Math.abs(t.amount) : -Math.abs(t.amount));
+                }, 0);
+
+                await prisma.cashAdjustment.update({
+                    where: { id: cashAdjustment.id },
+                    data: {
+                        cashInHand: {
+                            decrement: totalCashAmount
+                        }
                     }
                 });
             }
+
+            // Process bank reversals
+            for (const transaction of bankTransactions) {
+                const isProcessingFee = transaction.type === 'LOAN_PROCESSING_FEE';
+                const amount = Math.abs(transaction.amount || 0);
+                
+                const bankAccount = await prisma.cashAndBank.findFirst({
+                    where: {
+                        accountdisplayname: transaction.paymentType,
+                        companyId: companyId
+                    }
+                });
+                
+                if (bankAccount) {
+                    await prisma.cashAndBank.update({
+                        where: { id: bankAccount.id },
+                        data: {
+                            openingbalance: {
+                                [isProcessingFee ? "increment" : "decrement"]: amount,
+                            }
+                        }
+                    });
+                }
+            }
+
+            // Create reversal transactions in batch
+            const reversalTransactions = existingLoanAccount.transactions.map(t => ({
+                amount: -(t.amount || 0),
+                paymentType: t.paymentType,
+                description: `Reversal: ${t.description || 'Loan account deletion'}`,
+                type: 'REVERSAL',
+                date: new Date(),
+                companyId: companyId,
+                loanAccountId: id
+            }));
+
+            await prisma.transaction.createMany({
+                data: reversalTransactions
+            });
+
+            // Delete all related transactions
+            await prisma.transaction.deleteMany({
+                where: {
+                    loanAccountId: id
+                }
+            });
 
             // Delete the loan account
             const deletedAccount = await prisma.loanAccount.delete({
@@ -336,6 +714,10 @@ export async function DELETE(request) {
             });
 
             return deletedAccount;
+        }, {
+            timeout: 30000,
+            maxWait: 30000,
+            isolationLevel: 'ReadCommitted'
         });
 
         return NextResponse.json(
@@ -350,7 +732,13 @@ export async function DELETE(request) {
     } catch (error) {
         console.error('Error deleting loan account:', error);
         
-        // Handle specific Prisma errors
+        if (error.code === 'P2028') {
+            return NextResponse.json(
+                { error: 'Transaction timeout. Please try again.' },
+                { status: 408 }
+            );
+        }
+        
         if (error.code === 'P2025') {
             return NextResponse.json(
                 { error: 'Loan account not found' },

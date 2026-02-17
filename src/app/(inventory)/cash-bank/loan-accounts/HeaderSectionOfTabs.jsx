@@ -1,5 +1,5 @@
 import { useFetchData } from '@/hook/useFetchData';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BiLoader, BiPlus } from 'react-icons/bi';
 import PaymentSection from './PaymentSection';
 import useOutsideClick from '@/hook/useOutsideClick';
@@ -7,8 +7,7 @@ import client_api from '@/utils/API_FETCH';
 import { useSession } from 'next-auth/react';
 import { toast } from 'react-toastify';
 
-const HeaderSection = ({ data, refetch }) => {
-  const [showModal, setShowModal] = useState(false);
+const HeaderSection = ({ data, refetch, showModal, setShowModal, updateFormData, setUpdateFormData }) => {
   const [paymentType, setPaymentType] = useState("Cash");
   const [processingFeePaymentType, setProcessingFeePaymentType] = useState("Cash");
   const [formData, setFormData] = useState({
@@ -23,7 +22,10 @@ const HeaderSection = ({ data, refetch }) => {
     processingFee: '',
   });
   const [loading, setLoading] = useState(false);
-  const modalRef = useOutsideClick(() => setShowModal(false));
+  const modalRef = useOutsideClick(() => {
+    setShowModal(false)
+    resetData()
+  });
 
   const formatDateForInput = (dateStr) => {
     const parts = dateStr.split('-');
@@ -56,69 +58,113 @@ const HeaderSection = ({ data, refetch }) => {
     }
   };
 
-  const { data: session } = useSession()
-  const handleSubmit = () => {
+  const resetData = () => {
+    setPaymentType("Cash");
+    setProcessingFeePaymentType("Cash");
+    // Reset form
+    setFormData({
+      accountName: '',
+      lenderBank: '',
+      accountNumber: '',
+      description: '',
+      balanceAsOfDate: '',
+      currentBalance: '',
+      interestRate: '',
+      termDuration: '',
+      processingFee: '',
+    });
+    setUpdateFormData && setUpdateFormData(null);
+  }
 
-    if (!formData.accountName || !formData.currentBalance) {
-      toast.error("Please fill in all required fields (Account Name and Current Balance).");
-      return;
+  useEffect(() => {
+    if (updateFormData) {
+      setFormData({
+        accountName: updateFormData.accountName || '',
+        lenderBank: updateFormData.lenderBank || '',
+        accountNumber: updateFormData.accountNumber || '',
+        description: updateFormData.description || '',
+        balanceAsOfDate: updateFormData.balanceAsOfDate ? formatDateForInput(updateFormData.balanceAsOfDate) : '',
+        currentBalance: updateFormData.currentBalance || '',
+        interestRate: updateFormData.interestRate || '',
+        termDuration: updateFormData.termDurationMonths || '',
+        processingFee: updateFormData.processingFee || '',
+      });
+      setPaymentType(updateFormData.loanReceivedIn === "Cash" ? "Cash" : data.bank.find(item => item.id === updateFormData.loanReceivedId) || "Cash");
+      setProcessingFeePaymentType(updateFormData.processingFeePaidFrom === "Cash" ? "Cash" : data.bank.find(item => item.id === updateFormData.processingFeePaidFromId) || "Cash");
+      // setShowModal(true);
     }
-    setLoading(true);
-    // Prepare submission data according to your specified format
-    const submissionData = {
-      accountName: formData.accountName,
-      lenderBank: formData.lenderBank,
-      accountNumber: formData.accountNumber,
-      description: formData.description,
-      balanceAsOfDate: formData.balanceAsOfDate ? new Date(formData.balanceAsOfDate) : null,
-      currentBalance: parseFloat(formData.currentBalance) || 0,
-      loanReceivedIn: paymentType,
-      loanReceivedInId: paymentType?.id || "",
-      interestRate: formData.interestRate ? parseFloat(formData.interestRate) : null,
-      termDurationMonths: formData.termDuration ? parseInt(formData.termDuration) : null,
-      processingFee: formData.processingFee ? parseFloat(formData.processingFee) : null,
-      processingFeePaidFrom: processingFeePaymentType || "Cash", // Convert to boolean
-      processingFeePaidFromId: processingFeePaymentType?.id || "",
-      userId: session?.user?.id
-    };
+  }, [updateFormData])
 
-    client_api.create("/api/loan-accounts", "", submissionData).then(res => {
+  const { data: session } = useSession()
+ const handleSubmit = () => {
+  if (!formData.accountName || !formData.currentBalance) {
+    toast.error("Please fill in all required fields (Account Name and Current Balance).");
+    return;
+  }
+  
+  setLoading(true);
+  
+  // Prepare submission data according to your specified format
+  const submissionData = {
+    accountName: formData.accountName,
+    lenderBank: formData.lenderBank,
+    accountNumber: formData.accountNumber,
+    description: formData.description,
+    balanceAsOfDate: formData.balanceAsOfDate ? new Date(formData.balanceAsOfDate) : null,
+    currentBalance: parseFloat(formData.currentBalance) || 0,
+    loanReceivedIn: paymentType,
+    loanReceivedInId: paymentType?.id || "",
+    interestRate: formData.interestRate ? parseFloat(formData.interestRate) : null,
+    termDurationMonths: formData.termDuration ? parseInt(formData.termDuration) : null,
+    processingFee: formData.processingFee ? parseFloat(formData.processingFee) : null,
+    processingFeePaidFrom: processingFeePaymentType || "Cash",
+    processingFeePaidFromId: processingFeePaymentType?.id || "",
+    userId: session?.user?.id
+  };
+
+  // Add id to submission data if updating
+  if (updateFormData) {
+    submissionData.id = updateFormData.id;
+  }
+
+  // Determine if this is an update or create operation
+  const apiPromise = updateFormData
+    ? client_api.update(`/api/loan-accounts`, "", submissionData)
+    : client_api.create("/api/loan-accounts", "", submissionData);
+
+  apiPromise
+    .then(res => {
       if (res.status) {
-        toast.success("Loan account created successfully:");
-        // Optionally refetch data if needed
+        toast.success(updateFormData 
+          ? "Loan account updated successfully" 
+          : "Loan account created successfully"
+        );
+        
         if (refetch) {
           refetch();
         }
+        
+        // Close modal and reset form
+        setShowModal(false);
+        resetData();
+        
+        // Clear editing state if it exists
+        if (setUpdateFormData) {
+          setUpdateFormData(null);
+        }
       } else {
-        console.error("Failed to create loan account:", res.message);
+        console.error(`Failed to ${updateFormData ? 'update' : 'create'} loan account:`, res.message);
+        toast.error(res.message || `Failed to ${updateFormData ? 'update' : 'create'} loan account. Please try again.`);
       }
-    }).catch(err => {
-      console.error("Error creating loan account:", err);
-      toast.error("Failed to create loan account. Please try again.")
-    }).finally(() => {
+    })
+    .catch(err => {
+      console.error(`Error ${updateFormData ? 'updating' : 'creating'} loan account:`, err);
+      toast.error(`Failed to ${updateFormData ? 'update' : 'create'} loan account. Please try again.`);
+    })
+    .finally(() => {
       setLoading(false);
-      setShowModal(false);
-      setPaymentType("Cash");
-      setProcessingFeePaymentType("Cash");
-      // Reset form
-      setFormData({
-        accountName: '',
-        lenderBank: '',
-        accountNumber: '',
-        description: '',
-        balanceAsOfDate: '',
-        currentBalance: '',
-        interestRate: '',
-        termDuration: '',
-        processingFee: '',
-      });
     });
-
-
-
-
-
-  };
+};
 
   return (
     <>
@@ -153,7 +199,10 @@ const HeaderSection = ({ data, refetch }) => {
               shadow-sm hover:shadow-md 
               focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 
               transition-all duration-200"
-            onClick={() => setShowModal(true)}
+            onClick={() => {
+              resetData();
+              setShowModal(true);
+            }}
           >
             <BiPlus className="w-5 h-5 mr-2" />
             <span className="whitespace-nowrap">Add Loan Account</span>
@@ -170,7 +219,10 @@ const HeaderSection = ({ data, refetch }) => {
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-bold text-gray-800">Add Loan Account</h2>
                 <button
-                  onClick={() => setShowModal(false)}
+                  onClick={() => {
+                    resetData();
+                    setShowModal(false)
+                  }}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -363,7 +415,7 @@ const HeaderSection = ({ data, refetch }) => {
               <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-3 rounded-b-xl">
                 <div className="flex justify-end space-x-2">
                   <button
-                    onClick={() => setShowModal(false)}
+                    onClick={() => { resetData(); setShowModal(false) }}
                     className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                   >
                     Cancel
@@ -373,7 +425,7 @@ const HeaderSection = ({ data, refetch }) => {
                     disabled={loading}
                     className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:ring-offset-1 transition-colors"
                   >
-                    {loading ? <span><BiLoader className="inline mr-2 animate-spin" /> Saving...</span> : "Save Loan Account"}
+                    {loading ? <span><BiLoader className="inline mr-2 animate-spin" /> Saving...</span> : updateFormData ? "Update Loan Account" : "Save Loan Account"}
                   </button>
                 </div>
               </div>
