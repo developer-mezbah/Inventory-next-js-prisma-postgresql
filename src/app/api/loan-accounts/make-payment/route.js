@@ -2,6 +2,26 @@ import prisma from "@/lib/prisma";
 import { getCompanyId } from "@/utils/GetCompanyId";
 import { NextResponse } from "next/server";
 
+
+function convertDMYToISO(dateString) {
+  if (!dateString) return undefined;
+  
+  // Check if it's in DD/MM/YYYY format
+  if (typeof dateString === 'string' && dateString.includes('/')) {
+    const [day, month, year] = dateString.split('/');
+    // Create date at UTC midnight to avoid timezone issues
+    return new Date(Date.UTC(year, month - 1, day)).toISOString();
+  }
+  
+  // If it's already in another format, try parsing directly
+  try {
+    return new Date(dateString).toISOString();
+  } catch {
+    return undefined;
+  }
+}
+
+
 export async function PUT(request) {
   let transaction;
   try {
@@ -78,7 +98,7 @@ export async function PUT(request) {
       // For bank payments - find the bank account
       const bankAccount = await prisma.cashAndBank.findFirst({
         where: {
-          accountdisplayname: body.paymentType,
+          id: body.paymentType?.id,
           companyId: companyId
         }
       });
@@ -115,10 +135,11 @@ export async function PUT(request) {
       const newTransaction = await prisma.transaction.create({
         data: {
           amount: parseFloat(body.totalAmount),
-          paymentType: body.paymentType,
+          paymentType: body.paymentType === "Cash" ? 'CASH' : body?.paymentType?.accountdisplayname,
+          cashAndBankId: body.paymentType?.id || null,
           description: `Loan payment for ${loanAccount.accountName} - Principal: ${body.principalAmount}, Interest: ${body.interestAmount || 0}`,
           type: 'LOAN_PAYMENT',
-          date: new Date(body.date),
+          date: convertDMYToISO(body.date),
           companyId: companyId,
           loanAccountId: body.accountId,
           name: loanAccount.accountName,

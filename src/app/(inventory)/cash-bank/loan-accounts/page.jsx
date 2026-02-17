@@ -238,6 +238,7 @@ const LoanAccounts = () => {
   };
 
   const handleDelete = (tabId) => {
+    setOpenDropdownId(null)
     DeleteAlert(`/api/loan-accounts?id=${tabId}`).then((res) => {
       if (res) {
         refetch();

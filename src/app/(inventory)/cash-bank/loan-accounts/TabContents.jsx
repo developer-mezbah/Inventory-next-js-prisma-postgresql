@@ -9,6 +9,8 @@ import client_api from "@/utils/API_FETCH";
 import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
 import { BiLoader } from "react-icons/bi";
+import { useSearchParams } from "next/navigation";
+import { parse } from "dotenv";
 
 const TimeNotificationIcon = (props) => {
   const { size = 24, color = "currentColor", ...rest } = props;
@@ -67,6 +69,7 @@ const TimeNotificationIcon = (props) => {
 };
 
 const TabContents = ({ transaction = [], refetch, accountData, data }) => {
+  const searchParams = useSearchParams();
 
   const [showMakePaymentModal, setShowMakePaymentModal] = useState(false);
   const [showTakeLoanModal, setShowTakeLoanModal] = useState(false);
@@ -74,19 +77,21 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
   const [paymentPaidFrom, setPaymentPaidFrom] = useState("Cash");
   const { currencySymbol, formatPrice } = useCurrencyStore();
   const [loading, setLoading] = useState(false);
+  const [paymentId, setPaymentId] = useState(null); // Store payment ID for update
 
   // Modal state for Make Payment
   const [makePaymentData, setMakePaymentData] = useState({
     principalAmount: "0",
     interestAmount: "0",
     totalAmount: "0",
-    date: new Date().toLocaleDateString('en-GB')
+    date: new Date().toLocaleDateString('en-GB').split('/').reverse().join('-'), // Format to YYYY-MM-DD for input
+    paymentType: "Cash"
   });
 
   // Modal state for Take More Loan
   const [takeLoanData, setTakeLoanData] = useState({
     increaseLoanBy: "0",
-    date: new Date().toLocaleDateString('en-GB'),
+    date: new Date().toLocaleDateString('en-GB').split('/').reverse().join('-'),
     loanReceivedIn: "Cash"
   });
 
@@ -94,13 +99,69 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
   const [chargesData, setChargesData] = useState({
     amount: "0",
     transactionTypeName: "",
-    date: new Date().toLocaleDateString('en-GB'),
+    date: new Date().toLocaleDateString('en-GB').split('/').reverse().join('-'),
     loanReceivedIn: "Cash"
   });
 
-  const chargesRef = useOutsideClick(() => setShowChargesModal(false));
-  const takeloanRef = useOutsideClick(() => setShowTakeLoanModal(false));
-  const makepaymentRef = useOutsideClick(() => setShowMakePaymentModal(false));
+  // Check for makepayment=update in URL and fetch payment data
+  useEffect(() => {
+    const makepaymentParam = searchParams.get('makepayment');
+    const paymentIdParam = searchParams.get('paymentId'); // Assuming you pass paymentId for update
+
+    if (makepaymentParam === 'update' && paymentIdParam) {
+      setPaymentId(paymentIdParam);
+      fetchPaymentData(paymentIdParam);
+      setShowMakePaymentModal(true);
+    }
+  }, [searchParams]);
+
+  // Function to remove makepayment parameter from URL
+  const removeMakepaymentParam = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('makepayment');
+    url.searchParams.delete('paymentId'); // Also remove paymentId if present
+    window.history.replaceState({}, '', url.toString());
+  };
+
+  // Fetch payment data for update
+  const fetchPaymentData = async (id) => {
+    const findingPayment = transaction.find(t => t.id === id);
+    const match = findingPayment?.description?.match(/Interest:\s*(\d+)/);
+
+    // match[1] contains the first captured group (the numbers)
+    const interestAmount = match ? match[1] : null;
+
+    // Format date to YYYY-MM-DD for input
+    const formattedDate = findingPayment.date ? new Date(findingPayment.date).toISOString().split('T')[0] :
+      new Date().toLocaleDateString('en-GB').split('/').reverse().join('-');
+
+    setMakePaymentData({
+      principalAmount: parseFloat(findingPayment.amount),
+      interestAmount: parseFloat(interestAmount),
+      totalAmount: parseFloat(findingPayment.amount) + parseFloat(interestAmount),
+      date: findingPayment?.date,
+      paymentType: findingPayment.paymentType === "Cash" ? "Cash" : data?.bank.find(b => b.id === findingPayment.cashAndBankId).accountdisplayname || "Cash"
+    });
+
+    setPaymentPaidFrom(findingPayment.paymentType === "Cash" ? "Cash" : data?.bank.find(b => b.id === findingPayment.cashAndBankId) || "Cash");
+
+  };
+
+  const chargesRef = useOutsideClick(() => {
+    setShowChargesModal(false);
+    removeMakepaymentParam();
+  });
+
+  const takeloanRef = useOutsideClick(() => {
+    setShowTakeLoanModal(false);
+    removeMakepaymentParam();
+  });
+
+  const makepaymentRef = useOutsideClick(() => {
+    setShowMakePaymentModal(false);
+    removeMakepaymentParam();
+    setPaymentId(null); // Reset payment ID
+  });
 
   const { data: session } = useSession()
 
@@ -146,37 +207,56 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
     setChargesData(prev => ({ ...prev, [name]: value }));
   };
 
-  // Save handlers
+  // Save/Update handlers
   const handleSaveMakePayment = () => {
     if (makePaymentData.totalAmount === "0") {
       toast.error("Total amount cannot be zero");
       return;
     }
-setLoading(true);
-    client_api.update("/api/loan-accounts/make-payment", "", {
+    if (parseFloat(makePaymentData.totalAmount) > currentBalance) {
+      toast.error("Total payment cannot exceed current balance");
+      return;
+    }
+
+    setLoading(true);
+
+    // Prepare the payment data
+    const paymentPayload = {
       accountId: accountData.id,
       principalAmount: parseFloat(makePaymentData.principalAmount) || 0,
       interestAmount: parseFloat(makePaymentData.interestAmount) || 0,
       totalAmount: parseFloat(makePaymentData.totalAmount) || 0,
-      date: makePaymentData.date,
+      date: makePaymentData.date || "",
       paymentType: paymentPaidFrom,
-      userId: session?.user?.id || null, // Pass userId for cash payments
-    }).then(response => {
+      userId: session?.user?.id || null,
+    };
+
+    // Determine if it's an update or create
+    const apiCall = paymentId
+      ? client_api.update(`/api/loan-accounts/make-payment/${paymentId}`, "", paymentPayload)
+      : client_api.update("/api/loan-accounts/make-payment", "", paymentPayload);
+
+    apiCall.then(response => {
       setShowMakePaymentModal(false);
+      removeMakepaymentParam(); // Remove parameter after successful save
+      setPaymentId(null); // Reset payment ID
       refetch();
+
       // Reset form data
       setMakePaymentData({
         principalAmount: "0",
         interestAmount: "0",
         totalAmount: "0",
-        date: new Date().toLocaleDateString('en-GB')
+        date: new Date().toLocaleDateString('en-GB').split('/').reverse().join('-'),
+        paymentType: "Cash"
       });
+      setPaymentPaidFrom("Cash");
       setLoading(false);
-      toast.success("Payment made successfully");
+
+      toast.success(paymentId ? "Payment updated successfully" : "Payment made successfully");
     }).catch(error => {
-      console.error("Error making payment:", error);
-      // Optionally show an error message to the user
-      toast.error("Failed to make payment. Please try again.");
+      console.error("Error saving payment:", error);
+      toast.error("Failed to save payment. Please try again.");
       setLoading(false);
     });
   };
@@ -185,12 +265,30 @@ setLoading(true);
     console.log("Take Loan Data:", takeLoanData);
     // Add your API call here
     setShowTakeLoanModal(false);
+    removeMakepaymentParam(); // Remove parameter after closing
   };
 
   const handleSaveCharges = () => {
     console.log("Charges Data:", chargesData);
     // Add your API call here
     setShowChargesModal(false);
+    removeMakepaymentParam(); // Remove parameter after closing
+  };
+
+  // Reset form when modal is closed without saving
+  const handleCloseMakePaymentModal = () => {
+    setShowMakePaymentModal(false);
+    removeMakepaymentParam();
+    setPaymentId(null);
+    // Reset to default values
+    setMakePaymentData({
+      principalAmount: "0",
+      interestAmount: "0",
+      totalAmount: "0",
+      date: new Date().toLocaleDateString('en-GB').split('/').reverse().join('-'),
+      paymentType: "Cash"
+    });
+    setPaymentPaidFrom("Cash");
   };
 
   // Get account name
@@ -199,15 +297,13 @@ setLoading(true);
   // Get current balance from account data
   const currentBalance = accountData?.currentBalance || 0;
 
-  // Calculate total amount from transactions
-  const totalLoanAmount = transaction.reduce((sum, t) => sum + (t.amount || 0), 0);
-
   // Get processing fee
   const processingFee = accountData?.processingFee || 0;
 
   // Get loan received method
   const loanReceivedIn = accountData?.loanReceivedIn || "Cash";
 
+  // ... rest of your component remains exactly the same from here ...
   return (
     <div className="font-inter antialiased">
       {/* Main Card Container */}
@@ -227,15 +323,10 @@ setLoading(true);
 
               {/* Right Side: Total Loan and Current Balance */}
               <div className="flex items-center space-x-6">
-                {/* Total Loan Amount Section */}
-                <div className="text-right">
-                  <div className="text-sm text-gray-500 font-medium">Total Loan</div>
-                  <div className="text-lg font-bold text-gray-800">{formatPrice(totalLoanAmount)}</div>
-                </div>
 
                 {/* Current Balance Section */}
                 <div className="text-right">
-                  <div className="text-sm text-gray-500 font-medium">Current Balance</div>
+                  <div className="text-sm text-gray-500 font-medium">Balance Amount</div>
                   <div className="text-lg font-bold text-gray-800">{formatPrice(currentBalance)}</div>
                 </div>
               </div>
@@ -299,16 +390,11 @@ setLoading(true);
             </div>
           </div>
 
-          {/* Total Loan and Current Balance Stacked */}
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div>
-              <div className="text-sm text-gray-500 font-medium">Total Loan</div>
-              <div className="text-lg font-bold text-gray-800">{formatPrice(totalLoanAmount)}</div>
-            </div>
-            <div>
-              <div className="text-sm text-gray-500 font-medium">Current Balance</div>
-              <div className="text-lg font-bold text-gray-800">{formatPrice(currentBalance)}</div>
-            </div>
+          {/* Current Balance Stacked */}
+          <div>
+
+            <div className="text-sm text-gray-500 font-medium">Balance Amount</div>
+            <div className="text-lg font-bold text-gray-800">{formatPrice(currentBalance)}</div>
           </div>
 
           {/* Loan Details */}
@@ -334,7 +420,7 @@ setLoading(true);
               Take more loan
             </button>
             <button
-              onClick={() => setShowChargesModal(false)}
+              onClick={() => setShowChargesModal(true)}
               className="w-full px-4 py-3 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600 transition duration-150"
             >
               Charges on Loan
@@ -427,9 +513,11 @@ setLoading(true);
           <div ref={makepaymentRef} className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex justify-between items-center p-6 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-800">Make Payment - {accountName}</h2>
+              <h2 className="text-xl font-bold text-gray-800">
+                {paymentId ? 'Update Payment' : 'Make Payment'} - {accountName}
+              </h2>
               <button
-                onClick={() => setShowMakePaymentModal(false)}
+                onClick={handleCloseMakePaymentModal}
                 className="text-gray-500 hover:text-gray-700"
               >
                 <FaTimes className="w-5 h-5" />
@@ -509,7 +597,7 @@ setLoading(true);
             {/* Modal Footer */}
             <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
               <button
-                onClick={() => setShowMakePaymentModal(false)}
+                onClick={handleCloseMakePaymentModal}
                 className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition duration-150"
               >
                 Cancel
@@ -519,7 +607,14 @@ setLoading(true);
                 onClick={handleSaveMakePayment}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150"
               >
-                {loading ? <span className="flex items-center"><BiLoader className="mr-2" /> Saving</span> : 'Save'}
+                {loading ? (
+                  <span className="flex items-center">
+                    <BiLoader className="mr-2 animate-spin" />
+                    {paymentId ? 'Updating...' : 'Saving...'}
+                  </span>
+                ) : (
+                  paymentId ? 'Update' : 'Save'
+                )}
               </button>
             </div>
           </div>
@@ -537,7 +632,10 @@ setLoading(true);
                 <h3 className="text-xl font-bold text-gray-800">Take More Loan</h3>
               </div>
               <button
-                onClick={() => setShowTakeLoanModal(false)}
+                onClick={() => {
+                  setShowTakeLoanModal(false);
+                  removeMakepaymentParam();
+                }}
                 className="text-gray-500 hover:text-gray-700"
               >
                 <FaTimes className="w-5 h-5" />
@@ -596,7 +694,10 @@ setLoading(true);
             {/* Modal Footer */}
             <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
               <button
-                onClick={() => setShowTakeLoanModal(false)}
+                onClick={() => {
+                  setShowTakeLoanModal(false);
+                  removeMakepaymentParam();
+                }}
                 className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition duration-150"
               >
                 Cancel
@@ -620,7 +721,10 @@ setLoading(true);
             <div className="flex justify-between items-center p-6 border-b border-gray-200">
               <h2 className="text-xl font-bold text-gray-800">Charges On Loan - {accountName}</h2>
               <button
-                onClick={() => setShowChargesModal(false)}
+                onClick={() => {
+                  setShowChargesModal(false);
+                  removeMakepaymentParam();
+                }}
                 className="text-gray-500 hover:text-gray-700"
               >
                 <FaTimes className="w-5 h-5" />
@@ -706,7 +810,10 @@ setLoading(true);
             {/* Modal Footer */}
             <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
               <button
-                onClick={() => setShowChargesModal(false)}
+                onClick={() => {
+                  setShowChargesModal(false);
+                  removeMakepaymentParam();
+                }}
                 className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition duration-150"
               >
                 Cancel

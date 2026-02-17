@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 
@@ -399,8 +399,8 @@ function MobileTransactionAccordion({
                                 setIsMenuOpen(false);
                               }}
                               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors ${isDanger
-                                  ? 'text-red-600 hover:bg-red-50'
-                                  : 'text-gray-700 hover:bg-gray-50'
+                                ? 'text-red-600 hover:bg-red-50'
+                                : 'text-gray-700 hover:bg-gray-50'
                                 }`}
                             >
                               <Icon size={20} />
@@ -488,10 +488,10 @@ function MobileTransactionAccordion({
                       }
                     }}
                     className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg transition-all duration-200 ${isPrimary
-                        ? 'bg-blue-600 text-white hover:bg-blue-700'
-                        : isDanger
-                          ? 'bg-red-100 text-red-700 hover:bg-red-200 border border-red-200'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : isDanger
+                        ? 'bg-red-100 text-red-700 hover:bg-red-200 border border-red-200'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }`}
                   >
                     <Icon size={18} />
@@ -867,8 +867,8 @@ const Pagination = ({
             key={page}
             onClick={() => handlePageClick(page)}
             className={`${getButtonSize()} flex items-center justify-center rounded-lg border font-medium transition-colors ${currentPage === page
-                ? "border-blue-500 bg-blue-50 text-blue-600"
-                : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+              ? "border-blue-500 bg-blue-50 text-blue-600"
+              : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
               }`}
           >
             {page}
@@ -1375,6 +1375,8 @@ export default function TransactionsTable({
     }
   };
 
+  const pathname = usePathname();
+
   const getMenuItems = (transaction) => [
     {
       label: "View/Edit",
@@ -1396,6 +1398,11 @@ export default function TransactionsTable({
           router.push(
             `/update-sale-purchase?id=${transaction?.id}&type=${invoiceType}&partyId=${transaction?.partyId}`
           );
+        } else if (transaction?.type === "LOAN_PAYMENT") {
+          const params = new URLSearchParams(searchParams.toString());
+          params.set("makepayment", "update");
+          params.set("paymentId", transaction?.id);
+          router.push(`/cash-bank/loan-accounts?${params.toString()}`);
         } else {
           toast.warning("View and Edit not available!");
         }
