@@ -130,7 +130,6 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
 
     // match[1] contains the first captured group (the numbers)
     const interestAmount = match ? match[1] : null;
-
     // Format date to YYYY-MM-DD for input
     const formattedDate = findingPayment.date ? new Date(findingPayment.date).toISOString().split('T')[0] :
       new Date().toLocaleDateString('en-GB').split('/').reverse().join('-');
@@ -140,10 +139,10 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
       interestAmount: parseFloat(interestAmount),
       totalAmount: parseFloat(findingPayment.amount) + parseFloat(interestAmount),
       date: findingPayment?.date,
-      paymentType: findingPayment.paymentType === "Cash" ? "Cash" : data?.bank.find(b => b.id === findingPayment.cashAndBankId).accountdisplayname || "Cash"
+      paymentType: findingPayment.paymentType === "CASH" ? "Cash" : data?.bank.find(b => b.id === findingPayment.cashAndBankId).accountdisplayname || "Cash"
     });
 
-    setPaymentPaidFrom(findingPayment.paymentType === "Cash" ? "Cash" : data?.bank.find(b => b.id === findingPayment.cashAndBankId) || "Cash");
+    setPaymentPaidFrom(findingPayment.paymentType === "CASH" ? "Cash" : data?.bank.find(b => b.id === findingPayment.cashAndBankId) || "Cash");
 
   };
 
@@ -229,11 +228,13 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
       date: makePaymentData.date || "",
       paymentType: paymentPaidFrom,
       userId: session?.user?.id || null,
+      paymentId: paymentId || null,
+      mode: paymentId ? "update" : "create"
     };
 
     // Determine if it's an update or create
     const apiCall = paymentId
-      ? client_api.update(`/api/loan-accounts/make-payment/${paymentId}`, "", paymentPayload)
+      ? client_api.update(`/api/loan-accounts/make-payment`, "", paymentPayload)
       : client_api.update("/api/loan-accounts/make-payment", "", paymentPayload);
 
     apiCall.then(response => {

@@ -28,9 +28,13 @@ export async function GET() {
             where: {
                 companyId: await getCompanyId(),
             },
-            include: {
-                transactions: true,
-            }
+             include: {
+                transactions: {
+                    orderBy: {
+                        id: 'desc'
+                    },
+                },
+            },
         });
 
         return NextResponse.json({ bank, cash, accountData });

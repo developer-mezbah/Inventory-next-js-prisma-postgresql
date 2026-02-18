@@ -1403,7 +1403,9 @@ export default function TransactionsTable({
           params.set("makepayment", "update");
           params.set("paymentId", transaction?.id);
           router.push(`/cash-bank/loan-accounts?${params.toString()}`);
-        } else {
+        }
+        
+        else {
           toast.warning("View and Edit not available!");
         }
       },
@@ -1488,7 +1490,23 @@ export default function TransactionsTable({
             transaction?.id,
             transaction?.transactionType.toLowerCase()
           );
-        } else {
+        }
+        else if(transaction?.type === "Loan Disbursement"){
+          return toast.error("Cannot delete account with existing transactions. Please delete transactions first.");
+        }
+        else if(transaction?.type === "LOAN_PROCESSING_FEE"){
+          return toast.error("It is not allowed to delete loan processing fee transaction. Please contact support team.");
+        }
+        else if(transaction?.type === "LOAN_PAYMENT"){
+          const params = new URLSearchParams(searchParams.toString());
+          DeleteAlert(`/api/loan-accounts/make-payment?accountId=${params.get("tab")}&paymentId=${transaction?.id}`).then(res => {
+              if(res){
+                refetch();
+               return toast.success("Transaction Deleted Successfully!");
+              }
+          })
+        }
+        else {
           const storeId =
             transaction?.type === "Sale"
               ? transaction?.saleId
