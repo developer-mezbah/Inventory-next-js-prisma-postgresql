@@ -10,7 +10,6 @@ import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
 import { BiLoader } from "react-icons/bi";
 import { useSearchParams } from "next/navigation";
-import { parse } from "dotenv";
 
 const TimeNotificationIcon = (props) => {
   const { size = 24, color = "currentColor", ...rest } = props;
@@ -75,16 +74,20 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
   const [showTakeLoanModal, setShowTakeLoanModal] = useState(false);
   const [showChargesModal, setShowChargesModal] = useState(false);
   const [paymentPaidFrom, setPaymentPaidFrom] = useState("Cash");
+  const [takeLoanReceivedIn, setTakeLoanReceivedIn] = useState("Cash");
+  const [chargesPaidFrom, setChargesPaidFrom] = useState("Cash");
   const { currencySymbol, formatPrice } = useCurrencyStore();
   const [loading, setLoading] = useState(false);
-  const [paymentId, setPaymentId] = useState(null); // Store payment ID for update
+  const [paymentId, setPaymentId] = useState(null);
+  const [takeLoanId, setTakeLoanId] = useState(null);
+  const [chargesId, setChargesId] = useState(null);
 
   // Modal state for Make Payment
   const [makePaymentData, setMakePaymentData] = useState({
     principalAmount: "0",
     interestAmount: "0",
     totalAmount: "0",
-    date: new Date().toLocaleDateString('en-GB').split('/').reverse().join('-'), // Format to YYYY-MM-DD for input
+    date: new Date().toLocaleDateString('en-GB').split('/').reverse().join('-'),
     paymentType: "Cash"
   });
 
@@ -100,26 +103,46 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
     amount: "0",
     transactionTypeName: "",
     date: new Date().toLocaleDateString('en-GB').split('/').reverse().join('-'),
-    loanReceivedIn: "Cash"
+    paidFrom: "Cash"
   });
 
-  // Check for makepayment=update in URL and fetch payment data
+  // Check for URL parameters
   useEffect(() => {
     const makepaymentParam = searchParams.get('makepayment');
-    const paymentIdParam = searchParams.get('paymentId'); // Assuming you pass paymentId for update
+    const paymentIdParam = searchParams.get('paymentId');
+    const takeloanParam = searchParams.get('takeloan');
+    const takeloanIdParam = searchParams.get('takeloanId');
+    const chargesParam = searchParams.get('charges');
+    const chargesIdParam = searchParams.get('chargesId');
 
     if (makepaymentParam === 'update' && paymentIdParam) {
       setPaymentId(paymentIdParam);
       fetchPaymentData(paymentIdParam);
       setShowMakePaymentModal(true);
     }
+
+    if (takeloanParam === 'update' && takeloanIdParam) {
+      setTakeLoanId(takeloanIdParam);
+      fetchTakeLoanData(takeloanIdParam);
+      setShowTakeLoanModal(true);
+    }
+
+    if (chargesParam === 'update' && chargesIdParam) {
+      setChargesId(chargesIdParam);
+      fetchChargesData(chargesIdParam);
+      setShowChargesModal(true);
+    }
   }, [searchParams]);
 
-  // Function to remove makepayment parameter from URL
-  const removeMakepaymentParam = () => {
+  // Function to remove parameters from URL
+  const removeUrlParams = () => {
     const url = new URL(window.location.href);
     url.searchParams.delete('makepayment');
-    url.searchParams.delete('paymentId'); // Also remove paymentId if present
+    url.searchParams.delete('paymentId');
+    url.searchParams.delete('takeloan');
+    url.searchParams.delete('takeloanId');
+    url.searchParams.delete('charges');
+    url.searchParams.delete('chargesId');
     window.history.replaceState({}, '', url.toString());
   };
 
@@ -127,42 +150,65 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
   const fetchPaymentData = async (id) => {
     const findingPayment = transaction.find(t => t.id === id);
     const match = findingPayment?.description?.match(/Interest:\s*(\d+)/);
-
-    // match[1] contains the first captured group (the numbers)
     const interestAmount = match ? match[1] : null;
-    // Format date to YYYY-MM-DD for input
-    const formattedDate = findingPayment.date ? new Date(findingPayment.date).toISOString().split('T')[0] :
-      new Date().toLocaleDateString('en-GB').split('/').reverse().join('-');
 
     setMakePaymentData({
-      principalAmount: parseFloat(findingPayment.amount),
-      interestAmount: parseFloat(interestAmount),
-      totalAmount: parseFloat(findingPayment.amount) + parseFloat(interestAmount),
-      date: findingPayment?.date,
-      paymentType: findingPayment.paymentType === "CASH" ? "Cash" : data?.bank.find(b => b.id === findingPayment.cashAndBankId).accountdisplayname || "Cash"
+      principalAmount: parseFloat(findingPayment.amount) || 0,
+      interestAmount: parseFloat(interestAmount) || 0,
+      totalAmount: (parseFloat(findingPayment.amount) || 0) + (parseFloat(interestAmount) || 0),
+      date: findingPayment?.date ? new Date(findingPayment.date).toISOString().split('T')[0] : new Date().toLocaleDateString('en-GB').split('/').reverse().join('-'),
+      paymentType: findingPayment.paymentType === "CASH" ? "Cash" : data?.bank.find(b => b.id === findingPayment.cashAndBankId)?.accountdisplayname || "Cash"
     });
 
     setPaymentPaidFrom(findingPayment.paymentType === "CASH" ? "Cash" : data?.bank.find(b => b.id === findingPayment.cashAndBankId) || "Cash");
+  };
 
+  // Fetch take loan data for update
+  const fetchTakeLoanData = async (id) => {
+    const findingTakeLoan = transaction.find(t => t.id === id);
+
+    setTakeLoanData({
+      increaseLoanBy: parseFloat(findingTakeLoan.amount) || "0",
+      date: findingTakeLoan?.date ? new Date(findingTakeLoan.date).toISOString().split('T')[0] : new Date().toLocaleDateString('en-GB').split('/').reverse().join('-'),
+      loanReceivedIn: findingTakeLoan.paymentType === "CASH" ? "Cash" : data?.bank.find(b => b.id === findingTakeLoan.cashAndBankId)?.accountdisplayname || "Cash"
+    });
+
+    setTakeLoanReceivedIn(findingTakeLoan.paymentType === "CASH" ? "Cash" : data?.bank.find(b => b.id === findingTakeLoan.cashAndBankId) || "Cash");
+  };
+
+  // Fetch charges data for update
+  const fetchChargesData = async (id) => {
+    const findingCharges = transaction.find(t => t.id === id);
+
+    setChargesData({
+      amount: Math.abs(parseFloat(findingCharges.amount)) || 0,
+      transactionTypeName: findingCharges.description || "",
+      date: findingCharges?.date ? new Date(findingCharges.date).toISOString().split('T')[0] : new Date().toLocaleDateString('en-GB').split('/').reverse().join('-'),
+      paidFrom: findingCharges.paymentType === "CASH" ? "Cash" : data?.bank.find(b => b.id === findingCharges.cashAndBankId)?.accountdisplayname || "Cash"
+    });
+
+    setChargesPaidFrom(findingCharges.paymentType === "CASH" ? "Cash" : data?.bank.find(b => b.id === findingCharges.cashAndBankId) || "Cash");
   };
 
   const chargesRef = useOutsideClick(() => {
     setShowChargesModal(false);
-    removeMakepaymentParam();
+    removeUrlParams();
+    setChargesId(null);
   });
 
   const takeloanRef = useOutsideClick(() => {
     setShowTakeLoanModal(false);
-    removeMakepaymentParam();
+    removeUrlParams();
+    setTakeLoanId(null);
   });
 
   const makepaymentRef = useOutsideClick(() => {
     setShowMakePaymentModal(false);
-    removeMakepaymentParam();
-    setPaymentId(null); // Reset payment ID
+    removeUrlParams();
+    setPaymentId(null);
   });
 
-  const { data: session } = useSession()
+  const { data: session } = useSession();
 
   // Calculate total amount when principal or interest changes
   const calculateTotalAmount = () => {
@@ -176,7 +222,6 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
     }));
   };
 
-  // Calculate total when principalAmount or interestAmount changes
   useEffect(() => {
     calculateTotalAmount();
   }, [makePaymentData.principalAmount, makePaymentData.interestAmount]);
@@ -184,8 +229,6 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
   // Handle Make Payment form changes
   const handleMakePaymentChange = (e) => {
     const { name, value } = e.target;
-
-    // Parse the value to ensure it's a number, but keep as string for input
     const parsedValue = value === "" ? "0" : value;
 
     setMakePaymentData(prev => ({
@@ -206,7 +249,7 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
     setChargesData(prev => ({ ...prev, [name]: value }));
   };
 
-  // Save/Update handlers
+  // Save Make Payment
   const handleSaveMakePayment = () => {
     if (makePaymentData.totalAmount === "0") {
       toast.error("Total amount cannot be zero");
@@ -219,7 +262,6 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
 
     setLoading(true);
 
-    // Prepare the payment data
     const paymentPayload = {
       accountId: accountData.id,
       principalAmount: parseFloat(makePaymentData.principalAmount) || 0,
@@ -232,18 +274,14 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
       mode: paymentId ? "update" : "create"
     };
 
-    // Determine if it's an update or create
-    const apiCall = paymentId
-      ? client_api.update(`/api/loan-accounts/make-payment`, "", paymentPayload)
-      : client_api.update("/api/loan-accounts/make-payment", "", paymentPayload);
+    const apiCall = client_api.update("/api/loan-accounts/make-payment", "", paymentPayload);
 
     apiCall.then(response => {
       setShowMakePaymentModal(false);
-      removeMakepaymentParam(); // Remove parameter after successful save
-      setPaymentId(null); // Reset payment ID
+      removeUrlParams();
+      setPaymentId(null);
       refetch();
 
-      // Reset form data
       setMakePaymentData({
         principalAmount: "0",
         interestAmount: "0",
@@ -262,26 +300,109 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
     });
   };
 
+  // Save Take Loan
   const handleSaveTakeLoan = () => {
-    console.log("Take Loan Data:", takeLoanData);
-    // Add your API call here
-    setShowTakeLoanModal(false);
-    removeMakepaymentParam(); // Remove parameter after closing
+    if (takeLoanData.increaseLoanBy === "0" || !takeLoanData.increaseLoanBy) {
+      toast.error("Loan amount cannot be zero");
+      return;
+    }
+
+    setLoading(true);
+
+    const takeLoanPayload = {
+      accountId: accountData.id,
+      amount: parseFloat(takeLoanData.increaseLoanBy) || 0,
+      date: takeLoanData.date || "",
+      paymentType: takeLoanReceivedIn,
+      userId: session?.user?.id || null,
+      takeLoanId: takeLoanId || null,
+      mode: takeLoanId ? "update" : "create"
+    };
+
+    const apiCall = client_api.update("/api/loan-accounts/take-more-loan", "", takeLoanPayload);
+
+    apiCall.then(response => {
+      setShowTakeLoanModal(false);
+      removeUrlParams();
+      setTakeLoanId(null);
+      refetch();
+
+      setTakeLoanData({
+        increaseLoanBy: "0",
+        date: new Date().toLocaleDateString('en-GB').split('/').reverse().join('-'),
+        loanReceivedIn: "Cash"
+      });
+      setTakeLoanReceivedIn("Cash");
+      setLoading(false);
+
+      toast.success(takeLoanId ? "Loan updated successfully" : "Loan taken successfully");
+    }).catch(error => {
+      console.error("Error saving loan:", error);
+      toast.error("Failed to save loan. Please try again.");
+      setLoading(false);
+    });
   };
 
+  // Save Charges
   const handleSaveCharges = () => {
-    console.log("Charges Data:", chargesData);
-    // Add your API call here
-    setShowChargesModal(false);
-    removeMakepaymentParam(); // Remove parameter after closing
+    if (chargesData.amount === "0" || !chargesData.amount) {
+      toast.error("Amount cannot be zero");
+      return;
+    }
+    
+    if (parseFloat(chargesData.amount) > currentBalance) {
+      toast.error("Charges amount cannot exceed current balance");
+      return;
+    }
+
+    if (!chargesData.transactionTypeName.trim()) {
+      toast.error("Please enter transaction type name");
+      return;
+    }
+
+    setLoading(true);
+
+    const chargesPayload = {
+      accountId: accountData.id,
+      amount: parseFloat(chargesData.amount) || 0,
+      chargeType: chargesData.transactionTypeName,
+      date: chargesData.date || "",
+      paymentType: chargesPaidFrom,
+      userId: session?.user?.id || null,
+      chargesId: chargesId || null,
+      mode: chargesId ? "update" : "create"
+    };
+
+    const apiCall = client_api.update("/api/loan-accounts/charges", "", chargesPayload);
+
+    apiCall.then(response => {
+      setShowChargesModal(false);
+      removeUrlParams();
+      setChargesId(null);
+      refetch();
+
+      setChargesData({
+        amount: "0",
+        transactionTypeName: "",
+        date: new Date().toLocaleDateString('en-GB').split('/').reverse().join('-'),
+        paidFrom: "Cash"
+      });
+      setChargesPaidFrom("Cash");
+      setLoading(false);
+
+      toast.success(chargesId ? "Charges updated successfully" : "Charges added successfully");
+    }).catch(error => {
+      console.error("Error saving charges:", error);
+      toast.error("Failed to save charges. Please try again.");
+      setLoading(false);
+    });
   };
 
   // Reset form when modal is closed without saving
   const handleCloseMakePaymentModal = () => {
     setShowMakePaymentModal(false);
-    removeMakepaymentParam();
+    removeUrlParams();
     setPaymentId(null);
-    // Reset to default values
     setMakePaymentData({
       principalAmount: "0",
       interestAmount: "0",
@@ -292,19 +413,37 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
     setPaymentPaidFrom("Cash");
   };
 
-  // Get account name
+  const handleCloseTakeLoanModal = () => {
+    setShowTakeLoanModal(false);
+    removeUrlParams();
+    setTakeLoanId(null);
+    setTakeLoanData({
+      increaseLoanBy: "0",
+      date: new Date().toLocaleDateString('en-GB').split('/').reverse().join('-'),
+      loanReceivedIn: "Cash"
+    });
+    setTakeLoanReceivedIn("Cash");
+  };
+
+  const handleCloseChargesModal = () => {
+    setShowChargesModal(false);
+    removeUrlParams();
+    setChargesId(null);
+    setChargesData({
+      amount: "0",
+      transactionTypeName: "",
+      date: new Date().toLocaleDateString('en-GB').split('/').reverse().join('-'),
+      paidFrom: "Cash"
+    });
+    setChargesPaidFrom("Cash");
+  };
+
+  // Get account data
   const accountName = accountData?.accountName || "";
-
-  // Get current balance from account data
   const currentBalance = accountData?.currentBalance || 0;
-
-  // Get processing fee
   const processingFee = accountData?.processingFee || 0;
-
-  // Get loan received method
   const loanReceivedIn = accountData?.loanReceivedIn || "Cash";
 
-  // ... rest of your component remains exactly the same from here ...
   return (
     <div className="font-inter antialiased">
       {/* Main Card Container */}
@@ -324,7 +463,6 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
 
               {/* Right Side: Total Loan and Current Balance */}
               <div className="flex items-center space-x-6">
-
                 {/* Current Balance Section */}
                 <div className="text-right">
                   <div className="text-sm text-gray-500 font-medium">Balance Amount</div>
@@ -393,7 +531,6 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
 
           {/* Current Balance Stacked */}
           <div>
-
             <div className="text-sm text-gray-500 font-medium">Balance Amount</div>
             <div className="text-lg font-bold text-gray-800">{formatPrice(currentBalance)}</div>
           </div>
@@ -435,13 +572,11 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
         <TransactionsTable
           isMobile={true}
           data={transaction.map((t) => {
-            // For loan transactions, we need to handle different fields
             let displayType = t.type;
             let displayPaymentType = t.paymentType || "N/A";
             let displayAmount = t.amount || 0;
             let transactionDate = t.date ? new Date(t.date).toLocaleDateString() : "N/A";
 
-            // Format the transaction type for better display
             if (displayType === "LOAN_DISBURSEMENT") {
               displayType = "Loan Disbursement";
             }
@@ -625,18 +760,17 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
       {/* Take More Loan Modal */}
       {showTakeLoanModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div ref={takeloanRef} className="bg-white rounded-xl shadow-xl w-full max-w-md">
+          <div ref={takeloanRef} className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex justify-between items-center p-6 border-b border-gray-200">
               <div>
                 <h2 className="text-lg font-bold text-gray-800">{accountName}</h2>
-                <h3 className="text-xl font-bold text-gray-800">Take More Loan</h3>
+                <h3 className="text-xl font-bold text-gray-800">
+                  {takeLoanId ? 'Update Loan' : 'Take More Loan'}
+                </h3>
               </div>
               <button
-                onClick={() => {
-                  setShowTakeLoanModal(false);
-                  removeMakepaymentParam();
-                }}
+                onClick={handleCloseTakeLoanModal}
                 className="text-gray-500 hover:text-gray-700"
               >
                 <FaTimes className="w-5 h-5" />
@@ -674,40 +808,39 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Loan Received In
-                </label>
-                <select
-                  name="loanReceivedIn"
-                  value={takeLoanData.loanReceivedIn}
-                  onChange={handleTakeLoanChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="Cash">Cash</option>
-                  <option value="Bank Transfer">Bank Transfer</option>
-                  <option value="Credit Card">Credit Card</option>
-                  <option value="Check">Check</option>
-                  <option value="Bkash">Bkash</option>
-                </select>
+                <PaymentSection
+                  refetch={refetch}
+                  bankData={data?.bank || []}
+                  cashData={data?.cash || []}
+                  paymentType={takeLoanReceivedIn}
+                  onPaymentTypeChange={setTakeLoanReceivedIn}
+                  title="Loan Received In"
+                  compact={true}
+                />
               </div>
             </div>
 
             {/* Modal Footer */}
             <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
               <button
-                onClick={() => {
-                  setShowTakeLoanModal(false);
-                  removeMakepaymentParam();
-                }}
+                onClick={handleCloseTakeLoanModal}
                 className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition duration-150"
               >
                 Cancel
               </button>
               <button
+                disabled={loading}
                 onClick={handleSaveTakeLoan}
-                className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition duration-150"
+                className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition duration-150 flex items-center"
               >
-                Save
+                {loading ? (
+                  <span className="flex items-center">
+                    <BiLoader className="mr-2 animate-spin" />
+                    {takeLoanId ? 'Updating...' : 'Saving...'}
+                  </span>
+                ) : (
+                  takeLoanId ? 'Update' : 'Save'
+                )}
               </button>
             </div>
           </div>
@@ -717,15 +850,14 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
       {/* Charges on Loan Modal */}
       {showChargesModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div ref={chargesRef} className="bg-white rounded-xl shadow-xl w-full max-w-md">
+          <div ref={chargesRef} className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
             <div className="flex justify-between items-center p-6 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-800">Charges On Loan - {accountName}</h2>
+              <h2 className="text-xl font-bold text-gray-800">
+                {chargesId ? 'Update Charges' : 'Charges On Loan'} - {accountName}
+              </h2>
               <button
-                onClick={() => {
-                  setShowChargesModal(false);
-                  removeMakepaymentParam();
-                }}
+                onClick={handleCloseChargesModal}
                 className="text-gray-500 hover:text-gray-700"
               >
                 <FaTimes className="w-5 h-5" />
@@ -736,7 +868,7 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
             <div className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Amount
+                  Amount*
                 </label>
                 <input
                   type="number"
@@ -778,52 +910,39 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Charge Amount
-                </label>
-                <input
-                  type="text"
-                  value={chargesData.amount}
-                  readOnly
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                <PaymentSection
+                  refetch={refetch}
+                  bankData={data?.bank || []}
+                  cashData={data?.cash || []}
+                  paymentType={chargesPaidFrom}
+                  onPaymentTypeChange={setChargesPaidFrom}
+                  title="Paid From"
+                  compact={true}
                 />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Paid From
-                </label>
-                <select
-                  name="loanReceivedIn"
-                  value={chargesData.loanReceivedIn}
-                  onChange={handleChargesChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="Cash">Cash</option>
-                  <option value="Bank Transfer">Bank Transfer</option>
-                  <option value="Credit Card">Credit Card</option>
-                  <option value="Check">Check</option>
-                  <option value="Bkash">Bkash</option>
-                </select>
               </div>
             </div>
 
             {/* Modal Footer */}
             <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
               <button
-                onClick={() => {
-                  setShowChargesModal(false);
-                  removeMakepaymentParam();
-                }}
+                onClick={handleCloseChargesModal}
                 className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition duration-150"
               >
                 Cancel
               </button>
               <button
+                disabled={loading}
                 onClick={handleSaveCharges}
-                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-150"
+                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-150 flex items-center"
               >
-                Save
+                {loading ? (
+                  <span className="flex items-center">
+                    <BiLoader className="mr-2 animate-spin" />
+                    {chargesId ? 'Updating...' : 'Saving...'}
+                  </span>
+                ) : (
+                  chargesId ? 'Update' : 'Save'
+                )}
               </button>
             </div>
           </div>

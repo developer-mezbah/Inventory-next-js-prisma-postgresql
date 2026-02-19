@@ -1398,13 +1398,25 @@ export default function TransactionsTable({
           router.push(
             `/update-sale-purchase?id=${transaction?.id}&type=${invoiceType}&partyId=${transaction?.partyId}`
           );
-        } else if (transaction?.type === "LOAN_PAYMENT") {
+        } 
+        else if (transaction?.type === "LOAN_PAYMENT") {
           const params = new URLSearchParams(searchParams.toString());
           params.set("makepayment", "update");
           params.set("paymentId", transaction?.id);
           router.push(`/cash-bank/loan-accounts?${params.toString()}`);
         }
-        
+        else if (transaction?.type === "LOAN_INCREASE") {
+          const params = new URLSearchParams(searchParams.toString());
+          params.set("takeloan", "update");
+          params.set("takeloanId", transaction?.id);
+          router.push(`/cash-bank/loan-accounts?${params.toString()}`);
+        }
+        else if (transaction?.type === "LOAN_CHARGE") {
+          const params = new URLSearchParams(searchParams.toString());
+          params.set("charges", "update");
+          params.set("chargesId", transaction?.id);
+          router.push(`/cash-bank/loan-accounts?${params.toString()}`);
+        }
         else {
           toast.warning("View and Edit not available!");
         }
@@ -1500,6 +1512,24 @@ export default function TransactionsTable({
         else if(transaction?.type === "LOAN_PAYMENT"){
           const params = new URLSearchParams(searchParams.toString());
           DeleteAlert(`/api/loan-accounts/make-payment?accountId=${params.get("tab")}&paymentId=${transaction?.id}`).then(res => {
+              if(res){
+                refetch();
+               return toast.success("Transaction Deleted Successfully!");
+              }
+          })
+        }
+        else if(transaction?.type === "LOAN_INCREASE"){
+          const params = new URLSearchParams(searchParams.toString());
+          DeleteAlert(`/api/loan-accounts/take-more-loan?accountId=${params.get("tab")}&takeLoanId=${transaction?.id}`).then(res => {
+              if(res){
+                refetch();
+               return toast.success("Transaction Deleted Successfully!");
+              }
+          })
+        }
+        else if(transaction?.type === "LOAN_CHARGE"){
+          const params = new URLSearchParams(searchParams.toString());
+          DeleteAlert(`/api/loan-accounts/charges?accountId=${params.get("tab")}&chargeId=${transaction?.id}`).then(res => {
               if(res){
                 refetch();
                return toast.success("Transaction Deleted Successfully!");

@@ -8,6 +8,7 @@ import { useSession } from 'next-auth/react';
 import { toast } from 'react-toastify';
 
 const HeaderSection = ({ data, refetch, showModal, setShowModal, updateFormData, setUpdateFormData }) => {
+  console.log("Data in HeaderSection:", data);
   const [paymentType, setPaymentType] = useState("Cash");
   const [processingFeePaymentType, setProcessingFeePaymentType] = useState("Cash");
   const [formData, setFormData] = useState({
@@ -95,76 +96,84 @@ const HeaderSection = ({ data, refetch, showModal, setShowModal, updateFormData,
     }
   }, [updateFormData])
 
+  const transactionAmount = data?.accountData
+  ?.flatMap(account => account.transactions)
+  .find(tx => tx.id === updateFormData?.id)
+  ?.amount;
+
+console.log("Found Amount:", transactionAmount);
+
   const { data: session } = useSession()
- const handleSubmit = () => {
-  if (!formData.accountName || !formData.currentBalance) {
-    toast.error("Please fill in all required fields (Account Name and Current Balance).");
-    return;
-  }
-  
-  setLoading(true);
-  
-  // Prepare submission data according to your specified format
-  const submissionData = {
-    accountName: formData.accountName,
-    lenderBank: formData.lenderBank,
-    accountNumber: formData.accountNumber,
-    description: formData.description,
-    balanceAsOfDate: formData.balanceAsOfDate ? new Date(formData.balanceAsOfDate) : null,
-    currentBalance: parseFloat(formData.currentBalance) || 0,
-    loanReceivedIn: paymentType,
-    loanReceivedInId: paymentType?.id || "",
-    interestRate: formData.interestRate ? parseFloat(formData.interestRate) : null,
-    termDurationMonths: formData.termDuration ? parseInt(formData.termDuration) : null,
-    processingFee: formData.processingFee ? parseFloat(formData.processingFee) : null,
-    processingFeePaidFrom: processingFeePaymentType || "Cash",
-    processingFeePaidFromId: processingFeePaymentType?.id || "",
-    userId: session?.user?.id
+  const handleSubmit = () => {
+    if (!formData.accountName || !formData.currentBalance) {
+      toast.error("Please fill in all required fields (Account Name and Current Balance).");
+      return;
+    }
+
+
+    setLoading(true);
+
+    // Prepare submission data according to your specified format
+    const submissionData = {
+      accountName: formData.accountName,
+      lenderBank: formData.lenderBank,
+      accountNumber: formData.accountNumber,
+      description: formData.description,
+      balanceAsOfDate: formData.balanceAsOfDate ? new Date(formData.balanceAsOfDate) : null,
+      currentBalance: parseFloat(formData.currentBalance) || 0,
+      loanReceivedIn: paymentType,
+      loanReceivedInId: paymentType?.id || "",
+      interestRate: formData.interestRate ? parseFloat(formData.interestRate) : null,
+      termDurationMonths: formData.termDuration ? parseInt(formData.termDuration) : null,
+      processingFee: formData.processingFee ? parseFloat(formData.processingFee) : null,
+      processingFeePaidFrom: processingFeePaymentType || "Cash",
+      processingFeePaidFromId: processingFeePaymentType?.id || "",
+      userId: session?.user?.id
+    };
+
+    // Add id to submission data if updating
+    if (updateFormData) {
+      submissionData.id = updateFormData.id;
+    }
+
+    // Determine if this is an update or create operation
+    const apiPromise = updateFormData
+      ? client_api.update(`/api/loan-accounts`, "", submissionData)
+      : client_api.create("/api/loan-accounts", "", submissionData);
+
+    apiPromise
+      .then(res => {
+        if (res.status) {
+          toast.success(updateFormData
+            ? "Loan account updated successfully"
+            : "Loan account created successfully"
+          );
+
+          if (refetch) {
+            refetch();
+          }
+
+          // Close modal and reset form
+          setShowModal(false);
+          resetData();
+
+          // Clear editing state if it exists
+          if (setUpdateFormData) {
+            setUpdateFormData(null);
+          }
+        } else {
+          console.error(`Failed to ${updateFormData ? 'update' : 'create'} loan account:`, res.message);
+          toast.error(res.message || `Failed to ${updateFormData ? 'update' : 'create'} loan account. Please try again.`);
+        }
+      })
+      .catch(err => {
+        console.error(`Error ${updateFormData ? 'updating' : 'creating'} loan account:`, err);
+        toast.error(`Failed to ${updateFormData ? 'update' : 'create'} loan account. Please try again.`);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   };
-
-  // Add id to submission data if updating
-  if (updateFormData) {
-    submissionData.id = updateFormData.id;
-  }
-
-  // Determine if this is an update or create operation
-  const apiPromise = updateFormData
-    ? client_api.update(`/api/loan-accounts`, "", submissionData)
-    : client_api.create("/api/loan-accounts", "", submissionData);
-
-  apiPromise
-    .then(res => {
-      if (res.status) {
-        toast.success(updateFormData 
-          ? "Loan account updated successfully" 
-          : "Loan account created successfully"
-        );
-        
-        if (refetch) {
-          refetch();
-        }
-        
-        // Close modal and reset form
-        setShowModal(false);
-        resetData();
-        
-        // Clear editing state if it exists
-        if (setUpdateFormData) {
-          setUpdateFormData(null);
-        }
-      } else {
-        console.error(`Failed to ${updateFormData ? 'update' : 'create'} loan account:`, res.message);
-        toast.error(res.message || `Failed to ${updateFormData ? 'update' : 'create'} loan account. Please try again.`);
-      }
-    })
-    .catch(err => {
-      console.error(`Error ${updateFormData ? 'updating' : 'creating'} loan account:`, err);
-      toast.error(`Failed to ${updateFormData ? 'update' : 'create'} loan account. Please try again.`);
-    })
-    .finally(() => {
-      setLoading(false);
-    });
-};
 
   return (
     <>
