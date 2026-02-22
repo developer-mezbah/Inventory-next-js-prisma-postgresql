@@ -79,13 +79,18 @@ const HeaderSection = ({ data, refetch, showModal, setShowModal, updateFormData,
 
   useEffect(() => {
     if (updateFormData) {
+      const openingBalance = data?.accountData
+        ?.flatMap(account => account.transactions)
+        .find(tx => tx.type === "LOAN_DISBURSEMENT")
+        ?.amount;
+
       setFormData({
         accountName: updateFormData.accountName || '',
         lenderBank: updateFormData.lenderBank || '',
         accountNumber: updateFormData.accountNumber || '',
         description: updateFormData.description || '',
         balanceAsOfDate: updateFormData.balanceAsOfDate ? formatDateForInput(updateFormData.balanceAsOfDate) : '',
-        currentBalance: updateFormData.currentBalance || '',
+        currentBalance: openingBalance !== undefined ? parseFloat(openingBalance) : (updateFormData.currentBalance || ''),
         interestRate: updateFormData.interestRate || '',
         termDuration: updateFormData.termDurationMonths || '',
         processingFee: updateFormData.processingFee || '',
@@ -96,19 +101,26 @@ const HeaderSection = ({ data, refetch, showModal, setShowModal, updateFormData,
     }
   }, [updateFormData])
 
-  const transactionAmount = data?.accountData
-  ?.flatMap(account => account.transactions)
-  .find(tx => tx.id === updateFormData?.id)
-  ?.amount;
+const testing = (currentBalance) => {
+  const findActiveAccount = data?.accountData.find(account => account.id === updateFormData.id);
 
-console.log("Found Amount:", transactionAmount);
+  const makePaymentAmount = findActiveAccount?.transactions
+    ?.filter(tx => tx.type === "LOAN_PAYMENT")
+    .reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
 
+  return currentBalance - makePaymentAmount;
+}
+
+console.log(updateFormData? parseFloat(formData.currentBalance) : null)
   const { data: session } = useSession()
   const handleSubmit = () => {
     if (!formData.accountName || !formData.currentBalance) {
       toast.error("Please fill in all required fields (Account Name and Current Balance).");
       return;
     }
+
+
+
 
 
     setLoading(true);
@@ -120,7 +132,8 @@ console.log("Found Amount:", transactionAmount);
       accountNumber: formData.accountNumber,
       description: formData.description,
       balanceAsOfDate: formData.balanceAsOfDate ? new Date(formData.balanceAsOfDate) : null,
-      currentBalance: parseFloat(formData.currentBalance) || 0,
+      currentBalance: updateFormData ? testing(parseFloat(formData.currentBalance)) : parseFloat(formData.currentBalance),
+      openingBalance: parseFloat(formData.currentBalance),
       loanReceivedIn: paymentType,
       loanReceivedInId: paymentType?.id || "",
       interestRate: formData.interestRate ? parseFloat(formData.interestRate) : null,
@@ -324,7 +337,7 @@ console.log("Found Amount:", transactionAmount);
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Current Balance <span className="text-red-500">*</span>
+                    {updateFormData ? "Opening Balance" : "Current Balance"} <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="number"

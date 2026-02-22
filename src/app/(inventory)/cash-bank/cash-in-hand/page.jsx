@@ -148,7 +148,9 @@ const Page = () => {
       if (
         item.type === "Reduce Cash" ||
         item.type === "Expense" ||
-        item.type === "Purchase"
+        item.type === "Purchase" || 
+        item.type === "LOAN_PROCESSING_FEE" ||
+        item.type === "LOAN_PAYMENT" 
       ) {
         amount = -Math.abs(amount); // Make negative
       } else if (

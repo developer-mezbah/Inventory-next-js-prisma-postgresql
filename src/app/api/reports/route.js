@@ -7,10 +7,49 @@ export async function GET(request) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const id = searchParams.get('id');
+    const type = searchParams.get('type'); // For additional filtering
     const companyId = await getCompanyId();
+
+    // If no ID parameter, return all loan accounts for the company
     if (!id) {
-      return NextResponse.json({ error: "ID parameter is required" }, { status: 400 });
+      const loanAccounts = await prisma.loanAccount.findMany({
+        where: { companyId: companyId },
+        include: {
+          transactions: {
+            orderBy: { date: 'desc' },
+            take: 10 // Get recent transactions
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      return NextResponse.json(loanAccounts);
     }
+
+    // Handle specific loan account by ID
+    if (id && id !== "sales" && id !== "transactions" && id !== "financial-statement") {
+      const loanAccount = await prisma.loanAccount.findUnique({
+        where: { id: id },
+        include: {
+          transactions: {
+            orderBy: { date: 'desc' }
+          },
+          company: true,
+        },
+      });
+
+      if (!loanAccount) {
+        return NextResponse.json({ error: "Loan account not found" }, { status: 404 });
+      }
+
+      // Verify company access
+      if (loanAccount.companyId !== companyId) {
+        return NextResponse.json({ error: "Unauthorized access" }, { status: 403 });
+      }
+
+      return NextResponse.json(loanAccount);
+    }
+
+    // Handle special cases
     if (id === "sales") {
       const salesReports = await prisma.sale.findMany({
         where: { companyId: companyId },
@@ -20,22 +59,106 @@ export async function GET(request) {
       });
       return NextResponse.json(salesReports);
     }
+
     if (id === "transactions") {
+      // Filter by loan account if specified
+      const loanAccountId = searchParams.get('loanAccountId');
+      const whereClause = { 
+        companyId: companyId,
+        ...(loanAccountId && { loanAccountId: loanAccountId })
+      };
+
       const transactions = await prisma.Transaction.findMany({
-        where: { companyId: companyId },
+        where: whereClause,
+        include: {
+          loanAccount: true,
+        },
+        orderBy: { date: 'desc' },
       });
       return NextResponse.json(transactions);
     }
+
     if (id === "financial-statement") {
       const financialData = await getFinancialData(companyId);
-      return NextResponse.json(financialData);
+      
+      // Enhance financial data with loan information
+      const loanAccounts = await prisma.loanAccount.findMany({
+        where: { companyId: companyId },
+        select: {
+          id: true,
+          accountName: true,
+          currentBalance: true,
+          interestRate: true,
+          loanReceivedIn: true,
+        },
+      });
+
+      return NextResponse.json({
+        ...financialData,
+        loanAccounts: loanAccounts,
+      });
     }
+
+    // Handle summary statistics for loan accounts
+    if (id === "summary") {
+      const loanSummary = await prisma.loanAccount.aggregate({
+        where: { companyId: companyId },
+        _sum: {
+          currentBalance: true,
+          openingBalance: true,
+          processingFee: true,
+        },
+        _avg: {
+          interestRate: true,
+        },
+        _count: {
+          id: true,
+        },
+      });
+
+      // Get loans by type
+      const loansByType = await prisma.loanAccount.groupBy({
+        by: ['loanReceivedIn'],
+        where: { companyId: companyId },
+        _sum: {
+          currentBalance: true,
+        },
+        _count: true,
+      });
+
+      return NextResponse.json({
+        summary: loanSummary,
+        byType: loansByType,
+      });
+    }
+
+    // Handle loan accounts with low balance or due soon
+    if (id === "alerts") {
+      const loanAccounts = await prisma.loanAccount.findMany({
+        where: { 
+          companyId: companyId,
+          currentBalance: { gt: 0 } // Active loans with balance
+        },
+        include: {
+          transactions: {
+            where: {
+              date: {
+                gte: new Date(new Date().setMonth(new Date().getMonth() - 1)) // Last month
+              }
+            },
+            orderBy: { date: 'desc' },
+          },
+        },
+      });
+console.log("Loan Accounts with Alerts:", loanAccounts);
+      return NextResponse.json(loanAccounts);
+    }
+
   } catch (error) {
     console.log("Error fetching data:", error);
-    return NextResponse.json({ error: error || "Failed to fetch Data!" }, { status: 500 });
+    return NextResponse.json({ error: error.message || "Failed to fetch Data!" }, { status: 500 });
   }
 }
-
 
 const getFinancialData = async (companyId) => {
   const result = await prisma.$transaction(async (tx) => {

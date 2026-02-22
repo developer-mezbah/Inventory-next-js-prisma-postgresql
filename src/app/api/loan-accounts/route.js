@@ -28,7 +28,7 @@ export async function GET() {
             where: {
                 companyId: await getCompanyId(),
             },
-             include: {
+            include: {
                 transactions: {
                     orderBy: {
                         id: 'desc'
@@ -48,7 +48,7 @@ export async function PUT(request) {
     try {
         const body = await request.json();
         const companyId = await getCompanyId();
-        
+
         // Validate that we have an ID to update
         if (!body.id) {
             return NextResponse.json(
@@ -113,14 +113,15 @@ export async function PUT(request) {
             'description',
             'balanceAsOfDate',
             'interestRate',
-            'termDurationMonths'
+            'termDurationMonths',
+            'openingBalance'
         ];
 
         updatableFields.forEach(field => {
             if (body[field] !== undefined) {
                 if (field === 'balanceAsOfDate' && body[field]) {
                     updateData[field] = new Date(body[field]);
-                } else if (field === 'interestRate') {
+                } else if (field === 'interestRate' || field === 'openingBalance') {
                     updateData[field] = body[field] ? parseFloat(body[field]) : null;
                 } else if (field === 'termDurationMonths') {
                     updateData[field] = body[field] ? parseInt(body[field]) : null;
@@ -135,31 +136,50 @@ export async function PUT(request) {
             if (typeof paymentField === 'object' && paymentField?.accountdisplayname) {
                 return {
                     name: paymentField.accountdisplayname,
-                    id: paymentField.id || ""
+                    id: paymentField.id || "",
+                    type: 'BANK'
                 };
             }
             return {
                 name: paymentField || "Cash",
-                id: ""
+                id: "",
+                type: paymentField === "Cash" ? 'CASH' : 'BANK'
             };
         };
 
         const newLoanReceived = getPaymentMethod(body.loanReceivedIn);
         const newProcessingFeePaidFrom = getPaymentMethod(body.processingFeePaidFrom);
 
+        // Get old payment methods from existing account
+        const oldLoanReceived = {
+            name: existingAccount.loanReceivedIn,
+            id: existingAccount.loanReceivedId || "",
+            type: existingAccount.loanReceivedIn === "Cash" ? 'CASH' : 'BANK'
+        };
+
+        const oldProcessingFeePaidFrom = {
+            name: existingAccount.processingFeePaidFrom,
+            id: existingAccount.processingFeePaidFromId || "",
+            type: existingAccount.processingFeePaidFrom === "Cash" ? 'CASH' : 'BANK'
+        };
+
         // Check if payment methods changed
         const loanReceivedMethodChanged = newLoanReceived.name !== existingAccount.loanReceivedIn;
         const processingFeeMethodChanged = newProcessingFeePaidFrom.name !== existingAccount.processingFeePaidFrom;
 
         // Determine if we need financial changes
-        const currentBalanceChanged = body.currentBalance !== undefined && 
+        const currentBalanceChanged = body.currentBalance !== undefined &&
             parseFloat(body.currentBalance) !== existingAccount.currentBalance;
-        
-        const processingFeeChanged = body.processingFee !== undefined && 
+
+        const processingFeeChanged = body.processingFee !== undefined &&
             parseFloat(body.processingFee || 0) !== (existingAccount.processingFee || 0);
 
-        const needsFinancialUpdate = currentBalanceChanged || processingFeeChanged || 
-                                    loanReceivedMethodChanged || processingFeeMethodChanged;
+        const openingBalanceChanged = body.openingBalance !== undefined &&
+            parseFloat(body.openingBalance || 0) !== (existingAccount.openingBalance || 0);
+
+        const needsFinancialUpdate = currentBalanceChanged || processingFeeChanged ||
+            loanReceivedMethodChanged || processingFeeMethodChanged ||
+            openingBalanceChanged;
 
         // If no financial changes, just update non-financial fields (no transaction needed)
         if (!needsFinancialUpdate) {
@@ -167,7 +187,7 @@ export async function PUT(request) {
                 where: { id: body.id },
                 data: updateData
             });
-            
+
             return NextResponse.json(
                 {
                     message: 'Loan account updated successfully',
@@ -185,71 +205,101 @@ export async function PUT(request) {
                 where: { companyId: companyId }
             });
 
-            // FIRST: Reverse the financial impact of existing transactions
-            if (existingAccount.transactions.length > 0) {
-                // Process each transaction to reverse its effect
-                for (const transaction of existingAccount.transactions) {
-                    const amount = Math.abs(transaction.amount || 0);
-                    
-                    if (transaction.paymentType === 'CASH') {
-                        // Handle cash reversal
-                        if (cashAdjustment) {
-                            if (transaction.type === 'LOAN_PROCESSING_FEE') {
-                                // Processing fee was deducted from cash, so add back
-                                await prisma.cashAdjustment.update({
-                                    where: { id: cashAdjustment.id },
-                                    data: {
-                                        cashInHand: {
-                                            increment: amount
-                                        }
-                                    }
-                                });
-                            } else if (transaction.type === 'LOAN_DISBURSEMENT') {
-                                // Loan disbursement was added to cash, so deduct
-                                await prisma.cashAdjustment.update({
-                                    where: { id: cashAdjustment.id },
-                                    data: {
-                                        cashInHand: {
-                                            decrement: amount
-                                        }
-                                    }
-                                });
-                            }
-                        }
-                    } else {
-                        // Handle bank reversal
-                        const bankAccount = await prisma.cashAndBank.findFirst({
-                            where: {
-                                accountdisplayname: transaction.paymentType,
-                                companyId: companyId
+            // Separate transactions by type
+            const processingFeeTransaction = existingAccount.transactions.find(t => t.type === 'LOAN_PROCESSING_FEE');
+            const disbursementTransaction = existingAccount.transactions.find(t => t.type === 'LOAN_DISBURSEMENT');
+
+            // STEP 1: REVERSE ALL EXISTING FINANCIAL EFFECTS
+            if (processingFeeTransaction) {
+                const amount = Math.abs(processingFeeTransaction.amount || 0);
+
+                // Reverse processing fee from old payment method
+                if (oldProcessingFeePaidFrom.type === 'CASH') {
+                    // Processing fee was deducted from cash, so add back
+                    if (cashAdjustment) {
+                        await prisma.cashAdjustment.update({
+                            where: { id: cashAdjustment.id },
+                            data: {
+                                cashInHand: {
+                                    increment: amount
+                                }
                             }
                         });
-                        
-                        if (bankAccount) {
-                            if (transaction.type === 'LOAN_PROCESSING_FEE') {
-                                // Processing fee was deducted from bank, so add back
-                                await prisma.cashAndBank.update({
-                                    where: { id: bankAccount.id },
-                                    data: {
-                                        openingbalance: {
-                                            increment: amount
-                                        }
-                                    }
-                                });
-                            } else if (transaction.type === 'LOAN_DISBURSEMENT') {
-                                // Loan disbursement was added to bank, so deduct
-                                await prisma.cashAndBank.update({
-                                    where: { id: bankAccount.id },
-                                    data: {
-                                        openingbalance: {
-                                            decrement: amount
-                                        }
-                                    }
-                                });
-                            }
+                    }
+                } else {
+                    // Processing fee was deducted from bank, so add back
+                    const bankAccount = await prisma.cashAndBank.findFirst({
+                        where: {
+                            OR: [
+                                { accountdisplayname: oldProcessingFeePaidFrom.name },
+                                { id: oldProcessingFeePaidFrom.id || '' }
+                            ],
+                            companyId: companyId
                         }
+                    });
+
+                    if (bankAccount) {
+                        await prisma.cashAndBank.update({
+                            where: { id: bankAccount.id },
+                            data: {
+                                openingbalance: {
+                                    increment: amount
+                                }
+                            }
+                        });
                     }
                 }
+
+                // Delete old processing fee transaction
+                await prisma.transaction.delete({
+                    where: { id: processingFeeTransaction.id }
+                });
+            }
+
+            if (disbursementTransaction) {
+                const amount = Math.abs(disbursementTransaction.amount || 0);
+
+                // Reverse disbursement from old payment method
+                if (oldLoanReceived.type === 'CASH') {
+                    // Disbursement was added to cash, so deduct
+                    if (cashAdjustment) {
+                        await prisma.cashAdjustment.update({
+                            where: { id: cashAdjustment.id },
+                            data: {
+                                cashInHand: {
+                                    decrement: amount
+                                }
+                            }
+                        });
+                    }
+                } else {
+                    // Disbursement was added to bank, so deduct
+                    const bankAccount = await prisma.cashAndBank.findFirst({
+                        where: {
+                            OR: [
+                                { accountdisplayname: oldLoanReceived.name },
+                                { id: oldLoanReceived.id || '' }
+                            ],
+                            companyId: companyId
+                        }
+                    });
+
+                    if (bankAccount) {
+                        await prisma.cashAndBank.update({
+                            where: { id: bankAccount.id },
+                            data: {
+                                openingbalance: {
+                                    decrement: amount
+                                }
+                            }
+                        });
+                    }
+                }
+
+                // Delete old disbursement transaction
+                await prisma.transaction.delete({
+                    where: { id: disbursementTransaction.id }
+                });
             }
 
             // Update financial fields in the loan account
@@ -259,12 +309,19 @@ export async function PUT(request) {
                 updateData.currentBalance = existingAccount.currentBalance;
                 body.currentBalance = existingAccount.currentBalance;
             }
-            
+
             if (body.processingFee !== undefined) {
                 updateData.processingFee = body.processingFee ? parseFloat(body.processingFee) : null;
             } else {
                 updateData.processingFee = existingAccount.processingFee;
                 body.processingFee = existingAccount.processingFee;
+            }
+
+            if (body.openingBalance !== undefined) {
+                updateData.openingBalance = body.openingBalance ? parseFloat(body.openingBalance) : null;
+            } else {
+                updateData.openingBalance = existingAccount.openingBalance;
+                body.openingBalance = existingAccount.openingBalance;
             }
 
             // Update payment method fields
@@ -279,194 +336,131 @@ export async function PUT(request) {
                 data: updateData
             });
 
-            // NOW: Apply the new financial impact by UPDATING existing transactions
-            if (existingAccount.transactions.length > 0) {
-                // Separate transactions by type
-                const processingFeeTransaction = existingAccount.transactions.find(t => t.type === 'LOAN_PROCESSING_FEE');
-                const disbursementTransaction = existingAccount.transactions.find(t => t.type === 'LOAN_DISBURSEMENT');
+            // STEP 2: APPLY NEW FINANCIAL EFFECTS
+            const newDisbursementAmount = body.openingBalance !== undefined ? parseFloat(body.openingBalance) : parseFloat(body.currentBalance);
+            const newProcessingFeeAmount = parseFloat(body.processingFee || 0);
 
-                // Update processing fee transaction if it exists and processing fee changed
-                if (processingFeeTransaction && body.processingFee > 0) {
-                    const oldAmount = Math.abs(processingFeeTransaction.amount || 0);
-                    const newAmount = parseFloat(body.processingFee);
-                    
-                    // Update the transaction
-                    await prisma.transaction.update({
-                        where: { id: processingFeeTransaction.id },
-                        data: {
-                            amount: -newAmount,
-                            paymentType: newProcessingFeePaidFrom.name === "Cash" ? 'CASH' : newProcessingFeePaidFrom.name,
-                            description: body.description || `Updated loan processing fee for ${body.accountName}`,
-                            date: new Date()
-                        }
-                    });
-
-                    // Apply the new financial impact
-                    if (newProcessingFeePaidFrom.name === "Cash") {
-                        if (cashAdjustment) {
-                            await prisma.cashAdjustment.update({
-                                where: { id: cashAdjustment.id },
-                                data: {
-                                    cashInHand: {
-                                        decrement: newAmount
-                                    }
-                                }
-                            });
-                        }
-                    } else {
-                        const bankAccountId = newProcessingFeePaidFrom.id || body.processingFeePaidFromId;
-                        if (bankAccountId) {
-                            await prisma.cashAndBank.update({
-                                where: { id: bankAccountId },
-                                data: {
-                                    openingbalance: {
-                                        decrement: newAmount
-                                    }
-                                }
-                            });
-                        }
-                    }
-                } else if (!processingFeeTransaction && body.processingFee > 0) {
-                    // Create new processing fee transaction if it didn't exist before
-                    const amount = parseFloat(body.processingFee);
-                    if (newProcessingFeePaidFrom.name === "Cash") {
-                        if (cashAdjustment) {
-                            await prisma.cashAdjustment.update({
-                                where: { id: cashAdjustment.id },
-                                data: {
-                                    cashInHand: {
-                                        decrement: amount
-                                    }
-                                }
-                            });
-                        }
-
-                        await prisma.transaction.create({
+            // Handle PROCESSING FEE transaction
+            if (newProcessingFeeAmount > 0) {
+                // Create new processing fee transaction with new payment method
+                if (newProcessingFeePaidFrom.type === 'CASH') {
+                    // Deduct from cash
+                    if (cashAdjustment) {
+                        await prisma.cashAdjustment.update({
+                            where: { id: cashAdjustment.id },
                             data: {
-                                amount: -amount,
-                                paymentType: 'CASH',
-                                description: body.description || `Updated loan processing fee for ${body.accountName}`,
-                                type: 'LOAN_PROCESSING_FEE',
-                                date: new Date(),
-                                companyId: companyId,
-                                loanAccountId: body.id
+                                cashInHand: {
+                                    decrement: newProcessingFeeAmount
+                                }
                             }
                         });
-                    } else {
-                        const bankAccountId = newProcessingFeePaidFrom.id || body.processingFeePaidFromId;
-                        if (bankAccountId) {
+                    }
+
+                    await prisma.transaction.create({
+                        data: {
+                            amount: -newProcessingFeeAmount,
+                            paymentType: 'CASH',
+                            description: body.description || `Updated loan processing fee for ${body.accountName}`,
+                            type: 'LOAN_PROCESSING_FEE',
+                            date: new Date(),
+                            companyId: companyId,
+                            loanAccountId: body.id,
+                            cashAdjustmentId: cashAdjustment?.id
+                        }
+                    });
+                } else {
+                    const bankAccountId = newProcessingFeePaidFrom.id || body.processingFeePaidFromId;
+                    if (bankAccountId) {
+                        // Verify bank account exists
+                        const bankAccount = await prisma.cashAndBank.findUnique({
+                            where: { id: bankAccountId }
+                        });
+
+                        if (bankAccount) {
+                            // Deduct from bank
                             await prisma.cashAndBank.update({
                                 where: { id: bankAccountId },
                                 data: {
                                     openingbalance: {
-                                        decrement: amount
+                                        decrement: newProcessingFeeAmount
                                     }
                                 }
                             });
 
                             await prisma.transaction.create({
                                 data: {
-                                    amount: -amount,
+                                    amount: -newProcessingFeeAmount,
                                     paymentType: newProcessingFeePaidFrom.name,
                                     description: body.description || `Updated loan processing fee for ${body.accountName}`,
                                     type: 'LOAN_PROCESSING_FEE',
                                     date: new Date(),
                                     companyId: companyId,
-                                    loanAccountId: body.id
+                                    loanAccountId: body.id,
+                                    cashAndBankId: bankAccountId
                                 }
                             });
                         }
                     }
                 }
+            }
 
-                // Update disbursement transaction if it exists and current balance changed
-                if (disbursementTransaction && body.currentBalance > 0) {
-                    const oldAmount = Math.abs(disbursementTransaction.amount || 0);
-                    const newAmount = parseFloat(body.currentBalance);
-                    
-                    // Update the transaction
-                    await prisma.transaction.update({
-                        where: { id: disbursementTransaction.id },
-                        data: {
-                            amount: newAmount,
-                            paymentType: newLoanReceived.name === "Cash" ? 'CASH' : newLoanReceived.name,
-                            description: body.description || `Updated loan disbursement for ${body.accountName}`,
-                            date: new Date()
-                        }
-                    });
-
-                    // Apply the new financial impact
-                    if (newLoanReceived.name === "Cash") {
-                        if (cashAdjustment) {
-                            await prisma.cashAdjustment.update({
-                                where: { id: cashAdjustment.id },
-                                data: {
-                                    cashInHand: {
-                                        increment: newAmount
-                                    }
-                                }
-                            });
-                        }
-                    } else {
-                        const bankAccountId = newLoanReceived.id || body.loanReceivedId;
-                        if (bankAccountId) {
-                            await prisma.cashAndBank.update({
-                                where: { id: bankAccountId },
-                                data: {
-                                    openingbalance: {
-                                        increment: newAmount
-                                    }
-                                }
-                            });
-                        }
-                    }
-                } else if (!disbursementTransaction && body.currentBalance > 0) {
-                    // Create new disbursement transaction if it didn't exist before
-                    const amount = parseFloat(body.currentBalance);
-                    if (newLoanReceived.name === "Cash") {
-                        if (cashAdjustment) {
-                            await prisma.cashAdjustment.update({
-                                where: { id: cashAdjustment.id },
-                                data: {
-                                    cashInHand: {
-                                        increment: amount
-                                    }
-                                }
-                            });
-                        }
-
-                        await prisma.transaction.create({
+            // Handle DISBURSEMENT transaction
+            if (newDisbursementAmount > 0) {
+                // Create new disbursement transaction with new payment method
+                if (newLoanReceived.type === 'CASH') {
+                    // Add to cash
+                    if (cashAdjustment) {
+                        await prisma.cashAdjustment.update({
+                            where: { id: cashAdjustment.id },
                             data: {
-                                amount: amount,
-                                paymentType: 'CASH',
-                                description: body.description || `Updated loan disbursement for ${body.accountName}`,
-                                type: 'LOAN_DISBURSEMENT',
-                                date: new Date(),
-                                companyId: companyId,
-                                loanAccountId: body.id
+                                cashInHand: {
+                                    increment: newDisbursementAmount
+                                }
                             }
                         });
-                    } else {
-                        const bankAccountId = newLoanReceived.id || body.loanReceivedId;
-                        if (bankAccountId) {
+                    }
+
+                    await prisma.transaction.create({
+                        data: {
+                            amount: newDisbursementAmount,
+                            paymentType: 'CASH',
+                            description: body.description || `Updated loan disbursement for ${body.accountName}`,
+                            type: 'LOAN_DISBURSEMENT',
+                            date: new Date(),
+                            companyId: companyId,
+                            loanAccountId: body.id,
+                            cashAdjustmentId: cashAdjustment?.id
+                        }
+                    });
+                } else {
+                    const bankAccountId = newLoanReceived.id || body.loanReceivedId;
+                    if (bankAccountId) {
+                        // Verify bank account exists
+                        const bankAccount = await prisma.cashAndBank.findUnique({
+                            where: { id: bankAccountId }
+                        });
+
+                        if (bankAccount) {
+                            // Add to bank
                             await prisma.cashAndBank.update({
                                 where: { id: bankAccountId },
                                 data: {
                                     openingbalance: {
-                                        increment: amount
+                                        increment: newDisbursementAmount
                                     }
                                 }
                             });
 
                             await prisma.transaction.create({
                                 data: {
-                                    amount: amount,
+                                    amount: newDisbursementAmount,
                                     paymentType: newLoanReceived.name,
                                     description: body.description || `Updated loan disbursement for ${body.accountName}`,
                                     type: 'LOAN_DISBURSEMENT',
                                     date: new Date(),
                                     companyId: companyId,
-                                    loanAccountId: body.id
+                                    loanAccountId: body.id,
+                                    cashAndBankId: bankAccountId
                                 }
                             });
                         }
@@ -492,21 +486,21 @@ export async function PUT(request) {
 
     } catch (error) {
         console.error('Error updating loan account:', error);
-        
+
         if (error.code === 'P2028') {
             return NextResponse.json(
                 { error: 'Transaction timeout. Please try again with fewer changes.' },
                 { status: 408 }
             );
         }
-        
+
         if (error.code === 'P2025') {
             return NextResponse.json(
                 { error: 'Loan account not found' },
                 { status: 404 }
             );
         }
-        
+
         return NextResponse.json(
             { error: 'Failed to update loan account: ' + error.message },
             { status: 500 }
@@ -514,11 +508,10 @@ export async function PUT(request) {
     }
 }
 
-
 const cashProcessing = async (body, companyId, processingFee = false, loanAccountId = "") => {
     // Create transaction data function
     const createTransactionData = () => ({
-        amount: processingFee ? -parseFloat(body.processingFee) : parseFloat(body.currentBalance),
+        amount: processingFee ? -parseFloat(body.processingFee) : (body.openingBalance !== undefined ? parseFloat(body.openingBalance) : parseFloat(body.currentBalance)),
         paymentType: 'CASH',
         description: body.description || `Initial loan disbursement for ${body.accountName}`,
         type: processingFee ? 'LOAN_PROCESSING_FEE' : 'LOAN_DISBURSEMENT',
@@ -555,7 +548,7 @@ const cashProcessing = async (body, companyId, processingFee = false, loanAccoun
 const bankProcessing = async (body, companyId, processingFee = false, loanAccountId = "") => {
     // Create transaction data function
     const createTransactionData = () => ({
-        amount: processingFee ? -parseFloat(body.processingFee) : parseFloat(body.currentBalance),
+        amount: processingFee ? -parseFloat(body.processingFee) : (body.openingBalance !== undefined ? parseFloat(body.openingBalance) : parseFloat(body.currentBalance)),
         paymentType: processingFee ? body.processingFeePaidFrom?.accountdisplayname || "" : body.loanReceivedIn?.accountdisplayname || "",
         description: body.description || `Initial loan disbursement for ${body.accountName}`,
         type: processingFee ? 'LOAN_PROCESSING_FEE' : 'LOAN_DISBURSEMENT',
@@ -618,7 +611,7 @@ export async function POST(request) {
             }
         }
 
-        // Create loan account
+        // Create loan account with openingBalance
         const loanAccount = await prisma.loanAccount.create({
             data: {
                 accountName: body.accountName,
@@ -627,6 +620,7 @@ export async function POST(request) {
                 description: body.description,
                 balanceAsOfDate: body.balanceAsOfDate ? new Date(body.balanceAsOfDate) : null,
                 currentBalance: parseFloat(body.currentBalance),
+                openingBalance: body.openingBalance ? parseFloat(body.openingBalance) : null,  // Added openingBalance
                 loanReceivedIn: body.loanReceivedIn?.accountdisplayname || body.loanReceivedIn || "Cash",
                 loanReceivedId: body?.loanReceivedInId || "",
                 processingFeePaidFrom: body.processingFeePaidFrom?.accountdisplayname || body.processingFeePaidFrom || "Cash",
@@ -682,7 +676,7 @@ export async function DELETE(request) {
     try {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get('id');
-        
+
         if (!id) {
             return NextResponse.json(
                 { error: 'Loan account ID is required' },
@@ -748,14 +742,14 @@ export async function DELETE(request) {
             for (const transaction of bankTransactions) {
                 const isProcessingFee = transaction.type === 'LOAN_PROCESSING_FEE';
                 const amount = Math.abs(transaction.amount || 0);
-                
+
                 const bankAccount = await prisma.cashAndBank.findFirst({
                     where: {
                         accountdisplayname: transaction.paymentType,
                         companyId: companyId
                     }
                 });
-                
+
                 if (bankAccount) {
                     await prisma.cashAndBank.update({
                         where: { id: bankAccount.id },
@@ -815,21 +809,21 @@ export async function DELETE(request) {
 
     } catch (error) {
         console.error('Error deleting loan account:', error);
-        
+
         if (error.code === 'P2028') {
             return NextResponse.json(
                 { error: 'Transaction timeout. Please try again.' },
                 { status: 408 }
             );
         }
-        
+
         if (error.code === 'P2025') {
             return NextResponse.json(
                 { error: 'Loan account not found' },
                 { status: 404 }
             );
         }
-        
+
         return NextResponse.json(
             { error: 'Failed to delete loan account: ' + error.message },
             { status: 500 }
