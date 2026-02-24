@@ -296,22 +296,12 @@ const menuItems = [
     component: () => <div>Sale Order Item Component</div>,
     type: 'sale'
   },
-
-  // Loan Accounts
-  {
-    id: 'loan-accounts',
-    icon: <MdAccountBalance />,
-    label: 'Loan Accounts',
-    description: 'Manage and track all loan accounts',
-    component: LoanAccounts,  // Use the actual component
-    type: 'loan'
-  },
   {
     id: 'loan-statement',
-    icon: <FiFile />,
+    icon: <MdAccountBalance />,
     label: 'Loan Statement',
     description: 'View loan transactions and statements',
-    component: () => <div>Loan Statement Component</div>,  // You can create this later
+    component: LoanAccounts,  
     type: 'loan'
   },
   // Previous Items (kept for completeness)

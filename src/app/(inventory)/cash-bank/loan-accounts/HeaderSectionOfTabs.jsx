@@ -6,6 +6,7 @@ import useOutsideClick from '@/hook/useOutsideClick';
 import client_api from '@/utils/API_FETCH';
 import { useSession } from 'next-auth/react';
 import { toast } from 'react-toastify';
+import Link from 'next/link';
 
 const HeaderSection = ({ data, refetch, showModal, setShowModal, updateFormData, setUpdateFormData }) => {
   console.log("Data in HeaderSection:", data);
@@ -203,16 +204,15 @@ console.log(updateFormData? parseFloat(formData.currentBalance) : null)
 
         {/* Right Section: Buttons */}
         <div className="flex items-center space-x-2 w-full sm:w-auto">
-          <button
+          <Link href="/reports?tab=loan-statement"
             className="hidden sm:inline-flex items-center justify-center 
               bg-slate-100 hover:bg-slate-200 text-slate-700 
               text-sm font-semibold py-2.5 px-5 rounded-lg 
               border border-slate-200
               transition-all duration-200"
-            onClick={() => console.log('View Loan Statement')}
           >
             View Loan Statement
-          </button>
+          </Link>
 
           <button
             className="flex-1 sm:flex-none inline-flex items-center justify-center 
