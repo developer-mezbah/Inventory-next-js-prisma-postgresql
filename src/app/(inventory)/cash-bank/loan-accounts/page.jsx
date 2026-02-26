@@ -9,6 +9,7 @@ import { FaChevronLeft, FaFilter, FaSearch, FaTimes } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useCurrencyStore } from "@/stores/useCurrencyStore";
 import { createPortal } from "react-dom";
+import CustomDatePicker from "@/components/DatePicker";
 
 // Simple dropdown component using portal
 const PortalDropdown = ({ isOpen, onClose, triggerRef, children, position = "bottom-end" }) => {
@@ -122,10 +123,8 @@ const LoanAccounts = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [mobileView, setMobileView] = useState("list");
   const [hasSetDefaultTab, setHasSetDefaultTab] = useState(false);
-
   // Store trigger refs for each dropdown
   const triggerRefs = useRef({});
-
   const {
     isInitialLoading,
     error,
@@ -455,8 +454,8 @@ const LoanAccounts = () => {
                   <div
                     key={tab.id}
                     className={`py-2 px-4 text-left rounded-md font-medium transition-all duration-300 ease-in-out flex justify-between items-center ${activeTab === tab.id
-                        ? "bg-blue-100 text-blue-600"
-                        : "text-gray-600 hover:bg-gray-100"
+                      ? "bg-blue-100 text-blue-600"
+                      : "text-gray-600 hover:bg-gray-100"
                       }`}
                   >
                     <button

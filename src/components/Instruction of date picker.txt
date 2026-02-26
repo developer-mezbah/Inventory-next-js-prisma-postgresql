@@ -1,0 +1,27 @@
+// app/page.jsx - Minimal working example
+'use client';
+
+import React, { useState } from 'react';
+import SimpleDatePicker from '@/components/SimpleDatePicker';
+
+export default function Home() {
+  const [myDate, setMyDate] = useState('');
+
+  return (
+    <div className="p-8 max-w-md mx-auto">
+      <h1 className="text-2xl mb-6">My App</h1>
+      
+      <SimpleDatePicker
+        label="Pick a Date"
+        onChange={(date) => setMyDate(date)}
+        icon="calendar"
+      />
+      
+      {myDate && (
+        <p className="mt-4 text-blue-600">
+          You selected: {myDate}
+        </p>
+      )}
+    </div>
+  );
+}

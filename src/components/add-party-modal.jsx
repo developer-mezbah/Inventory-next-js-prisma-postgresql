@@ -241,7 +241,7 @@ export default function AddPartyModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300"
@@ -270,7 +270,7 @@ export default function AddPartyModal({
 
         {/* Top Form Fields */}
         <div className="px-8 py-6 border-b border-gray-100 bg-gray-50/50">
-          <div className="grid grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <FloatingInput
               id="partyName"
               label="Party Name"
@@ -287,9 +287,9 @@ export default function AddPartyModal({
           </div>
         </div>
 
-        {/* Tabs */}
+        {/* Tabs - Fixed Responsive Design */}
         <div className="px-8 border-b border-gray-100 bg-white">
-          <div className="flex gap-1">
+          <div className="flex flex-wrap gap-1">
             <button
               onClick={() => setActiveTab("address")}
               className={`px-6 py-3.5 text-sm font-semibold rounded-t-xl transition-all duration-200 ${
@@ -331,8 +331,8 @@ export default function AddPartyModal({
           {/* Address Tab */}
           {activeTab === "address" && (
             <div className="space-y-6">
-              <div className="grid grid-cols-12 gap-6">
-                <div className="col-span-4">
+              <div className="flex flex-col lg:flex-row gap-6">
+                <div className="w-full lg:w-1/3">
                   <FloatingInput
                     id="emailId"
                     label="Email ID"
@@ -341,7 +341,7 @@ export default function AddPartyModal({
                     onChange={(e) => setEmailId(e.target.value)}
                   />
                 </div>
-                <div className="col-span-8 space-y-5">
+                <div className="w-full lg:w-2/3 space-y-5">
                   <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200">
                     <h3 className="text-sm font-semibold text-gray-700 mb-3">
                       Billing Address
@@ -418,8 +418,8 @@ export default function AddPartyModal({
                 <h3 className="text-sm font-semibold text-gray-800 mb-4">
                   Opening Balance
                 </h3>
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-4">
+                <div className="flex flex-col lg:flex-row gap-6">
+                  <div className="w-full lg:w-1/2 space-y-4">
                     <FloatingInput
                       id="openingBalance"
                       label="Opening Balance"
@@ -467,7 +467,7 @@ export default function AddPartyModal({
                     </div>
                   </div>
 
-                  <div className="space-y-4">
+                  <div className="w-full lg:w-1/2 space-y-4">
                     <FloatingInput
                       id="asOfDate"
                       label="As Of Date"
@@ -582,7 +582,7 @@ export default function AddPartyModal({
                   key={field.id}
                   className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200"
                 >
-                  <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <FloatingInput
                       id={`fieldName${index}`}
                       label={`Additional Field ${index + 1} Name`}

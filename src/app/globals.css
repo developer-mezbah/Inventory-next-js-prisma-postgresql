@@ -182,3 +182,32 @@ body {
 button {
   cursor: pointer;
 }
+
+
+
+/* Custom styles for the date picker popup */
+.custom-datepicker-popup {
+  @apply shadow-lg rounded-lg border border-gray-200;
+}
+
+.form-datepicker-popup {
+  @apply shadow-xl rounded-lg border border-gray-200;
+}
+
+/* Ant Design overrides for the simple picker */
+.ant-picker {
+  @apply border-0 shadow-none ;
+}
+
+.ant-picker-focused {
+  @apply shadow-none ;
+}
+
+.ant-picker-input > input {
+  @apply text-sm;
+}
+
+/* Disabled state */
+.ant-picker-disabled {
+  @apply bg-gray-50 ;
+}

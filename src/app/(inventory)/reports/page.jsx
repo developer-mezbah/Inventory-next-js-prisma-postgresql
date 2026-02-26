@@ -45,16 +45,6 @@ import LoanAccounts from './LoanAccounts';
 
 // Menu configuration with all items from images
 const menuItems = [
-  // Dashboard & Overview
-  {
-    id: 'dashboard-overview',
-    icon: <FiHome />,
-    label: 'Dashboard',
-    description: 'Overview and key metrics',
-    component: TabContentWithFilters,
-    type: 'overview'
-  },
-
   // ===== FROM FIRST IMAGE =====
   {
     id: 'sale',
@@ -73,14 +63,6 @@ const menuItems = [
     type: 'purchase'
   },
   {
-    id: 'day-book',
-    icon: <FiBook />,
-    label: 'Day book',
-    description: 'Daily transaction records',
-    component: () => <div>Day Book Component</div>,
-    type: 'accounting'
-  },
-  {
     id: 'all-transactions',
     icon: <FiFileText />,
     label: 'All Transactions',
@@ -95,6 +77,30 @@ const menuItems = [
     description: 'Financial performance',
     component: FinancialStatement,
     type: 'financial'
+  },
+  {
+    id: 'loan-statement',
+    icon: <MdAccountBalance />,
+    label: 'Loan Statement',
+    description: 'View loan transactions and statements',
+    component: LoanAccounts,  
+    type: 'loan'
+  },
+  {
+    id: 'transaction-report',
+    icon: <TbReport />,
+    label: 'Transaction Report',
+    description: 'All transaction details and history',
+    component: TabContentWithFilters,
+    type: 'report'
+  },
+  {
+    id: 'day-book',
+    icon: <FiBook />,
+    label: 'Day book',
+    description: 'Daily transaction records',
+    component: () => <div>Day Book Component</div>,
+    type: 'accounting'
   },
   {
     id: 'bill-wise-profit',
@@ -295,23 +301,6 @@ const menuItems = [
     description: 'Item-wise sale orders',
     component: () => <div>Sale Order Item Component</div>,
     type: 'sale'
-  },
-  {
-    id: 'loan-statement',
-    icon: <MdAccountBalance />,
-    label: 'Loan Statement',
-    description: 'View loan transactions and statements',
-    component: LoanAccounts,  
-    type: 'loan'
-  },
-  // Previous Items (kept for completeness)
-  {
-    id: 'transaction-report',
-    icon: <TbReport />,
-    label: 'Transaction Report',
-    description: 'All transaction details and history',
-    component: TabContentWithFilters,
-    type: 'report'
   },
   {
     id: 'sales-overview',

@@ -10,6 +10,7 @@ import { useSession } from "next-auth/react";
 import { toast } from "react-toastify";
 import { BiLoader } from "react-icons/bi";
 import { useSearchParams } from "next/navigation";
+import CustomDatePicker from "@/components/DatePicker";
 
 const TimeNotificationIcon = (props) => {
   const { size = 24, color = "currentColor", ...rest } = props;
@@ -349,7 +350,7 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
       toast.error("Amount cannot be zero");
       return;
     }
-    
+
     if (parseFloat(chargesData.amount) > currentBalance) {
       toast.error("Charges amount cannot exceed current balance");
       return;
@@ -705,15 +706,12 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Date
-                </label>
-                <input
-                  type="date"
-                  name="date"
-                  value={makePaymentData.date}
-                  onChange={handleMakePaymentChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                <CustomDatePicker
+                  defaultValue={makePaymentData.date}
+                  size="large"
+                  label="Date"
+                  onChange={(date) => setMakePaymentData(prev => ({ ...prev, date: date }))}
+                  icon="calendar"
                 />
               </div>
 
@@ -795,15 +793,12 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Date
-                </label>
-                <input
-                  type="date"
-                  name="date"
-                  value={takeLoanData.date}
-                  onChange={handleTakeLoanChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                <CustomDatePicker
+                  defaultValue={takeLoanData.date}
+                  size="large"
+                  label="Date"
+                  onChange={(date) => setTakeLoanData(prev => ({ ...prev, date: date }))}
+                  icon="calendar"
                 />
               </div>
 
