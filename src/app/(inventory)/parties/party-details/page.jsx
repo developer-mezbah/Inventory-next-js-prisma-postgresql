@@ -8,6 +8,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FaChevronLeft, FaFilter, FaSearch, FaTimes } from "react-icons/fa";
 import { toast } from "react-toastify";
+import { createPortal } from "react-dom";
+import PortalDropdown from "@/components/PortalDropdown";
+
+
 
 const PartDetails = () => {
   const router = useRouter();
@@ -21,7 +25,10 @@ const PartDetails = () => {
 
   const activeTab = searchParams.get("tab") || "general";
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [mobileView, setMobileView] = useState("list"); // 'list' or 'details'
+  const [mobileView, setMobileView] = useState("list");
+  
+  // Store trigger refs for each dropdown
+  const triggerRefs = useRef({});
 
   const {
     isInitialLoading,
@@ -72,9 +79,6 @@ const PartDetails = () => {
       if (activeTab === "general" || !activeTab) {
         setMobileView("list");
       }
-      // else {
-      //   setMobileView("details");
-      // }
     }
   }, [activeTab, isMobile]);
 
@@ -100,10 +104,6 @@ const PartDetails = () => {
   const handleBackToList = useCallback(() => {
     if (isMobile) {
       setMobileView("list");
-      // Optionally clear the tab from URL or keep it
-      // const params = new URLSearchParams(searchParams.toString());
-      // params.delete("tab");
-      // router.replace(`?${params.toString()}`);
     }
   }, [isMobile]);
 
@@ -132,9 +132,11 @@ const PartDetails = () => {
     setIsUpdateModalOpen(true);
     const findData = data.find((item) => item?.id === tabId);
     setUpdateFormData(findData);
+    setOpenDropdownId(null);
   };
 
   const handleDelete = (tabId) => {
+    setOpenDropdownId(null);
     DeleteAlert(`/api/party/${tabId}`).then((res) => {
       if (res) {
         refetch();
@@ -152,21 +154,6 @@ const PartDetails = () => {
     setIsUpdateModalOpen(false);
     setUpdateFormData(null);
   };
-
-  const dropdownRef = useRef(null);
-
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setOpenDropdownId(null);
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [openDropdownId]);
 
   // Render list box view for mobile
   const renderMobileListBox = () => (
@@ -216,11 +203,9 @@ const PartDetails = () => {
                     {tab.label}
                   </button>
 
-                  <div
-                    ref={isDropdownOpen ? dropdownRef : null}
-                    className="relative"
-                  >
+                  <div className="relative ml-2">
                     <button
+                      ref={el => triggerRefs.current[tab.id] = el}
                       onClick={(e) => {
                         e.stopPropagation();
                         setOpenDropdownId(isDropdownOpen ? null : tab.id);
@@ -232,28 +217,25 @@ const PartDetails = () => {
                       <span className="text-xl leading-none">...</span>
                     </button>
 
-                    {isDropdownOpen && (
-                      <div className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-20">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEdit(tab.id);
-                          }}
-                          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        >
-                          View / Edit
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(tab.id);
-                          }}
-                          className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    )}
+                    <PortalDropdown
+                      isOpen={isDropdownOpen}
+                      onClose={() => setOpenDropdownId(null)}
+                      triggerRef={{ current: triggerRefs.current[tab.id] }}
+                      position="bottom-end"
+                    >
+                      <button
+                        onClick={() => handleEdit(tab.id)}
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        View / Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(tab.id)}
+                        className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                      >
+                        Delete
+                      </button>
+                    </PortalDropdown>
                   </div>
                 </div>
               </div>
@@ -393,11 +375,9 @@ const PartDetails = () => {
                       {tab.label}
                     </button>
 
-                    <div
-                      ref={isDropdownOpen ? dropdownRef : null}
-                      className="flex items-center space-x-3 relative"
-                    >
+                    <div className="flex items-center space-x-3 relative ml-2">
                       <button
+                        ref={el => triggerRefs.current[tab.id] = el}
                         onClick={(e) => {
                           e.stopPropagation();
                           setOpenDropdownId(isDropdownOpen ? null : tab.id);
@@ -411,28 +391,25 @@ const PartDetails = () => {
                         <span className="text-xl leading-none">...</span>
                       </button>
 
-                      {isDropdownOpen && (
-                        <div className="absolute right-0 md:top-full -top-[80px] mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-20">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEdit(tab.id);
-                            }}
-                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                          >
-                            View / Edit
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDelete(tab.id);
-                            }}
-                            className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      )}
+                      <PortalDropdown
+                        isOpen={isDropdownOpen}
+                        onClose={() => setOpenDropdownId(null)}
+                        triggerRef={{ current: triggerRefs.current[tab.id] }}
+                        position="right-start"
+                      >
+                        <button
+                          onClick={() => handleEdit(tab.id)}
+                          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          View / Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(tab.id)}
+                          className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                        >
+                          Delete
+                        </button>
+                      </PortalDropdown>
                     </div>
                   </div>
                 );

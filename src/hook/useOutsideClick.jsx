@@ -2,11 +2,14 @@
 import React, { useEffect, useRef } from 'react';
 
 /**
- * Custom hook to detect clicks outside of a component, excluding Floating UI elements.
+ * Custom hook to detect clicks outside of a component, excluding UI library popups.
  * @param {Function} handler - Callback to be called on outside click.
+ * @param {Object} options - Configuration options.
+ * @param {boolean} options.ignoreFloatingUI - Whether to ignore Floating UI elements.
+ * @param {boolean} options.ignoreAntD - Whether to ignore Ant Design popups.
  * @returns {React.RefObject} - Ref to attach to the target DOM element.
  */
-const useOutsideClick = (handler) => {
+const useOutsideClick = (handler, options = { ignoreFloatingUI: true, ignoreAntD: true }) => {
   const ref = useRef(null);
 
   useEffect(() => {
@@ -16,19 +19,35 @@ const useOutsideClick = (handler) => {
         return;
       }
       
-      // Check if click is inside any Floating UI portal or dropdown
-      const floatingUIElements = document.querySelectorAll('[data-floating-ui-portal], [data-floating-ui-root]');
-      let isInsideFloatingUI = false;
-      
-      for (const element of floatingUIElements) {
-        if (element.contains(event.target)) {
-          isInsideFloatingUI = true;
-          break;
+      // Check for Floating UI elements
+      if (options.ignoreFloatingUI) {
+        const floatingUIElements = document.querySelectorAll('[data-floating-ui-portal], [data-floating-ui-root]');
+        for (const element of floatingUIElements) {
+          if (element.contains(event.target)) {
+            return;
+          }
         }
       }
       
-      if (isInsideFloatingUI) {
-        return; // Ignore clicks inside Floating UI elements
+      // Check for Ant Design popups
+      if (options.ignoreAntD) {
+        const antdPopupSelectors = [
+          '.ant-picker-dropdown',
+          '.ant-select-dropdown',
+          '.ant-dropdown',
+          '.ant-modal-root',
+          '.ant-tooltip',
+          '.ant-popover',
+          '.ant-message',
+          '.ant-notification'
+        ];
+        
+        const antdPopupElements = document.querySelectorAll(antdPopupSelectors.join(','));
+        for (const element of antdPopupElements) {
+          if (element.contains(event.target)) {
+            return;
+          }
+        }
       }
       
       handler(event);
@@ -41,7 +60,7 @@ const useOutsideClick = (handler) => {
       document.removeEventListener('mousedown', listener);
       document.removeEventListener('touchstart', listener);
     };
-  }, [handler]);
+  }, [handler, options.ignoreFloatingUI, options.ignoreAntD]);
 
   return ref;
 };

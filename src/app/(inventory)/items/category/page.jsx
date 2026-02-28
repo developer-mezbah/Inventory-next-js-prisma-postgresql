@@ -3,7 +3,7 @@ import TabContents from "@/components/Category/TabContents";
 import { useFetchData } from "@/hook/useFetchData";
 import { DeleteAlert } from "@/utils/DeleteAlart";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BiDotsVerticalRounded } from "react-icons/bi";
 import {
   FaChevronDown,
@@ -15,7 +15,7 @@ import {
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import CategroyButton from "../../Categroy/CategoryButton";
-
+import PortalDropdown from "@/components/PortalDropdown";
 const colorPalette = [
   { bg: "bg-indigo-100", text: "text-indigo-800" },
   { bg: "bg-teal-100", text: "text-teal-800" },
@@ -36,6 +36,9 @@ const Category = () => {
   const [openDropdownId, setOpenDropdownId] = useState(null);
   const [openSubcategoryId, setOpenSubcategoryId] = useState(null);
   const [updateCategoryData, setUpdateCategoryData] = useState(null);
+
+  // Store trigger refs for each dropdown
+  const triggerRefs = useRef({});
 
   // Mobile state
   const [isMobile, setIsMobile] = useState(false);
@@ -62,6 +65,7 @@ const Category = () => {
         if (res) {
           toast.success("Category deleted successfully!");
           refetch();
+          setOpenDropdownId(null);
           // If on mobile and deleting current active category, go back to list
           if (isMobile && categoryId === activeCategoryId) {
             handleBackToList();
@@ -98,10 +102,9 @@ const Category = () => {
     if (isMobile) {
       if (!activeCategoryId) {
         setMobileView("list");
+      } else {
+        setMobileView("details");
       }
-      // else {
-      //   setMobileView("details");
-      // }
     }
   }, [activeCategoryId, isMobile]);
 
@@ -318,8 +321,9 @@ const Category = () => {
                     )}
 
                     {/* Menu Button */}
-                    <div className="relative">
+                    <div className="relative ml-2">
                       <button
+                        ref={el => triggerRefs.current[category.id] = el}
                         onClick={(e) => {
                           e.stopPropagation();
                           setOpenDropdownId(
@@ -331,32 +335,28 @@ const Category = () => {
                         <span className="text-xl text-gray-600">...</span>
                       </button>
 
-                      {isDropdownOpen && (
-                        <div className="absolute right-0 mt-1 z-10">
-                          <div className="bg-white border rounded-md shadow-lg w-32">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                // Open modal for editing/viewing
-                                setUpdateCategoryData(category);
-                                setShowModal(true);
-                              }}
-                              className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                            >
-                              View
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteCategory(category.id);
-                              }}
-                              className="block w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </div>
-                      )}
+                      <PortalDropdown
+                        isOpen={isDropdownOpen}
+                        onClose={() => setOpenDropdownId(null)}
+                        triggerRef={{ current: triggerRefs.current[category.id] }}
+                        position="bottom-end"
+                      >
+                        <button
+                          onClick={() => {
+                            setUpdateCategoryData(category);
+                            setShowModal(true);
+                          }}
+                          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          View
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCategory(category.id)}
+                          className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                        >
+                          Delete
+                        </button>
+                      </PortalDropdown>
                     </div>
                   </div>
                 </div>
@@ -582,7 +582,8 @@ const Category = () => {
                           size={12}
                         />
                         <span
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             handleSelectionChange(category.id);
                           }}
                         >
@@ -590,7 +591,7 @@ const Category = () => {
                         </span>
                       </button>
 
-                      <div className="flex items-center space-x-3 relative">
+                      <div className="flex items-center space-x-3 relative ml-2">
                         <span
                           className={`${colorStyle.bg} ${colorStyle.text} px-2 py-0.5 rounded-full text-xs font-semibold`}
                         >
@@ -598,6 +599,7 @@ const Category = () => {
                         </span>
 
                         <button
+                          ref={el => triggerRefs.current[category.id] = el}
                           onClick={(e) => {
                             e.stopPropagation();
                             setOpenDropdownId(
@@ -611,35 +613,28 @@ const Category = () => {
                           <span className="text-xl leading-none">...</span>
                         </button>
 
-                        {isDropdownOpen && (
-                          <div
-                            className="fixed inset-0 z-10"
-                            onClick={() => setOpenDropdownId(null)}
-                          />
-                        )}
-                        {isDropdownOpen && (
-                          <div className="absolute right-0 md:top-full -top-[80px] mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-20">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setUpdateCategoryData(category);
-                                setShowModal(true);
-                              }}
-                              className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                            >
-                              View
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteCategory(category.id);
-                              }}
-                              className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        )}
+                        <PortalDropdown
+                          isOpen={isDropdownOpen}
+                          onClose={() => setOpenDropdownId(null)}
+                          triggerRef={{ current: triggerRefs.current[category.id] }}
+                          position="right-start"
+                        >
+                          <button
+                            onClick={() => {
+                              setUpdateCategoryData(category);
+                              setShowModal(true);
+                            }}
+                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          >
+                            View
+                          </button>
+                          <button
+                            onClick={() => handleDeleteCategory(category.id)}
+                            className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                          >
+                            Delete
+                          </button>
+                        </PortalDropdown>
                       </div>
                     </div>
 

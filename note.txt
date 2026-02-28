@@ -58,5 +58,14 @@ new Date(dataToUpsert?.adjustmentDate.replace(/[\[\]]/g, ''))
   https://codepen.io/designfenix/pen/MWWxNEy
 
 
+ <CustomDatePicker
+                  defaultValue={updateFormData && updateFormData.balanceAsOfDate}
+                  size="large"
+                  label="Balance as of"
+                  onChange={(date) => setFormData(prev => ({ ...prev, balanceAsOfDate: date }))}
+                  icon="calendar"
+                />
+
+
   aabulkhair68808@gmail.com
   Aa123456@

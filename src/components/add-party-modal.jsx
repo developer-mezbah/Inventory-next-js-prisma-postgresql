@@ -11,6 +11,7 @@ import {
   IoSettingsOutline,
 } from "react-icons/io5";
 import { toast } from "react-toastify";
+import CustomDatePicker from "./DatePicker";
 
 const FloatingInput = ({
   id,
@@ -110,7 +111,7 @@ export default function AddPartyModal({
       setShippingAddress(defaultData.shippingAddress || "");
       setOpeningBalance(defaultData.openingBalance || "");
       setBalanceType(defaultData.balanceType || "ToReceive");
-      setAsOfDate(defaultData.asOfDate || "20/11/2025");
+      setAsOfDate(defaultData.asOfDate || "");
       setCreditLimitType(defaultData.creditLimitType || "no-limit");
       setCreditLimit(defaultData.creditLimit || "");
       if (defaultData?.additionalFields.length) {
@@ -292,21 +293,19 @@ export default function AddPartyModal({
           <div className="flex flex-wrap gap-1">
             <button
               onClick={() => setActiveTab("address")}
-              className={`px-6 py-3.5 text-sm font-semibold rounded-t-xl transition-all duration-200 ${
-                activeTab === "address"
+              className={`px-6 py-3.5 text-sm font-semibold rounded-t-xl transition-all duration-200 ${activeTab === "address"
                   ? "bg-gradient-to-b from-blue-50 to-transparent text-blue-700 border-b-2 border-blue-600"
                   : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-              }`}
+                }`}
             >
               Address
             </button>
             <button
               onClick={() => setActiveTab("credit")}
-              className={`px-6 py-3.5 text-sm font-semibold rounded-t-xl transition-all duration-200 flex items-center gap-2 ${
-                activeTab === "credit"
+              className={`px-6 py-3.5 text-sm font-semibold rounded-t-xl transition-all duration-200 flex items-center gap-2 ${activeTab === "credit"
                   ? "bg-gradient-to-b from-blue-50 to-transparent text-blue-700 border-b-2 border-blue-600"
                   : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-              }`}
+                }`}
             >
               Credit & Balance
               <span className="px-2 py-0.5 text-xs font-bold text-white bg-gradient-to-r from-red-500 to-pink-500 rounded-full shadow-sm">
@@ -315,11 +314,10 @@ export default function AddPartyModal({
             </button>
             <button
               onClick={() => setActiveTab("additional")}
-              className={`px-6 py-3.5 text-sm font-semibold rounded-t-xl transition-all duration-200 ${
-                activeTab === "additional"
+              className={`px-6 py-3.5 text-sm font-semibold rounded-t-xl transition-all duration-200 ${activeTab === "additional"
                   ? "bg-gradient-to-b from-blue-50 to-transparent text-blue-700 border-b-2 border-blue-600"
                   : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-              }`}
+                }`}
             >
               Additional Fields
             </button>
@@ -374,11 +372,10 @@ export default function AddPartyModal({
                       )}
                     </div>
                     <div
-                      className={`transition-all duration-300 ease-in-out overflow-hidden ${
-                        shippingEnabled
+                      className={`transition-all duration-300 ease-in-out overflow-hidden ${shippingEnabled
                           ? "max-h-40 opacity-100"
                           : "max-h-0 opacity-0"
-                      }`}
+                        }`}
                     >
                       <FloatingTextarea
                         id="shippingAddress"
@@ -432,35 +429,31 @@ export default function AddPartyModal({
                     <div className="flex gap-4">
                       <button
                         onClick={() => setBalanceType("ToPay")}
-                        className={`flex-1 py-3 px-4 rounded-lg border-2 flex items-center justify-center gap-2 transition-all duration-200 ${
-                          balanceType === "ToPay"
+                        className={`flex-1 py-3 px-4 rounded-lg border-2 flex items-center justify-center gap-2 transition-all duration-200 ${balanceType === "ToPay"
                             ? "border-red-500 bg-red-50 text-red-700"
                             : "border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100"
-                        }`}
+                          }`}
                       >
                         <div
-                          className={`w-3 h-3 rounded-full ${
-                            balanceType === "ToPay"
+                          className={`w-3 h-3 rounded-full ${balanceType === "ToPay"
                               ? "bg-red-500"
                               : "bg-gray-400"
-                          }`}
+                            }`}
                         ></div>
                         <span className="font-medium">ToPay</span>
                       </button>
                       <button
                         onClick={() => setBalanceType("ToReceive")}
-                        className={`flex-1 py-3 px-4 rounded-lg border-2 flex items-center justify-center gap-2 transition-all duration-200 ${
-                          balanceType === "ToReceive"
+                        className={`flex-1 py-3 px-4 rounded-lg border-2 flex items-center justify-center gap-2 transition-all duration-200 ${balanceType === "ToReceive"
                             ? "border-green-500 bg-green-50 text-green-700"
                             : "border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100"
-                        }`}
+                          }`}
                       >
                         <div
-                          className={`w-3 h-3 rounded-full ${
-                            balanceType === "ToReceive"
+                          className={`w-3 h-3 rounded-full ${balanceType === "ToReceive"
                               ? "bg-green-500"
                               : "bg-gray-400"
-                          }`}
+                            }`}
                         ></div>
                         <span className="font-medium">ToReceive</span>
                       </button>
@@ -468,22 +461,32 @@ export default function AddPartyModal({
                   </div>
 
                   <div className="w-full lg:w-1/2 space-y-4">
-                    <FloatingInput
+                    {/* <FloatingInput
                       id="asOfDate"
                       label="As Of Date"
                       value={asOfDate}
                       onChange={(e) => setAsOfDate(e.target.value)}
                       icon={<IoCalendarOutline className="w-5 h-5" />}
-                    />
+                    /> */}
+                    <div className="relative">
+                      <CustomDatePicker
+                        defaultValue={defaultData?.asOfDate || ""}
+                        size="large"
+                        label="As Of Date"
+                        onChange={(date) => setAsOfDate(date)}
+                        icon="calendar"
+                        floatingDesign={true}
+                        padding="10px 8px"
+                      />
+                    </div>
 
                     <div className="text-sm text-gray-500 bg-gray-50 p-4 rounded-lg border border-gray-200">
                       <p className="font-medium mb-1">Balance Type:</p>
                       <p
-                        className={`font-semibold ${
-                          balanceType === "ToPay"
+                        className={`font-semibold ${balanceType === "ToPay"
                             ? "text-red-600"
                             : "text-green-600"
-                        }`}
+                          }`}
                       >
                         {balanceType === "ToPay"
                           ? "You owe this party"
@@ -511,11 +514,10 @@ export default function AddPartyModal({
                 <div className="flex items-center gap-6 mb-5">
                   <div className="flex items-center gap-4">
                     <span
-                      className={`text-sm font-semibold transition-colors ${
-                        creditLimitType === "no-limit"
+                      className={`text-sm font-semibold transition-colors ${creditLimitType === "no-limit"
                           ? "text-blue-700"
                           : "text-gray-500"
-                      }`}
+                        }`}
                     >
                       No Limit
                     </span>
@@ -527,26 +529,23 @@ export default function AddPartyModal({
                             : "no-limit"
                         )
                       }
-                      className={`relative w-14 h-7 rounded-full transition-all duration-300 shadow-inner ${
-                        creditLimitType === "custom-limit"
+                      className={`relative w-14 h-7 rounded-full transition-all duration-300 shadow-inner ${creditLimitType === "custom-limit"
                           ? "bg-gradient-to-r from-blue-500 to-indigo-600"
                           : "bg-gray-300"
-                      }`}
+                        }`}
                     >
                       <div
-                        className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform duration-300 ${
-                          creditLimitType === "custom-limit"
+                        className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform duration-300 ${creditLimitType === "custom-limit"
                             ? "translate-x-7"
                             : "translate-x-0"
-                        }`}
+                          }`}
                       />
                     </button>
                     <span
-                      className={`text-sm font-semibold transition-colors ${
-                        creditLimitType === "custom-limit"
+                      className={`text-sm font-semibold transition-colors ${creditLimitType === "custom-limit"
                           ? "text-blue-700"
                           : "text-gray-500"
-                      }`}
+                        }`}
                     >
                       Custom Limit
                     </span>
@@ -555,11 +554,10 @@ export default function AddPartyModal({
 
                 {/* Smooth transition for credit limit input */}
                 <div
-                  className={`transition-all duration-300 ease-in-out overflow-hidden ${
-                    creditLimitType === "custom-limit"
+                  className={`transition-all duration-300 ease-in-out overflow-hidden ${creditLimitType === "custom-limit"
                       ? "max-h-24 opacity-100 mt-4"
                       : "max-h-0 opacity-0"
-                  }`}
+                    }`}
                 >
                   <FloatingInput
                     id="creditLimit"
@@ -619,16 +617,14 @@ export default function AddPartyModal({
                           !newFields[index].showInPrint;
                         setAdditionalFields(newFields);
                       }}
-                      className={`relative w-14 h-7 rounded-full transition-all duration-300 shadow-inner ${
-                        field.showInPrint
+                      className={`relative w-14 h-7 rounded-full transition-all duration-300 shadow-inner ${field.showInPrint
                           ? "bg-gradient-to-r from-blue-500 to-indigo-600"
                           : "bg-gray-300"
-                      }`}
+                        }`}
                     >
                       <div
-                        className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform duration-300 ${
-                          field.showInPrint ? "translate-x-7" : "translate-x-0"
-                        }`}
+                        className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform duration-300 ${field.showInPrint ? "translate-x-7" : "translate-x-0"
+                          }`}
                       />
                     </button>
                   </div>

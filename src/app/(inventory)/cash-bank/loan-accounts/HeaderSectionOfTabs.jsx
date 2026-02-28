@@ -7,9 +7,9 @@ import client_api from '@/utils/API_FETCH';
 import { useSession } from 'next-auth/react';
 import { toast } from 'react-toastify';
 import Link from 'next/link';
+import CustomDatePicker from '@/components/DatePicker';
 
 const HeaderSection = ({ data, refetch, showModal, setShowModal, updateFormData, setUpdateFormData }) => {
-  console.log("Data in HeaderSection:", data);
   const [paymentType, setPaymentType] = useState("Cash");
   const [processingFeePaymentType, setProcessingFeePaymentType] = useState("Cash");
   const [formData, setFormData] = useState({
@@ -77,7 +77,6 @@ const HeaderSection = ({ data, refetch, showModal, setShowModal, updateFormData,
     });
     setUpdateFormData && setUpdateFormData(null);
   }
-
   useEffect(() => {
     if (updateFormData) {
       const openingBalance = data?.accountData
@@ -90,7 +89,7 @@ const HeaderSection = ({ data, refetch, showModal, setShowModal, updateFormData,
         lenderBank: updateFormData.lenderBank || '',
         accountNumber: updateFormData.accountNumber || '',
         description: updateFormData.description || '',
-        balanceAsOfDate: updateFormData.balanceAsOfDate ? formatDateForInput(updateFormData.balanceAsOfDate) : '',
+        balanceAsOfDate: updateFormData.balanceAsOfDate || '',
         currentBalance: openingBalance !== undefined ? parseFloat(openingBalance) : (updateFormData.currentBalance || ''),
         interestRate: updateFormData.interestRate || '',
         termDuration: updateFormData.termDurationMonths || '',
@@ -102,17 +101,16 @@ const HeaderSection = ({ data, refetch, showModal, setShowModal, updateFormData,
     }
   }, [updateFormData])
 
-const testing = (currentBalance) => {
-  const findActiveAccount = data?.accountData.find(account => account.id === updateFormData.id);
+  const testing = (currentBalance) => {
+    const findActiveAccount = data?.accountData.find(account => account.id === updateFormData.id);
 
-  const makePaymentAmount = findActiveAccount?.transactions
-    ?.filter(tx => tx.type === "LOAN_PAYMENT")
-    .reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
+    const makePaymentAmount = findActiveAccount?.transactions
+      ?.filter(tx => tx.type === "LOAN_PAYMENT")
+      .reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
 
-  return currentBalance - makePaymentAmount;
-}
+    return currentBalance - makePaymentAmount;
+  }
 
-console.log(updateFormData? parseFloat(formData.currentBalance) : null)
   const { data: session } = useSession()
   const handleSubmit = () => {
     if (!formData.accountName || !formData.currentBalance) {
@@ -319,22 +317,14 @@ console.log(updateFormData? parseFloat(formData.currentBalance) : null)
 
               {/* Balance Information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor='calanderBa' className="block text-sm font-medium text-gray-700 mb-1">
-                    Balance as of
-                    <span>{formatDateForDisplay(formData.balanceAsOfDate)}</span>
-                  </label>
+                <CustomDatePicker
+                  defaultValue={updateFormData && updateFormData.balanceAsOfDate}
+                  size="large"
+                  label="Balance as of"
+                  onChange={(date) => setFormData(prev => ({ ...prev, balanceAsOfDate: date }))}
+                  icon="calendar"
+                />
 
-                  <input
-                    id='calanderBa'
-                    type="date"
-                    name="balanceAsOfDate"
-                    value={formData.balanceAsOfDate}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
-                  />
-
-                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     {updateFormData ? "Opening Balance" : "Current Balance"} <span className="text-red-500">*</span>

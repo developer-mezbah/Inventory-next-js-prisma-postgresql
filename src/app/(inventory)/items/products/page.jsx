@@ -2,10 +2,11 @@
 import ItemForm from "@/components/ItemForm/ItemForm";
 import TabContents from "@/components/Items/Products/TabContents";
 import Loading from "@/components/Loading";
+import PortalDropdown from "@/components/PortalDropdown";
 import { useFetchData } from "@/hook/useFetchData";
 import { DeleteAlert } from "@/utils/DeleteAlart";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BiDotsVerticalRounded } from "react-icons/bi";
 import {
   FaChevronDown,
@@ -29,6 +30,9 @@ const Products = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [openDropdownId, setOpenDropdownId] = useState(null);
   const [showForm, setShowForm] = useState(false);
+
+  // Store trigger refs for each dropdown
+  const triggerRefs = useRef({});
 
   // Mobile state
   const [isMobile, setIsMobile] = useState(false);
@@ -75,10 +79,9 @@ const Products = () => {
     if (isMobile) {
       if (!activeTab || tabs.length === 0) {
         setMobileView("list");
+      } else {
+        setMobileView("details");
       }
-      // else {
-      //   setMobileView("details");
-      // }
     }
   }, [activeTab, isMobile, tabs.length]);
 
@@ -137,8 +140,12 @@ const Products = () => {
   const handleBackToList = useCallback(() => {
     if (isMobile) {
       setMobileView("list");
+      // Optionally clear the tab from URL
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("tab");
+      router.replace(`?${params.toString()}`);
     }
-  }, [isMobile]);
+  }, [isMobile, router, searchParams]);
 
   useEffect(() => {
     if (data?.items && data.items.length > 0 && !searchParams.get("tab")) {
@@ -264,8 +271,9 @@ const Products = () => {
                     </div>
                   </button>
 
-                  <div className="relative">
+                  <div className="relative ml-2">
                     <button
+                      ref={el => triggerRefs.current[tab.id] = el}
                       onClick={(e) => {
                         e.stopPropagation();
                         setOpenDropdownId(isDropdownOpen ? null : tab.id);
@@ -275,30 +283,25 @@ const Products = () => {
                       <span className="text-xl text-gray-600">...</span>
                     </button>
 
-                    {isDropdownOpen && (
-                      <div className="absolute right-0 mt-1 z-10">
-                        <div className="bg-white border rounded-md shadow-lg w-32">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEdit(tab.id);
-                            }}
-                            className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                          >
-                            View / Edit
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDelete(tab.id);
-                            }}
-                            className="block w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                    <PortalDropdown
+                      isOpen={isDropdownOpen}
+                      onClose={() => setOpenDropdownId(null)}
+                      triggerRef={{ current: triggerRefs.current[tab.id] }}
+                      position="bottom-end"
+                    >
+                      <button
+                        onClick={() => handleEdit(tab.id)}
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        View / Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(tab.id)}
+                        className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                      >
+                        Delete
+                      </button>
+                    </PortalDropdown>
                   </div>
                 </div>
               </div>
@@ -533,7 +536,7 @@ const Products = () => {
                       {tab.label}
                     </button>
 
-                    <div className="flex items-center space-x-3 relative">
+                    <div className="flex items-center space-x-3 relative ml-2">
                       <span
                         className={`${colorStyle.bg} ${colorStyle.text} px-2 py-0.5 rounded-full text-xs font-semibold`}
                       >
@@ -541,6 +544,7 @@ const Products = () => {
                       </span>
 
                       <button
+                        ref={el => triggerRefs.current[tab.id] = el}
                         onClick={(e) => {
                           e.stopPropagation();
                           setOpenDropdownId(isDropdownOpen ? null : tab.id);
@@ -552,34 +556,25 @@ const Products = () => {
                         <span className="text-xl leading-none">...</span>
                       </button>
 
-                      {isDropdownOpen && (
-                        <div
-                          className="fixed inset-0 z-10"
-                          onClick={() => setOpenDropdownId(null)}
-                        />
-                      )}
-                      {isDropdownOpen && (
-                        <div className="absolute right-0 md:top-full -top-[80px] mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-20">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEdit(tab.id);
-                            }}
-                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                          >
-                            View / Edit
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDelete(tab.id);
-                            }}
-                            className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      )}
+                      <PortalDropdown
+                        isOpen={isDropdownOpen}
+                        onClose={() => setOpenDropdownId(null)}
+                        triggerRef={{ current: triggerRefs.current[tab.id] }}
+                        position="right-start"
+                      >
+                        <button
+                          onClick={() => handleEdit(tab.id)}
+                          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          View / Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(tab.id)}
+                          className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                        >
+                          Delete
+                        </button>
+                      </PortalDropdown>
                     </div>
                   </div>
                 );

@@ -9,7 +9,6 @@ import { FaChevronLeft, FaFilter, FaSearch, FaTimes } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useCurrencyStore } from "@/stores/useCurrencyStore";
 import { createPortal } from "react-dom";
-import CustomDatePicker from "@/components/DatePicker";
 
 // Simple dropdown component using portal
 const PortalDropdown = ({ isOpen, onClose, triggerRef, children, position = "bottom-end" }) => {

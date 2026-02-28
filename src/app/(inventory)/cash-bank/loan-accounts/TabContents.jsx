@@ -892,15 +892,13 @@ const TabContents = ({ transaction = [], refetch, accountData, data }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Date
-                </label>
-                <input
-                  type="date"
-                  name="date"
-                  value={chargesData.date}
-                  onChange={handleChargesChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+
+                <CustomDatePicker
+                  defaultValue={chargesData.date}
+                  size="large"
+                  label="Date"
+                  onChange={(date) => setChargesData(prev => ({ ...prev, date: date }))}
+                  icon="calendar"
                 />
               </div>
 
