@@ -320,6 +320,7 @@ model Purchase {
   partyId       String?
   paymentType   String?
   paymentTypeId String?
+  warranty      Json? // Stores { duration: "12", period: "Years", enabled: true }
   transaction   Transaction[]
   invoiceData   InvoiceData[]
   items         Item[]
@@ -363,6 +364,7 @@ model Sale {
   partyId       String?
   paymentType   String?
   paymentTypeId String?
+  warranty      Json? // Stores { duration: "12", period: "Years", enabled: true }
   transaction   Transaction[]
   invoiceData   InvoiceData[]
   items         Item[]

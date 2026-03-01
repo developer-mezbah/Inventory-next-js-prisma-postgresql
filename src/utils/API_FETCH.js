@@ -18,7 +18,7 @@ class api_fetch_fun {
   }
   async get(api, token) {
     try {
-      const response = await fetch( api, {
+      const response = await fetch(api, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,

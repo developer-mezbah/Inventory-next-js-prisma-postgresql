@@ -1,6 +1,7 @@
 import GetCurrencty from "@/components/home/GetCurrencty";
 import SalesDashboard from "@/components/home/SalesDashboard";
-import { getDashboardData } from "@/utils/dashboard-actions";
+import client_api from "@/utils/API_FETCH";
+import { getCompanyId } from "@/utils/GetCompanyId";
 import Link from "next/link";
 import { BsGraphUp } from "react-icons/bs";
 import {
@@ -24,7 +25,7 @@ import {
 // Updated DashboardPage component - add these new sections
 export default async function DashboardPage({ searchParams }) {
   const params = await searchParams;
-  const data = await getDashboardData(params?.period);
+  const data = await client_api.get(`${process.env.BASE_URL}/api/dashboard?period=${params?.period || "thisMonth"}&companyId=${await getCompanyId()}`);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">

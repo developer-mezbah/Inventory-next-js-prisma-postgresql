@@ -17,9 +17,9 @@ export async function proxy(request) {
   if (pathname.startsWith("/dashboard") && !token) {
     return NextResponse.redirect(new URL("/auth/login", request.url));
   }
-  if (pathname === "/" && !token) {
-    return NextResponse.redirect(new URL("/auth/login", request.url));
-  }
+  // if (pathname === "/" && !token) {
+  //   return NextResponse.redirect(new URL("/auth/login", request.url));
+  // }
 
   // 2️⃣ Redirect to dashboard if logged in and accessing auth
   if (pathname.startsWith("/auth") && token) {

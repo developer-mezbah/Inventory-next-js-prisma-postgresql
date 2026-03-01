@@ -222,6 +222,7 @@ export async function PUT(req) {
             phoneNumber: parseInt(body.phoneNumber) || null,
             images: body.images || [],
             billDate: body.billDate || null,
+            warranty: body.warranty || null,
             updatedAt: new Date()
         };
 

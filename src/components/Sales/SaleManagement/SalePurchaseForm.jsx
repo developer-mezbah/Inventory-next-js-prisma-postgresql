@@ -12,6 +12,8 @@ import { toast } from "react-toastify";
 import ItemsTable from "./ItemsTable";
 import PartySelector from "./PartySelector";
 import PaymentSection from "./PaymentSection";
+import WarrantySection from "./WarrantySection"; // Import the new WarrantySection component
+import CustomDatePicker from "@/components/DatePicker";
 
 function generateUniqueId() {
   // Check for the availability of the modern Crypto API
@@ -58,15 +60,15 @@ export default function SalePurchaseForm({
     sale.items.length
       ? sale.items
       : [
-          {
-            id: 1762926852456,
-            item: "",
-            qty: 1,
-            unit: "NONE",
-            price: 0,
-            amount: 0,
-          },
-        ]
+        {
+          id: 1762926852456,
+          item: "",
+          qty: 1,
+          unit: "NONE",
+          price: 0,
+          amount: 0,
+        },
+      ]
   );
 
   const [paymentType, setPaymentType] = useState("Cash");
@@ -82,6 +84,13 @@ export default function SalePurchaseForm({
   const [manualPaidAmount, setManualPaidAmount] = useState(0);
   const [paidAmount, setPaidAmount] = useState(0);
   const [balanceDue, setBalanceDue] = useState(0);
+
+  // New states for Warranty feature
+  const [warranty, setWarranty] = useState({
+    duration: "",
+    period: "Years", // Default to Years as shown in the image
+    enabled: false,
+  });
 
   useEffect(() => {
     if (mode === "update" && initData?.data) {
@@ -111,9 +120,9 @@ export default function SalePurchaseForm({
         initData.data.paymentType === "Cash"
           ? "Cash"
           : {
-              id: initData.data.paymentTypeId,
-              accountdisplayname: initData.data.paymentType,
-            }
+            id: initData.data.paymentTypeId,
+            accountdisplayname: initData.data.paymentType,
+          }
       );
       setSelectedParty({ ...initData.party, name: initData.party?.partyName });
       setPhoneNumber(initData.data.phoneNumber || "");
@@ -122,6 +131,11 @@ export default function SalePurchaseForm({
       setImages(initData.data.images || []);
       setDescription(initData.data.description || "");
 
+      // Set warranty data if exists
+      if (initData.data.warranty) {
+        setWarranty(initData.data.warranty);
+      }
+
       // Only set paidAmount and manualPaidAmount from initData, balanceDue will be calculated
       const initialPaidAmount = initData.data.paidAmount || 0;
       setPaidAmount(initialPaidAmount);
@@ -129,7 +143,7 @@ export default function SalePurchaseForm({
 
       // Don't set balanceDue here - let the calculation effect handle it
     }
-  }, [mode, initData]);
+  }, [initData, mode, type]);
 
   const {
     isInitialLoading,
@@ -137,8 +151,6 @@ export default function SalePurchaseForm({
     data = {},
     refetch,
   } = useFetchData("/api/purchase-init-data", ["purchase-init-data"]);
-
-  
 
   const calculateTotal = () => {
     const itemsTotal = items.reduce((sum, item) => sum + (item.amount || 0), 0);
@@ -234,6 +246,12 @@ export default function SalePurchaseForm({
         );
       }
     }
+
+    // Validate warranty if enabled
+    if (warranty.enabled && !warranty.duration) {
+      return toast.error("Please enter warranty duration");
+    }
+
     // 3. If all validation passes, proceed with saving/updating
     onUpdate({
       items,
@@ -250,7 +268,12 @@ export default function SalePurchaseForm({
       paidAmount,
       images,
       description,
+      warranty: warranty.enabled ? warranty : null, // Only include warranty if enabled
     });
+  };
+
+  const handleWarrantyChange = (updatedWarranty) => {
+    setWarranty(updatedWarranty);
   };
 
   if (isInitialLoading) {
@@ -259,7 +282,7 @@ export default function SalePurchaseForm({
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-      {/* All Modals  */}
+      {/* All Modals  */}
       {/* Header Actions */}
       <div className="border-b border-gray-200 p-4 sm:p-6 flex flex-wrap gap-2 justify-between items-center">
         <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
@@ -289,9 +312,8 @@ export default function SalePurchaseForm({
           <button
             disabled={isSubmitting}
             onClick={handleSave}
-            className={`p-2 hover:bg-gray-100 rounded-lg transition-colors ${
-              isSubmitting ? "opacity-50 cursor-not-allowed" : ""
-            }`}
+            className={`p-2 hover:bg-gray-100 rounded-lg transition-colors ${isSubmitting ? "opacity-50 cursor-not-allowed" : ""
+              }`}
             title="Save"
           >
             {isSubmitting ? (
@@ -345,14 +367,13 @@ export default function SalePurchaseForm({
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:justify-end lg:max-w-sm">
           <div className="min-w-50">
-            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
-              Bill Date
-            </label>
-            <input
-              type="date"
-              value={billDate}
-              onChange={(e) => setBillDate(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+
+            <CustomDatePicker
+              defaultValue={billDate && billDate}
+              size="large"
+              label="Bill Date"
+              onChange={(date) => setBillDate(date)}
+              icon="calendar"
             />
           </div>
         </div>
@@ -367,6 +388,12 @@ export default function SalePurchaseForm({
           refetch={refetch}
           autoAddItem={setItems}
           type={type}
+        />
+
+        {/* Warranty Section - Added here */}
+        <WarrantySection
+          warranty={warranty}
+          onWarrantyChange={handleWarrantyChange}
         />
 
         {/* Totals and Payment */}
@@ -479,8 +506,8 @@ export default function SalePurchaseForm({
                       isFullPayment
                         ? paidAmount.toFixed(2)
                         : manualPaidAmount === 0
-                        ? ""
-                        : manualPaidAmount
+                          ? ""
+                          : manualPaidAmount
                     }
                     onChange={(e) =>
                       setManualPaidAmount(
@@ -489,11 +516,10 @@ export default function SalePurchaseForm({
                     }
                     disabled={isFullPayment}
                     placeholder="0"
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-right ${
-                      isFullPayment
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-right ${isFullPayment
                         ? "bg-gray-200 cursor-not-allowed"
                         : "border-gray-300"
-                    }`}
+                      }`}
                   />
                 </div>
               </div>
@@ -502,9 +528,8 @@ export default function SalePurchaseForm({
               <div className="flex justify-between text-sm pt-1">
                 <span className="font-semibold text-gray-900">Balance Due</span>
                 <span
-                  className={`text-lg font-bold ${
-                    balanceDue > 0 ? "text-red-600" : "text-green-600"
-                  }`}
+                  className={`text-lg font-bold ${balanceDue > 0 ? "text-red-600" : "text-green-600"
+                    }`}
                 >
                   ${balanceDue.toFixed(2)}
                 </span>
@@ -550,9 +575,8 @@ export default function SalePurchaseForm({
             <button
               disabled={isSubmitting}
               onClick={handleSave}
-              className={`w-full bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm sm:text-base ${
-                isSubmitting ? "opacity-50 cursor-not-allowed" : ""
-              }`}
+              className={`w-full bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm sm:text-base ${isSubmitting ? "opacity-50 cursor-not-allowed" : ""
+                }`}
             >
               {isSubmitting ? (
                 <span className="flex items-center gap-1 justify-center">
@@ -571,9 +595,8 @@ export default function SalePurchaseForm({
                     ? "/sales/sale-invoices"
                     : "/purchase/purchase-bils"
                 }
-                className={`w-full block text-center bg-red-600 text-white py-2.5 rounded-lg hover:bg-red-700 transition-colors font-medium text-sm sm:text-base ${
-                  isSubmitting ? "opacity-50 cursor-not-allowed" : ""
-                }`}
+                className={`w-full block text-center bg-red-600 text-white py-2.5 rounded-lg hover:bg-red-700 transition-colors font-medium text-sm sm:text-base ${isSubmitting ? "opacity-50 cursor-not-allowed" : ""
+                  }`}
               >
                 Go Back
               </Link>

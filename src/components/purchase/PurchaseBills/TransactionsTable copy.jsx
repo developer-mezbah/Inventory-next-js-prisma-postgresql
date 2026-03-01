@@ -1,715 +1,1397 @@
 "use client";
 
-import InvoicePreview from "@/components/invoice-preview";
-import { useEffect, useState } from "react";
-import { FaFilter, FaSearch } from "react-icons/fa";
-import { IoClose } from "react-icons/io5";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { toast } from "react-toastify";
+import dayjs from "dayjs";
+import customParseFormat from "dayjs/plugin/customParseFormat";
+import { useFloating, offset, flip, shift, autoUpdate } from "@floating-ui/react";
 
+// Extend dayjs with plugins
+dayjs.extend(customParseFormat);
+
+// Icons
+import { BiChevronDown } from "react-icons/bi";
 import {
+  FaChevronLeft,
+  FaChevronRight,
   FaCopy,
   FaEdit,
-  FaExchangeAlt,
-  FaEye,
+  FaEllipsisH,
   FaFilePdf,
-  FaHistory,
+  FaFilter,
   FaPrint,
-  FaTimes,
+  FaSearch,
   FaTrash,
 } from "react-icons/fa";
-import { IoMdPrint } from "react-icons/io";
-
-import { generatePDF } from "@/lib/pdf-generator";
-import { useCurrencyStore } from "@/stores/useCurrencyStore";
-import client_api from "@/utils/API_FETCH";
-import { DeleteAlert } from "@/utils/DeleteAlart";
-import { useRouter } from "next/navigation";
-import { BiChevronDown } from "react-icons/bi";
 import { GrMoreVertical } from "react-icons/gr";
-import { PiShareFatLight } from "react-icons/pi";
-import { toast } from "react-toastify";
+import { IoMdPrint } from "react-icons/io";
+import { IoClose } from "react-icons/io5";
 
-function getTypeColor(type) {
-  const colors = {
-    Sale: "bg-green-100 text-green-800",
-    "Purchase Order": "bg-blue-100 text-blue-800",
-    "Debit Note": "bg-orange-100 text-orange-800",
-    Refund: "bg-purple-100 text-purple-800",
-  };
-  return colors[type] || "bg-gray-100 text-gray-800";
-}
+// Components
+import InvoicePreview from "@/components/invoice-preview";
+import { DeleteAlert } from "@/utils/DeleteAlart";
 
-function MobileTransactionAccordion({ transaction }) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+// Utils & Stores
+import useOutsideClick from "@/hook/useOutsideClick";
+import { useCurrencyStore } from "@/stores/useCurrencyStore";
+import { printAndPdfData } from "@/utils/handlePrintAndPdf";
+import { useSession } from "next-auth/react";
 
-  const { currencySymbol, formatPrice } = useCurrencyStore();
+// Floating UI Dropdown Component
+const ProfessionalDropdown = ({
+  items,
+  onClose,
+  align = "right",
+  triggerRef
+}) => {
+  const [isOpen, setIsOpen] = useState(true);
 
-  const handleMenuClick = (e) => {
-    e.stopPropagation();
-    setIsMenuOpen(!isMenuOpen);
-  };
+  const { x, y, strategy, refs, context } = useFloating({
+    placement: align === "right" ? "bottom-end" : "bottom-start",
+    middleware: [offset(10), flip(), shift()],
+    whileElementsMounted: autoUpdate,
+    elements: {
+      reference: triggerRef?.current,
+    }
+  });
 
-  const handleMenuClose = () => {
-    setIsMenuOpen(false);
-  };
+  // Close on outside click
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (refs.floating.current && !refs.floating.current.contains(event.target) &&
+          triggerRef?.current && !triggerRef.current.contains(event.target)) {
+        onClose();
+      }
+    };
 
-  const menuItems = [
-    {
-      label: "View",
-      icon: FaEye,
-      action: () => console.log("View", transaction),
-    },
-    {
-      label: "Edit",
-      icon: FaEdit,
-      action: () => console.log("Edit", transaction),
-    },
-    {
-      label: "Duplicate",
-      icon: FaCopy,
-      action: () => console.log("Duplicate", transaction),
-    },
-    {
-      label: "Delete",
-      icon: FaTrash,
-      action: () => console.log("Delete", transaction),
-      color: "text-red-600",
-    },
-  ];
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [refs.floating, triggerRef, onClose]);
+
+  if (!isOpen) return null;
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+    <div
+      ref={refs.setFloating}
+      style={{
+        position: strategy,
+        top: y ?? 0,
+        left: x ?? 0,
+      }}
+      className="z-50 min-w-[180px] rounded-lg border border-gray-200 bg-white shadow-lg animate-in fade-in zoom-in-95 duration-200"
+    >
+      {items.map((item, index) => {
+        const Icon = item.icon;
+        return (
+          <button
+            key={index}
+            onClick={() => {
+              item.action();
+              onClose();
+            }}
+            className={`flex w-full items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-gray-50 transition-colors ${index !== items.length - 1 ? "border-b border-gray-100" : ""
+              } ${item.color || "text-gray-700"} ${item.disabled ? "opacity-50 cursor-not-allowed" : ""
+              }`}
+            disabled={item.disabled}
+            title={item.tooltip}
+          >
+            <Icon size={16} className="flex-shrink-0" />
+            <span className="truncate">{item.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+};
+
+// Mobile Action Modal with Floating UI
+const MobileActionModal = ({
+  isOpen,
+  onClose,
+  menuItems,
+  triggerRef
+}) => {
+  const { x, y, strategy, refs } = useFloating({
+    placement: "bottom",
+    middleware: [offset(10), flip(), shift()],
+    whileElementsMounted: autoUpdate,
+    elements: {
+      reference: triggerRef?.current,
+    }
+  });
+
+  if (!isOpen) return null;
+
+  return (
+    <>
+      <div 
+        className="fixed inset-0 z-40 bg-black/50 transition-opacity"
+        onClick={onClose}
+      />
+      <div
+        ref={refs.setFloating}
+        style={{
+          position: strategy,
+          top: y ?? 0,
+          left: x ?? 0,
+          width: 'max-content',
+          maxWidth: 'calc(100vw - 32px)',
+        }}
+        className="z-50 bg-white rounded-xl shadow-xl animate-in fade-in zoom-in-95 duration-200"
       >
-        <div className="flex items-center gap-3">
-          <BiChevronDown
-            size={18}
-            className={`text-gray-400 transition-transform duration-200 ${
-              isExpanded ? "rotate-180" : ""
-            }`}
-          />
-          <div className="text-left">
-            <div className="flex items-center gap-2">
-              <span
-                className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${getTypeColor(
-                  transaction.type
-                )}`}
-              >
-                {transaction.partyName}
-              </span>
-              <span className="text-sm font-medium text-gray-900">
-                #{transaction.invoiceNo || "N/A"}
-              </span>
-            </div>
-            <p className="text-xs text-gray-500 mt-1">{transaction.date}</p>
+        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900">Actions</h3>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <IoClose size={20} className="text-gray-500" />
+          </button>
+        </div>
+        
+        <div className="p-3 max-h-[70vh] overflow-y-auto">
+          <div className="grid grid-cols-2 gap-2">
+            {menuItems.map((item, index) => {
+              const Icon = item.icon;
+              const isDestructive = item.color === "text-red-600";
+              
+              return (
+                <button
+                  key={index}
+                  onClick={() => {
+                    item.action();
+                    onClose();
+                  }}
+                  disabled={item.disabled}
+                  className={`flex flex-col items-center justify-center p-4 rounded-lg transition-colors ${
+                    isDestructive 
+                      ? "hover:bg-red-50 text-red-600" 
+                      : "hover:bg-gray-50 text-gray-700"
+                  } ${item.disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                >
+                  <Icon size={24} className="mb-2" />
+                  <span className="text-xs font-medium text-center">
+                    {item.label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
-        <div className="text-right">
-          <p className="text-sm font-semibold text-gray-900">
-            {transaction.amount.toFixed(2)} {currencySymbol}
-          </p>
-          <p className="text-xs text-gray-500">
-            {transaction.balanceDue.toFixed(2)} {currencySymbol}
-          </p>
-        </div>
-      </button>
+      </div>
+    </>
+  );
+};
 
-      {/* Expanded Content */}
-      {isExpanded && (
-        <div className="border-t border-gray-200 bg-gray-50 px-4 py-4 animate-in fade-in duration-200">
-          <div className="space-y-3 mb-4">
-            <div className="flex justify-between">
-              <span className="text-xs font-semibold text-gray-600 uppercase">
-                Date
-              </span>
-              <span className="text-sm font-medium text-gray-900">
-                {transaction.date}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-xs font-semibold text-gray-600 uppercase">
-                Invoice NO.
-              </span>
-              <span className="text-sm font-medium text-gray-900">
-                {transaction.invoiceNo || "-"}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-xs font-semibold text-gray-600 uppercase">
-                Party Name
-              </span>
-              <span className="text-sm font-medium text-gray-900">
-                {transaction.partyName}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-xs font-semibold text-gray-600 uppercase">
-                Payment Type
-              </span>
-              <span className="text-sm font-semibold text-gray-900">
-                {transaction.paymentType}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-xs font-semibold text-gray-600 uppercase">
-                Amount
-              </span>
-              <span className="text-sm font-semibold text-gray-900">
-                {transaction.amount.toFixed(2)} {currencySymbol}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-xs font-semibold text-gray-600 uppercase">
-                Balance Due
-              </span>
-              <span className="text-sm font-semibold text-gray-900">
-                {transaction.balanceDue.toFixed(2)} {currencySymbol}
-              </span>
+// Helper function to calculate status (unchanged)
+const calculateStatus = (transaction) => {
+  // Check if user already provided a status field
+  if (transaction.status && typeof transaction.status === "string") {
+    return transaction.status;
+  }
+
+  // Calculate status based on available properties
+  const paidAmount = transaction.paidAmount || 0;
+  const balanceDue = transaction.balanceDue || 0;
+  const amount = transaction.amount || 0;
+
+  // If amount is 0, return "N/A"
+  if (amount === 0) {
+    return "N/A";
+  }
+
+  // Calculate the actual balance due if not provided
+  const actualBalanceDue =
+    balanceDue !== undefined ? balanceDue : amount - paidAmount;
+
+  if (paidAmount >= amount || actualBalanceDue <= 0) {
+    return "Paid";
+  } else if (paidAmount > 0 && paidAmount < amount) {
+    return "Partially Paid";
+  } else {
+    return "Unpaid";
+  }
+};
+
+// Mobile Accordion Component - Optimized for Mobile with Floating UI Modal
+function MobileTransactionAccordion({
+  transaction,
+  menuItems,
+  columns,
+  customRenderers,
+  size = "medium",
+  showStatusBadge = true,
+  theme = "default",
+  isDesktop = false,
+  dateFormat = "DD/MM/YYYY", // Default date format
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showActionModal, setShowActionModal] = useState(false);
+  const { currencySymbol } = useCurrencyStore();
+  const actionButtonRef = useRef(null);
+
+  // Theme configuration (keep as is)
+  const themes = {
+    default: {
+      bg: "bg-white",
+      border: "border-gray-200",
+      headerBg: "bg-white",
+      headerHover: "hover:bg-gray-50",
+      expandedBg: "bg-gray-50",
+      text: "text-gray-900",
+      subtext: "text-gray-600",
+    },
+    modern: {
+      bg: "bg-gradient-to-r from-white to-gray-50",
+      border: "border-gray-300",
+      headerBg: "bg-gradient-to-r from-white to-blue-50",
+      headerHover: "hover:from-blue-50 hover:to-white",
+      expandedBg: "bg-gradient-to-r from-gray-50 to-blue-50",
+      text: "text-gray-900",
+      subtext: "text-gray-700",
+    },
+    dark: {
+      bg: "bg-gray-900",
+      border: "border-gray-700",
+      headerBg: "bg-gray-900",
+      headerHover: "hover:bg-gray-800",
+      expandedBg: "bg-gray-800",
+      text: "text-white",
+      subtext: "text-gray-300",
+    },
+  };
+
+  const currentTheme = themes[theme] || themes.default;
+
+  // Size configuration
+  const sizeClasses = {
+    small: {
+      padding: "p-2",
+      text: "text-xs",
+      icon: "text-sm",
+    },
+    medium: {
+      padding: "p-3",
+      text: "text-sm",
+      icon: "text-base",
+    },
+    large: {
+      padding: "p-3",
+      text: "text-base",
+      icon: "text-lg",
+    },
+  };
+
+  const currentSize = sizeClasses[size] || sizeClasses.medium;
+
+  // Find status and amount columns
+  const statusColumn = columns.find(col => col.key === "status");
+  const statusValue = statusColumn ? transaction[statusColumn.key] : null;
+  
+  const amountColumn = columns.find(col =>
+    col.type === "currency" || col.type === "currency_with_sign"
+  );
+
+  // Get primary columns for header
+  const headerColumns = columns.slice(0, 2);
+  const detailColumns = columns;
+
+  // Format date using dayjs with custom format from props
+  const formatDate = (dateValue, format) => {
+    if (!dateValue) return "-";
+    
+    // Try to parse the date with dayjs
+    const parsedDate = dayjs(dateValue);
+    if (parsedDate.isValid()) {
+      return parsedDate.format(format);
+    }
+    
+    // If the date is already in string format, try to parse it with custom formats
+    const formats = [
+      "YYYY-MM-DD",
+      "DD/MM/YYYY",
+      "MM/DD/YYYY",
+      "YYYY/MM/DD",
+      "DD-MM-YYYY",
+      "MM-DD-YYYY",
+    ];
+    
+    for (const fmt of formats) {
+      const parsed = dayjs(dateValue, fmt);
+      if (parsed.isValid()) {
+        return parsed.format(format);
+      }
+    }
+    
+    return dateValue; // Return as is if no parsing succeeds
+  };
+
+  const renderValue = (column, value, truncate = true) => {
+    if (customRenderers && customRenderers[column.key]) {
+      return customRenderers[column.key](value, transaction);
+    }
+
+    if (column.type === "currency") {
+      return `${currencySymbol} ${parseFloat(value || 0).toFixed(2)}`;
+    }
+
+    if (column.type === "currency_with_sign") {
+      const amount = parseFloat(value) || 0;
+      const sign = amount >= 0 ? "+" : "-";
+      const colorClass = amount >= 0 ? "text-green-600" : "text-red-600";
+      return (
+        <span className={`font-semibold ${colorClass}`}>
+          {sign} {currencySymbol} {Math.abs(amount).toFixed(2)}
+        </span>
+      );
+    }
+
+    if (column.type === "status") {
+      const status = value;
+      let statusClass = "bg-gray-100 text-gray-800";
+      if (status === "Paid") statusClass = "bg-green-100 text-green-800";
+      if (status === "Partially Paid") statusClass = "bg-yellow-100 text-yellow-800";
+      if (status === "Unpaid") statusClass = "bg-red-100 text-red-800";
+      return (
+        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${statusClass}`}>
+          {status}
+        </span>
+      );
+    }
+
+    if (column.type === "date") {
+      // Use custom date format from column or fallback to default
+      const dateFormatFromProps = column.dateFormat || dateFormat;
+      return formatDate(value, dateFormatFromProps);
+    }
+
+    const displayValue = value || "-";
+    return truncate && typeof displayValue === 'string' && displayValue.length > 20 
+      ? displayValue.substring(0, 20) + "..." 
+      : displayValue;
+  };
+
+  // Get status color for indicator
+  const getStatusColor = (status) => {
+    if (!status) return "bg-gray-400";
+    switch (status.toLowerCase()) {
+      case "paid": return "bg-green-500";
+      case "partially paid": return "bg-yellow-500";
+      case "unpaid": return "bg-red-500";
+      default: return "bg-gray-400";
+    }
+  };
+
+  // If it's desktop mode, use the original design
+  if (isDesktop) {
+    return (
+      <div className={`rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden`}>
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <BiChevronDown
+              size={18}
+              className={`text-gray-400 transition-transform duration-200 ${
+                isExpanded ? "rotate-180" : ""
+              }`}
+            />
+            <div className="text-left">
+              <div className="flex items-center gap-2">
+                {columns.slice(0, 2).map((column) => (
+                  <span
+                    key={column.key}
+                    className="text-sm font-medium text-gray-900"
+                  >
+                    {renderValue(column, transaction[column.key])}
+                  </span>
+                ))}
+              </div>
+              {columns.length > 2 && (
+                <p className="text-xs text-gray-500 mt-1">
+                  {renderValue(columns[2], transaction[columns[2].key])}
+                </p>
+              )}
             </div>
           </div>
+          {amountColumn && (
+            <div className="text-right">
+              <p className="text-sm font-semibold text-gray-900">
+                {renderValue(amountColumn, transaction[amountColumn.key])}
+              </p>
+            </div>
+          )}
+        </button>
 
-          {/* Actions Menu */}
-          <div className="flex justify-center items-center gap-2">
-            <button className="rounded-lg p-2 text-gray-500 hover:bg-gray-200 transition-all duration-200 flex items-center justify-center">
-              <IoMdPrint />
-            </button>
-            <button className="rounded-lg p-2 text-gray-500 hover:bg-gray-200 transition-all duration-200 flex items-center justify-center">
-              <PiShareFatLight />
-            </button>
-            <button
-              onClick={handleMenuClick}
-              className="rounded-lg p-2 text-gray-500 hover:bg-gray-200 transition-all duration-200 flex items-center justify-center"
-            >
-              <GrMoreVertical size={18} />
-            </button>
-
-            {isMenuOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={handleMenuClose} />
-                <div className="absolute left-0 right-0 z-20 w-full rounded-lg border border-gray-200 bg-white shadow-lg animate-in fade-in zoom-in-95 duration-200 -mt-20">
-                  {menuItems.map((item, index) => {
-                    const Icon = item.icon;
-                    return (
-                      <button
-                        key={index}
-                        onClick={() => {
-                          item.action();
-                          setIsMenuOpen(false);
-                        }}
-                        className={`flex w-full items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-gray-100 transition-colors ${
-                          index !== menuItems.length - 1
-                            ? "border-b border-gray-100"
-                            : ""
-                        } ${item.color || "text-gray-700"}`}
-                      >
-                        <Icon size={16} />
-                        {item.label}
-                      </button>
-                    );
-                  })}
+        {isExpanded && (
+          <div className="border-t border-gray-200 bg-gray-50 px-4 py-4 animate-in fade-in duration-200">
+            <div className="space-y-3 mb-4">
+              {columns.map((column, idx) => (
+                <div key={idx} className="flex justify-between">
+                  <span className="text-xs font-semibold text-gray-600 uppercase">
+                    {column.label}
+                  </span>
+                  <span className="text-sm font-medium text-gray-900">
+                    {renderValue(column, transaction[column.key])}
+                  </span>
                 </div>
-              </>
+              ))}
+            </div>
+
+            <div className="flex justify-center items-center gap-2">
+              <button
+                onClick={() => {
+                  const findAction = menuItems.find(
+                    (item) => item?.label === "Print"
+                  );
+                  findAction?.action();
+                }}
+                className="rounded-lg p-2 text-gray-500 hover:bg-gray-200 transition-all duration-200"
+                title="Print"
+              >
+                <IoMdPrint />
+              </button>
+              <div className="relative">
+                <button
+                  ref={actionButtonRef}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowActionModal(true);
+                  }}
+                  className="rounded-lg p-2 text-gray-500 hover:bg-gray-200 transition-all duration-200 relative"
+                  title="More actions"
+                >
+                  <GrMoreVertical size={18} />
+                </button>
+                
+                {/* Floating UI Modal */}
+                <MobileActionModal
+                  isOpen={showActionModal}
+                  onClose={() => setShowActionModal(false)}
+                  menuItems={menuItems}
+                  triggerRef={actionButtonRef}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Mobile optimized version
+  return (
+    <>
+      <div className={`rounded-lg ${currentTheme.border} border ${currentTheme.bg} shadow-sm overflow-hidden`}>
+        {/* Header - Mobile Compact Design */}
+        <div
+          onClick={() => setIsExpanded(!isExpanded)}
+          className={`w-full ${currentSize.padding} flex items-center gap-2 ${currentTheme.headerBg} ${currentTheme.headerHover} cursor-pointer transition-all`}
+        >
+          {/* Left: Chevron and Status */}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <BiChevronDown
+              size={currentSize.icon === "text-lg" ? 20 : 18}
+              className={`${currentTheme.subtext} transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`}
+            />
+            {showStatusBadge && statusValue && (
+              <div className={`w-2 h-2 rounded-full ${getStatusColor(statusValue)} ml-1`} />
             )}
           </div>
+
+          {/* Middle: Primary Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              {headerColumns.map((column) => (
+                <span
+                  key={column.key}
+                  className={`${currentSize.text} ${currentTheme.text} font-medium truncate max-w-[120px]`}
+                >
+                  {renderValue(column, transaction[column.key], true)}
+                </span>
+              ))}
+            </div>
+            
+            {/* Show preview of additional fields when collapsed */}
+            {!isExpanded && detailColumns.length > 2 && (
+              <p className={`${currentSize.text} ${currentTheme.subtext} truncate mt-0.5`}>
+                {detailColumns.slice(2, 4).map((col, idx) => (
+                  <span key={col.key}>
+                    {renderValue(col, transaction[col.key], true)}
+                    {idx < Math.min(detailColumns.length - 2, 2) - 1 && " • "}
+                  </span>
+                ))}
+              </p>
+            )}
+          </div>
+
+          {/* Right: Amount and 3-dots */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {amountColumn && (
+              <span className={`font-bold ${currentSize.text} ${currentTheme.text} whitespace-nowrap`}>
+                {renderValue(amountColumn, transaction[amountColumn.key], false)}
+              </span>
+            )}
+            
+            {/* 3-dots button for actions */}
+            <button
+              ref={actionButtonRef}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowActionModal(true);
+              }}
+              className={`p-1.5 rounded-lg ${currentTheme.subtext} hover:bg-gray-200 transition-colors`}
+              aria-label="More actions"
+            >
+              <FaEllipsisH size={currentSize.icon === "text-lg" ? 18 : 16} />
+            </button>
+          </div>
         </div>
-      )}
-    </div>
+
+        {/* Expanded Details - Compact Grid */}
+        {isExpanded && (
+          <div className={`border-t ${currentTheme.border} ${currentTheme.expandedBg} p-3 animate-in fade-in duration-200`}>
+            <div className="grid grid-cols-2 gap-3">
+              {detailColumns.map((column) => (
+                <div key={column.key} className="col-span-1">
+                  <div className={`text-xs ${currentTheme.subtext} font-medium mb-0.5`}>
+                    {column.label}
+                  </div>
+                  <div className={`${currentSize.text} ${currentTheme.text} font-medium break-words`}>
+                    {renderValue(column, transaction[column.key], false)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Floating UI Action Modal */}
+      <MobileActionModal
+        isOpen={showActionModal}
+        onClose={() => setShowActionModal(false)}
+        menuItems={menuItems}
+        triggerRef={actionButtonRef}
+      />
+    </>
   );
 }
 
+// Table Row Component (unchanged except for ProfessionalDropdown integration)
 function TransactionRow({
   transaction,
   isAlternate,
   setInvoiceData,
   invoiceType,
   refetch,
+  columns,
+  menuItems,
+  size = "medium",
+  customRenderers,
+  isLastItem,
+  dateFormat = "DD/MM/YYYY", // Default date format
 }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { currencySymbol, formatPrice } = useCurrencyStore();
-
   const [clickPosition, setClickPosition] = useState({ x: 0, y: 0 });
+  const { currencySymbol } = useCurrencyStore();
   const router = useRouter();
-  const handleClick = (event) => {
-    // Coordinates relative to the whole document (takes scroll into account)
-    const pageX = event.pageX;
-    const pageY = event.pageY;
+  const [visibleColumns, setVisibleColumns] = useState([]);
+  const actionButtonRef = useRef(null);
+  const dropdownRef = useRef(null);
 
-    // Coordinates relative to the viewport (the visible part of the screen)
-    const clientX = event.clientX;
-    const clientY = event.clientY;
+  // Responsive column configuration
+  useEffect(() => {
+    const updateVisibleColumns = () => {
+      if (!columns || columns.length === 0) {
+        setVisibleColumns([]);
+        return;
+      }
 
-    // Update state with the coordinates
-    setClickPosition({
-      x: pageX, // Or clientX, depending on your need
-      y: pageY, // Or clientY
-    });
+      const screenWidth = window.innerWidth;
+      let columnsToShow;
 
-    // console.log(`Page Coordinates: X=${pageX}, Y=${pageY}`);
-    // console.log(`Client (Viewport) Coordinates: X=${clientX}, Y=${clientY}`);
-  };
+      // Define breakpoints for different screen sizes
+      if (screenWidth < 640) {
+        // Small devices (mobile)
+        columnsToShow = columns.slice(0, 3);
+      } else if (screenWidth < 1024) {
+        // Medium devices (tablet)
+        columnsToShow = columns.slice(0, 4);
+      } else if (screenWidth < 1280) {
+        // Large devices
+        columnsToShow = columns.slice(0, 5);
+      } else {
+        // Extra large devices
+        // Show all columns or a specific number for XL
+        columnsToShow = columns; // Show all columns
+      }
+
+      // Always include important columns if they exist (like ID, Name, Amount)
+      // You can customize this based on your needs
+      const importantKeys = ["id", "partyName", "amount", "date", "status"];
+      const importantColumns = columns.filter((col) =>
+        importantKeys.includes(col.key)
+      );
+
+      // Merge important columns with visible columns, removing duplicates
+      const mergedColumns = [...importantColumns];
+      columnsToShow.forEach((col) => {
+        if (!mergedColumns.some((c) => c.key === col.key)) {
+          mergedColumns.push(col);
+        }
+      });
+
+      setVisibleColumns(mergedColumns.slice(0, columnsToShow.length));
+    };
+
+    // Initial call
+    updateVisibleColumns();
+
+    // Add event listener for window resize
+    window.addEventListener("resize", updateVisibleColumns);
+
+    // Cleanup
+    return () => window.removeEventListener("resize", updateVisibleColumns);
+  }, [columns]);
 
   const handleMenuClick = (e) => {
-    e.stopPropagation();
-    handleClick(e);
+    setClickPosition({ x: e.clientX, y: e.clientY });
     setIsMenuOpen(!isMenuOpen);
   };
 
-  const handleMenuClose = () => {
-    setIsMenuOpen(false);
-  };
-
-  const handlePrint = () => {
-    const printWindow = window.open("", "", "width=900,height=1200");
-    const invoiceElement = document.querySelector("[data-invoice-preview]");
-    if (invoiceElement) {
-      const styles = Array.from(
-        document.querySelectorAll('style, link[rel="stylesheet"]')
-      )
-        .map((el) => el.outerHTML)
-        .join("");
-
-      printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            ${styles}
-            <style>
-              * {
-                margin: 0;
-                padding: 0;
-                box-sizing: border-box;
-              }
-              html, body {
-                width: 210mm;
-                height: 297mm;
-                margin: 0;
-                padding: 0;
-              }
-              body {
-                background: white;
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                padding: 10mm;
-                margin: 0;
-                line-height: 1.4;
-                color: #1f2937;
-              }
-              @page {
-                size: A4;
-                margin: 0;
-              }
-              @media print {
-                * {
-                  -webkit-print-color-adjust: exact !important;
-                  print-color-adjust: exact !important;
-                  color-adjust: exact !important;
-                }
-                html, body {
-                  width: 210mm;
-                  height: auto;
-                  margin: 0;
-                  padding: 0;
-                }
-                body {
-                  margin: 0;
-                  padding: 10mm;
-                  background: white;
-                }
-                [data-invoice-preview] {
-                  width: 100%;
-                  max-width: 100%;
-                  margin: 0;
-                  padding: 0;
-                  box-shadow: none;
-                  page-break-after: avoid;
-                }
-              }
-              [data-invoice-preview] {
-                width: 100%;
-                overflow: visible;
-              }
-              /* Prevent page breaks in critical sections */
-              .invoice-section {
-                page-break-inside: avoid;
-              }
-              /* Ensure table fits without splitting */
-              table {
-                width: 100%;
-              }
-              tr {
-                page-break-inside: avoid;
-              }
-              /* Reduce padding for print */
-              @media print {
-                [data-invoice-preview] div {
-                  margin-bottom: 8px !important;
-                }
-                p, span, td, th {
-                  margin: 0 !important;
-                  padding: 0 !important;
-                }
-              }
-            </style>
-          </head>
-          <body>
-            ${invoiceElement.innerHTML}
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-      setTimeout(() => {
-        printWindow.print();
-      }, 250);
+  const getSizeClasses = () => {
+    switch (size) {
+      case "small":
+        return "px-4 py-2 text-xs";
+      case "large":
+        return "px-8 py-5 text-base";
+      default:
+        return "px-6 py-4 text-sm";
     }
   };
 
-  function printData(printType) {
-    client_api
-      .get(
-        `/api/print-data?id=${transaction?.id}&type=${
-          invoiceType === "Sale" ? "Sale" : "Purchase"
-        }`
-      )
-      .then(async (res) => {
-        if (res?.status) {
-          const storePrintData = {
-            companyName: res?.printData?.company?.name || "My Company",
-            phone: res?.printData?.company?.phoneNumber || "18XXXXXXXX",
-            email: res?.printData?.company?.emailId || "info@mycompany.com",
-            address:
-              res?.printData?.company?.businessAddress || "123 Business Street",
-            logoUrl:
-              res?.printData?.company?.logoUrl || "/generic-company-logo.png",
-            signatureUrl: res?.printData?.company?.signatureUrl,
-            invoiceNumber: "1",
-            date: new Date().toISOString().split("T")[0],
-            dueDate: "",
-            billTo: res?.printData?.partyName || "Sakib",
-            billToEmail: res?.printData?.phoneNumber || "client@example.com",
-            paymentMethod: res?.printData?.paymentType,
-            items: res?.printData?.invoiceData.map((item, index) => ({
-              id: index + 1,
-              description: item.itemName,
-              quantity: item.qty,
-              rate: item.unitPrice,
-              amount: item.price,
-            })),
-            totalAmount: res?.printData?.amount,
-            paidAmount: res?.printData?.paidAmount,
-            tax: res?.printData?.tax,
-            discount: res?.printData?.discount,
-            isPaid: res?.printData?.isPaid,
-            balanceDue: res?.printData?.balanceDue,
-            notes: "Thanks for doing business with us!",
-            termsAndConditions: "Payment due within 30 days",
-          };
-          setInvoiceData(storePrintData);
-          printType === "pdf"
-            ? await generatePDF(storePrintData)
-            : setTimeout(() => {
-                handlePrint();
-              }, 400);
-        }
-      })
-      .catch((err) => {
-        console.log(err);
-      });
-  }
-
-  function openModal({ title, body }) {
-    // This function would integrate with your modal system.
-    // For demonstration, we'll just log the action.
-    // console.log("Modal Opened:", title, body);
-
-    if (title === "Print Transaction") {
-      printData();
+  // Format date using dayjs
+  const formatDate = (dateValue, format) => {
+    if (!dateValue) return "-";
+    
+    // Try to parse the date with dayjs
+    const parsedDate = dayjs(dateValue);
+    if (parsedDate.isValid()) {
+      return parsedDate.format(format);
     }
-    if (title === "Download PDF") {
-      printData("pdf");
+    
+    // If the date is already in string format, try to parse it with custom formats
+    const formats = [
+      "YYYY-MM-DD",
+      "DD/MM/YYYY",
+      "MM/DD/YYYY",
+      "YYYY/MM/DD",
+      "DD-MM-YYYY",
+      "MM-DD-YYYY",
+    ];
+    
+    for (const fmt of formats) {
+      const parsed = dayjs(dateValue, fmt);
+      if (parsed.isValid()) {
+        return parsed.format(format);
+      }
     }
-    if (title === "View/Edit Transaction") {
-      router.push(
-        `/update-sale-purchase?id=${transaction?.id}&type=${
-          transaction?.transactionType === "Sale" ? "Sale" : "Purchase"
-        }&partyId=${transaction?.partyId}`
-      );
-    }
-    if (title === "Delete Transaction") {
-      DeleteAlert(
-        `/api/sale-purchase/delete?id=${transaction?.id}&mode=${
-          transaction?.transactionType === "Sale" ? "sale" : "purchase"
-        }`
-      ).then((res) => {
-        if (res) {
-          refetch();
-          toast.success("Transaction Deleted Successfully!");
-        }
-      });
-    }
-  }
+    
+    return dateValue; // Return as is if no parsing succeeds
+  };
 
-  // Define the menu items that will trigger the modal
-  const menuItems = [
-    {
-      label: "View/Edit",
-      icon: FaEdit,
-      action: () =>
-        openModal({
-          title: "View/Edit Transaction",
-          body: `Viewing/Editing transaction ${transaction.number}`,
-        }),
-    },
-    {
-      label: "Cancel Invoice",
-      icon: FaTimes,
-      action: () =>
-        openModal({
-          title: "Cancel Invoice",
-          body: `Are you sure you want to cancel invoice ${transaction.number}? This action cannot be undone.`,
-        }),
-      color: "text-red-600",
-    },
-    {
-      label: "Delete",
-      icon: FaTrash,
-      action: () =>
-        openModal({
-          title: "Delete Transaction",
-          body: `Are you sure you want to delete transaction ${transaction.number}? This action is permanent.`,
-        }),
-      color: "text-red-600",
-    },
-    {
-      label: "Duplicate",
-      icon: FaCopy,
-      action: () =>
-        openModal({
-          title: "Duplicate Transaction",
-          body: `Duplicating transaction ${transaction.number}`,
-        }),
-    },
-    {
-      label: "Download PDF",
-      icon: FaFilePdf,
-      action: () =>
-        openModal({
-          title: "Download PDF",
-          body: `Download PDF view for transaction ${transaction.number}`,
-        }),
-    },
-    {
-      label: "Preview",
-      icon: FaEye,
-      action: () =>
-        openModal({
-          title: "Preview Transaction",
-          body: `Previewing transaction details for ${transaction.number}`,
-        }),
-    },
-    {
-      label: "Print",
-      icon: FaPrint,
-      action: () =>
-        openModal({
-          title: "Print Transaction",
-          body: `Preparing print view for transaction ${transaction.number}`,
-        }),
-    },
-    {
-      label: "Preview As Delivery Challan",
-      icon: FaEye,
-      action: () =>
-        openModal({
-          title: "Preview Delivery Challan",
-          body: `Previewing delivery challan for ${transaction.number}`,
-        }),
-    },
-    {
-      label: "Convert To Return",
-      icon: FaExchangeAlt,
-      action: () =>
-        openModal({
-          title: "Convert to Return",
-          body: `Converting transaction ${transaction.number} to a return document`,
-        }),
-    },
-    {
-      label: "View History",
-      icon: FaHistory,
-      action: () =>
-        openModal({
-          title: "Transaction History",
-          body: `Viewing history logs for transaction ${transaction.number}`,
-        }),
-    },
-  ];
+  const renderCell = (column, transaction) => {
+    // Use custom renderer if provided
+    if (customRenderers && customRenderers[column.key]) {
+      return customRenderers[column.key](transaction[column.key], transaction);
+    }
 
-  return (
-    <>
-      <tr
-        className={`border-b border-gray-200 hover:bg-blue-50 transition-colors ${
-          isAlternate ? "bg-white" : "bg-gray-50"
-        }`}
-      >
-        <td className="px-6 py-4">
-          <span
-            className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${getTypeColor(
-              transaction.date
-            )}`}
-          >
-            {transaction.date}
+    // Default renderers based on column type
+    switch (column.type) {
+      case "currency":
+        return `${currencySymbol} ${transaction[column.key]?.toFixed(2) || "0.00"
+          }`;
+      case "currency_with_sign":
+        const amount = parseFloat(transaction[column.key]) || 0;
+        const sign = amount >= 0 ? "+" : "-";
+        const colorClass = amount >= 0 ? "text-green-600" : "text-red-600";
+        return (
+          <span className={`font-semibold ${colorClass}`}>
+            {currencySymbol} {sign} {Math.abs(amount).toFixed(2)}
           </span>
+        );
+      case "date":
+        // Use custom date format from column or fallback to default
+        const dateFormatFromProps = column.dateFormat || dateFormat;
+        return formatDate(transaction[column.key], dateFormatFromProps);
+      case "badge":
+        return (
+          <span
+            className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${column.badgeColor || "bg-blue-100 text-blue-800"
+              }`}
+          >
+            {transaction[column.key]}
+          </span>
+        );
+      case "status":
+        const status = transaction[column.key];
+        let statusClass = "bg-gray-100 text-gray-800";
+        if (status === "Paid") statusClass = "bg-green-100 text-green-800";
+        if (status === "Partially Paid")
+          statusClass = "bg-yellow-100 text-yellow-800";
+        if (status === "Unpaid") statusClass = "bg-red-100 text-red-800";
+        if (status === "N/A") statusClass = "bg-gray-100 text-gray-800";
+        return (
+          <span
+            className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${statusClass}`}
+          >
+            {status}
+          </span>
+        );
+      default:
+        return transaction[column.key] || "-";
+    }
+  };
+
+  // Show ellipsis for hidden columns on mobile
+  const hasHiddenColumns = visibleColumns.length < columns.length;
+  
+  return (
+    <tr
+      className={`border-b border-gray-200 max-h-10 overflow-hidden hover:bg-blue-50 transition-colors ${isAlternate ? "bg-white" : "bg-gray-50"
+        }`}
+    >
+      {visibleColumns.map((column) => (
+        <td
+          key={column.key}
+          className={`${getSizeClasses()} ${column.className || ""} ${column.cellClassName || ""
+            }`}
+          style={column.cellStyle}
+        >
+          <div
+            className={column.wrap ? "whitespace-normal" : "whitespace-nowrap"}
+          >
+            {renderCell(column, transaction)}
+          </div>
         </td>
-        <td className="px-6 py-4 text-sm font-medium text-gray-900">
-          {transaction.invoiceNo || "-"}
+      ))}
+
+      {/* Show indicator for hidden columns on small screens */}
+      {hasHiddenColumns && window.innerWidth < 640 && (
+        <td className={`${getSizeClasses()} text-center`}>
+          <span className="text-gray-400 text-xs">⋯</span>
         </td>
-        <td className="px-6 py-4 text-sm text-gray-700">
-          {transaction.partyName}
-        </td>
-        <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-          {transaction.paymentType} {currencySymbol}
-        </td>
-        <td className="px-6 py-4 text-sm font-semibold text-gray-700">
-          {transaction.amount.toFixed(2)} {currencySymbol}
-        </td>
-        <td className="px-6 py-4 text-sm font-semibold text-gray-700">
-          {transaction.balanceDue.toFixed(2)} {currencySymbol}
-        </td>
-        <td className="px-6 py-4">
-          <div className="flex justify-center">
+      )}
+
+      <td className={`${getSizeClasses()} text-center`}>
+        <div className="flex justify-center space-x-1">
+          <button
+            onClick={() => {
+              /* Print action */
+              const findAction = menuItems.find(
+                (item) => item?.label === "Print"
+              );
+              findAction?.action();
+            }}
+            className="rounded-lg p-2 text-gray-500 hover:bg-gray-200 transition-all duration-200"
+            title="Print"
+          >
+            <IoMdPrint />
+          </button>
+          <div ref={dropdownRef} className="relative">
             <button
-              onClick={printData}
-              className="rounded-xl p-2 text-gray-500 hover:bg-gray-200 transition-all duration-200"
-            >
-              <IoMdPrint />
-            </button>
-            <button className="rounded-xl p-2 text-gray-500 hover:bg-gray-200 transition-all duration-200">
-              <PiShareFatLight />
-            </button>
-            <button
+              ref={actionButtonRef}
               onClick={handleMenuClick}
-              className="rounded-lg p-2 text-gray-500 hover:bg-gray-200 transition-all duration-200"
+              className="rounded-lg p-2 text-gray-500 hover:bg-gray-200 transition-all duration-200 relative"
+              title="More actions"
             >
               <GrMoreVertical size={18} />
             </button>
 
-            {/* Dropdown Menu */}
             {isMenuOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={handleMenuClose} />
-                <div
-                  className="absolute top-full z-20 mt-2 w-40 origin-top-right rounded-lg border border-gray-200 bg-white shadow-lg animate-in fade-in zoom-in-95 duration-200"
-                  style={{ top: `${clickPosition.y + 5}px` }}
-                >
-                  {menuItems.map((item, index) => {
-                    const Icon = item.icon;
-                    return (
-                      <button
-                        key={index}
-                        onClick={() => {
-                          item.action();
-                          setIsMenuOpen(false);
-                        }}
-                        className={`flex w-full items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-gray-100 transition-colors ${
-                          index !== menuItems.length - 1
-                            ? "border-b border-gray-100"
-                            : ""
-                        } ${item.color || "text-gray-700"}`}
-                      >
-                        <Icon size={16} />
-                        {item.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
+              <ProfessionalDropdown
+                items={menuItems}
+                onClose={() => setIsMenuOpen(false)}
+                triggerRef={actionButtonRef}
+              />
             )}
           </div>
-        </td>
-      </tr>
-    </>
+        </div>
+      </td>
+    </tr>
   );
 }
 
-export default function TransactionsTable({ data = [], invoiceType, refetch }) {
-  /** Convert incoming props to your old structure */
-  const formatData = (items) => {
-    return items.map((item) => ({
-      id: item.id,
-      date: item.billDate,
-      invoiceNo: item.transactionId,
-      partyName: item.partyName,
-      partyId: item.partyId,
-      paymentType: item.paymentType,
-      amount: item.amount,
-      transactionType: item.transactionType,
-      balanceDue: item.isPaid ? 0 : item.balanceDue,
-    }));
+// Pagination Component (unchanged)
+const Pagination = ({
+  currentPage,
+  totalPages,
+  onPageChange,
+  size = "medium",
+}) => {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const getPageNumbers = () => {
+    const pages = [];
+    pages.push(1);
+
+    if (currentPage > 3) {
+      pages.push("ellipsis-start");
+    }
+
+    for (
+      let i = Math.max(2, currentPage - 1);
+      i <= Math.min(totalPages - 1, currentPage + 1);
+      i++
+    ) {
+      pages.push(i);
+    }
+
+    if (currentPage < totalPages - 2) {
+      pages.push("ellipsis-end");
+    }
+
+    if (totalPages > 1) {
+      pages.push(totalPages);
+    }
+
+    return pages;
   };
 
-  const [searchTerm, setSearchTerm] = useState("");
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
-  const [filteredTransactions, setFilteredTransactions] = useState([]);
-  const [invoiceData, setInvoiceData] = useState({
-    companyName: "My Company",
-    phone: "18070707707",
-    email: "info@mycompany.com",
-    address: "123 Business Street",
-    logoUrl: "/generic-company-logo.png",
-    invoiceNumber: "1",
-    date: new Date().toISOString().split("T")[0],
-    dueDate: "",
-    billTo: "buyer Name",
-    billToEmail: "client@example.com",
-    items: [
+  const handlePageClick = (page) => {
+    if (page === "ellipsis-start" || page === "ellipsis-end") return;
+    onPageChange(page);
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("page", page);
+    router.push(`?${params.toString()}`, { scroll: false });
+  };
+
+  const getButtonSize = () => {
+    switch (size) {
+      case "small":
+        return "h-8 w-8 text-sm";
+      case "large":
+        return "h-12 w-12 text-lg";
+      default:
+        return "h-10 w-10";
+    }
+  };
+
+  const pageNumbers = getPageNumbers();
+
+  return (
+    <div className="flex items-center justify-center space-x-1 mt-6">
+      <button
+        onClick={() => handlePageClick(Math.max(1, currentPage - 1))}
+        disabled={currentPage === 1}
+        className={`${getButtonSize()} flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors`}
+      >
+        <FaChevronLeft size={14} />
+      </button>
+
+      {pageNumbers.map((page, index) => {
+        if (page === "ellipsis-start" || page === "ellipsis-end") {
+          return (
+            <span
+              key={`ellipsis-${index}`}
+              className={`${getButtonSize()} flex items-center justify-center text-gray-500`}
+            >
+              <FaEllipsisH size={14} />
+            </span>
+          );
+        }
+
+        return (
+          <button
+            key={page}
+            onClick={() => handlePageClick(page)}
+            className={`${getButtonSize()} flex items-center justify-center rounded-lg border font-medium transition-colors ${currentPage === page
+              ? "border-blue-500 bg-blue-50 text-blue-600"
+              : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+              }`}
+          >
+            {page}
+          </button>
+        );
+      })}
+
+      <button
+        onClick={() => handlePageClick(Math.min(totalPages, currentPage + 1))}
+        disabled={currentPage === totalPages}
+        className={`${getButtonSize()} flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors`}
+      >
+        <FaChevronRight size={14} />
+      </button>
+    </div>
+  );
+};
+
+export default function TransactionsTable({
+  data = [],
+  invoiceType,
+  refetch,
+  userProvidedColumns,
+  size = "medium",
+  showSearch = true,
+  showFilters = true,
+  title = "TRANSACTIONS",
+  itemsPerPage = 10,
+  showPagination = true,
+  customRenderers = {},
+  columnOrder = [],
+  defaultSort = null,
+  onEditOfCash,
+  isMobile = false,
+  dateFormat = "DD/MM/YYYY", // Default date format for all dates
+}) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { data: session } = useSession();
+
+  const urlPage = searchParams.get("page");
+  const initialPage =
+    urlPage && !isNaN(parseInt(urlPage)) ? parseInt(urlPage) : 1;
+
+  const [currentPage, setCurrentPage] = useState(initialPage);
+  const [hasInitialized, setHasInitialized] = useState(false);
+  const [screenSize, setScreenSize] = useState("xl"); // Track screen size
+
+  // Track screen size for responsive columns
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      if (width < 640) {
+        setScreenSize("sm");
+      } else if (width < 1024) {
+        setScreenSize("md");
+      } else if (width < 1280) {
+        setScreenSize("lg");
+      } else {
+        setScreenSize("xl");
+      }
+    };
+
+    // Initial call
+    handleResize();
+
+    // Add event listener
+    window.addEventListener("resize", handleResize);
+
+    // Cleanup
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Get responsive columns based on screen size
+  const getResponsiveColumns = useCallback(
+    (cols) => {
+      if (!cols || cols.length === 0) return [];
+
+      let visibleCount;
+
+      switch (screenSize) {
+        case "sm": // Small devices (mobile)
+          visibleCount = 4;
+          break;
+        case "md": // Medium devices (tablet)
+          visibleCount = 6;
+          break;
+        case "lg": // Large devices
+          visibleCount = 6;
+          break;
+        case "xl": // Extra large devices
+        default:
+          visibleCount = cols.length; // Show all columns
+      }
+
+      // Always include important columns
+      const importantKeys = [
+        "date",
+        "status",
+        "partyName",
+        "amount",
+        "balanceDue",
+      ];
+
+      // Filter columns to show
+      const importantColumns = cols.filter((col) =>
+        importantKeys.includes(col.key)
+      );
+
+      // Take the first N columns that are not already in important columns
+      const regularColumns = cols.filter((col, index) => {
+        const isImportant = importantKeys.includes(col.key);
+        const isWithinLimit = index < visibleCount;
+        return !isImportant && isWithinLimit;
+      });
+
+      // Combine and remove duplicates
+      const combinedColumns = [...importantColumns, ...regularColumns];
+      const uniqueColumns = [];
+      const seenKeys = new Set();
+
+      combinedColumns.forEach((col) => {
+        if (!seenKeys.has(col.key)) {
+          seenKeys.add(col.key);
+          uniqueColumns.push(col);
+        }
+      });
+
+      // If we have fewer columns than visibleCount, add more from the original array
+      if (uniqueColumns.length < visibleCount) {
+        cols.forEach((col, index) => {
+          if (!seenKeys.has(col.key) && uniqueColumns.length < visibleCount) {
+            seenKeys.add(col.key);
+            uniqueColumns.push(col);
+          }
+        });
+      }
+
+      return uniqueColumns;
+    },
+    [screenSize]
+  );
+
+  // Default columns if none provided
+  const defaultColumns = useMemo(
+    () => [
       {
-        id: 1,
-        description: "Product/Service",
-        quantity: 1,
-        rate: 100,
-        amount: 100,
+        key: "date",
+        label: "Date",
+        sortable: true,
+        className: "text-left",
+        type: "date",
+        dateFormat: dateFormat, // Pass date format to column
+      },
+      {
+        key: "status",
+        label: "Status",
+        sortable: true,
+        className: "text-center",
+        type: "status",
+      },
+      {
+        key: "partyName",
+        label: "Party Name",
+        sortable: true,
+        className: "text-left",
+      },
+      {
+        key: "paymentType",
+        label: "Payment Type",
+        sortable: true,
+        className: "text-left",
+        type: "badge",
+      },
+      {
+        key: "amount",
+        label: "Amount",
+        sortable: true,
+        className: "text-left font-semibold",
+        type: "currency",
+      },
+      {
+        key: "balanceDue",
+        label: "Balance Due",
+        sortable: true,
+        className: "text-left font-semibold",
+        type: "currency",
       },
     ],
-    notes: "Thanks for doing business with us!",
-    termsAndConditions: "Payment due within 30 days",
+    [dateFormat]
+  );
+
+  // Process userProvidedColumns with status conflict check
+  const columns = useMemo(() => {
+    if (!userProvidedColumns || userProvidedColumns.length === 0) {
+      return defaultColumns;
+    }
+
+    // Check if user provided a status column
+    const hasUserStatusColumn = userProvidedColumns.some(
+      (col) => col.key === "status"
+    );
+
+    return userProvidedColumns.map((col) => ({
+      key: col.key,
+      label: col.label || col.key.charAt(0).toUpperCase() + col.key.slice(1),
+      sortable: col.sortable !== undefined ? col.sortable : true,
+      className: col.className || "text-left",
+      type:
+        col.type ||
+        (col.key === "status" && !hasUserStatusColumn ? "status" : "text"),
+      cellClassName: col.cellClassName || "",
+      cellStyle: col.cellStyle || {},
+      wrap: col.wrap || false,
+      format: col?.format,
+      badgeColor: col.badgeColor,
+      filterable: col.filterable !== undefined ? col.filterable : true,
+      dateFormat: col.dateFormat || dateFormat, // Pass date format to column
+    }));
+  }, [userProvidedColumns, defaultColumns, dateFormat]);
+
+  // Apply column order if specified
+  const orderedColumns = useMemo(() => {
+    if (!columnOrder || columnOrder.length === 0) {
+      return columns;
+    }
+
+    const ordered = [];
+    const columnMap = new Map(columns.map((col) => [col.key, col]));
+
+    columnOrder.forEach((key) => {
+      if (columnMap.has(key)) {
+        ordered.push(columnMap.get(key));
+        columnMap.delete(key);
+      }
+    });
+
+    // Add any remaining columns
+    columnMap.forEach((col) => ordered.push(col));
+
+    return ordered;
+  }, [columns, columnOrder]);
+
+  // Get responsive columns for current screen size
+  const responsiveColumns = useMemo(() => {
+    return getResponsiveColumns(orderedColumns);
+  }, [orderedColumns, getResponsiveColumns]);
+
+  // Helper function to get responsive classes for table headers
+  const getResponsiveHeaderClasses = (column, index) => {
+    // Default responsive classes based on index
+    let responsiveClasses = "";
+
+    switch (screenSize) {
+      case "sm": // Small devices: show only first 4 columns
+        if (index >= 2) {
+          responsiveClasses = "hidden";
+        }
+        break;
+      case "md": // Medium devices: show first 6 columns
+        if (index >= 3) {
+          responsiveClasses = "hidden";
+        }
+        break;
+      case "lg": // Large devices: show first 6 columns
+        if (index >= 4) {
+          responsiveClasses = "hidden";
+        }
+        break;
+      case "xl": // Extra large: show all
+      default:
+        // Show all columns
+        break;
+    }
+
+    return responsiveClasses;
+  };
+
+  const formatData = useCallback((items) => {
+    return items.map((item) => {
+      // Check if user already provided status in the data
+      const hasUserStatus = item.status && typeof item.status === "string";
+      const calculatedStatus = calculateStatus(item);
+
+      // Determine if amount should be positive or negative based on type
+      let displayAmount = item.amount || 0;
+
+      // For certain transaction types, you might want to show negative amounts
+      // This is just an example - adjust based on your business logic
+      if (
+        item.type === "Reduce Cash" ||
+        item.type === "Expense" ||
+        item.type === "Purchase" ||
+        item.type === "Withdrawal"
+      ) {
+        // Ensure negative amount is displayed
+        displayAmount = -Math.abs(displayAmount);
+      } else if (
+        item.type === "Add Cash" ||
+        item.type === "Income" ||
+        item.type === "Sale" ||
+        item.type === "Deposit"
+      ) {
+        // Ensure positive amount is displayed
+        displayAmount = Math.abs(displayAmount);
+      }
+
+      return {
+        id: item.id,
+        date: item.date || item.billDate || item.createdAt,
+        invoiceNo: item.invoiceNo || item.transactionId,
+        partyName: item.partyName || item.name || "N/A",
+        partyId: item.partyId,
+        paymentType: item.paymentType,
+        amount: displayAmount, // Use the adjusted amount
+        transactionType: item.transactionType || item.type,
+        balanceDue: item.isPaid ? 0 : item.balanceDue || 0,
+        paidAmount: item.paidAmount || 0,
+        // Only add status if user didn't provide one or we need to calculate it
+        ...(hasUserStatus ? {} : { status: calculatedStatus }),
+        // Add any additional fields from the data
+        ...item,
+      };
+    });
+  }, []);
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortConfig, setSortConfig] = useState({
+    key: defaultSort?.key || null,
+    direction: defaultSort?.direction || "asc",
   });
+  const [filteredTransactions, setFilteredTransactions] = useState([]);
+  const [invoiceData, setInvoiceData] = useState(null);
 
-  // Load formatted props on mount/update
+  // Calculate pagination
+  const totalItems = filteredTransactions.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentItems = filteredTransactions.slice(startIndex, endIndex);
+
+  // Initialize from URL
   useEffect(() => {
-    setFilteredTransactions(formatData(data));
-  }, [data]);
+    if (!hasInitialized) {
+      const urlPage = searchParams.get("page");
+      const pageFromUrl =
+        urlPage && !isNaN(parseInt(urlPage)) ? parseInt(urlPage) : 1;
 
-  /** SEARCH */
+      if (pageFromUrl !== currentPage) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setCurrentPage(pageFromUrl);
+      }
+
+      setHasInitialized(true);
+    }
+  }, [searchParams, currentPage, hasInitialized]);
+
+  // Update URL when page changes
+  useEffect(() => {
+    if (!hasInitialized) return;
+
+    const params = new URLSearchParams(searchParams.toString());
+    const currentUrlPage = params.get("page");
+    const currentUrlPageNum = currentUrlPage ? parseInt(currentUrlPage) : 1;
+
+    if (currentPage === 1) {
+      if (params.has("page")) {
+        params.delete("page");
+        router.replace(`?${params.toString()}`, { scroll: false });
+      }
+    } else if (currentPage !== currentUrlPageNum) {
+      params.set("page", currentPage.toString());
+      router.replace(`?${params.toString()}`, { scroll: false });
+    }
+  }, [currentPage, router, searchParams, hasInitialized]);
+
+  // Process data
+  useEffect(() => {
+    const formattedData = formatData(data);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFilteredTransactions(formattedData);
+
+    // Apply default sort if specified
+    if (defaultSort && defaultSort.key) {
+      const sorted = [...formattedData].sort((a, b) => {
+        if (!a[defaultSort.key] || !b[defaultSort.key]) return 0;
+
+        // Special handling for status sorting
+        if (defaultSort.key === "status") {
+          const statusOrder = {
+            Paid: 1,
+            "Partially Paid": 2,
+            Unpaid: 3,
+            "N/A": 4,
+          };
+          const aValue = statusOrder[a[defaultSort.key]] || 5;
+          const bValue = statusOrder[b[defaultSort.key]] || 5;
+          return defaultSort.direction === "asc"
+            ? aValue - bValue
+            : bValue - aValue;
+        }
+
+        if (
+          typeof a[defaultSort.key] === "number" &&
+          typeof b[defaultSort.key] === "number"
+        ) {
+          return defaultSort.direction === "asc"
+            ? a[defaultSort.key] - b[defaultSort.key]
+            : b[defaultSort.key] - a[defaultSort.key];
+        }
+        return defaultSort.direction === "asc"
+          ? String(a[defaultSort.key]).localeCompare(String(b[defaultSort.key]))
+          : String(b[defaultSort.key]).localeCompare(
+            String(a[defaultSort.key])
+          );
+      });
+      setFilteredTransactions(sorted);
+      setSortConfig({ key: defaultSort.key, direction: defaultSort.direction });
+    }
+
+    // Reset page if needed
+    if (hasInitialized && currentPage > 1) {
+      const newTotalPages = Math.ceil(formattedData.length / itemsPerPage);
+      if (currentPage > newTotalPages) {
+        setCurrentPage(1);
+      }
+    }
+  }, [
+    data,
+    formatData,
+    itemsPerPage,
+    hasInitialized,
+    currentPage,
+    defaultSort,
+  ]);
+
   const handleSearch = (e) => {
     const term = e.target.value.toLowerCase();
     setSearchTerm(term);
 
     const original = formatData(data);
-
-    const filtered = original.filter(
-      (t) =>
-        t.partyName.toLowerCase().includes(term) ||
-        t.invoiceNo.toLowerCase().includes(term) ||
-        t.date.includes(term) ||
-        t.paymentType.toLowerCase().includes(term)
+    const filtered = original.filter((t) =>
+      Object.entries(t).some(([key, value]) => {
+        const column = columns.find((col) => col.key === key);
+        // Skip filtering on non-filterable columns
+        if (column && column.filterable === false) return false;
+        return String(value).toLowerCase().includes(term);
+      })
     );
 
     setFilteredTransactions(filtered);
+    if (filtered.length > 0 && currentPage !== 1) {
+      setCurrentPage(1);
+    }
   };
 
-  /** SORT */
   const handleSort = (key) => {
     let direction = "asc";
-
     if (sortConfig.key === key && sortConfig.direction === "asc") {
       direction = "desc";
     }
 
     const sorted = [...filteredTransactions].sort((a, b) => {
-      if (key === "amount" || key === "balanceDue") {
+      if (!a[key] || !b[key]) return 0;
+
+      // Special handling for status sorting
+      if (key === "status") {
+        const statusOrder = {
+          Paid: 1,
+          "Partially Paid": 2,
+          Unpaid: 3,
+          "N/A": 4,
+        };
+        const aValue = statusOrder[a[key]] || 5;
+        const bValue = statusOrder[b[key]] || 5;
+        return direction === "asc" ? aValue - bValue : bValue - aValue;
+      }
+
+      if (typeof a[key] === "number" && typeof b[key] === "number") {
         return direction === "asc" ? a[key] - b[key] : b[key] - a[key];
       }
       return direction === "asc"
@@ -719,11 +1401,225 @@ export default function TransactionsTable({ data = [], invoiceType, refetch }) {
 
     setSortConfig({ key, direction });
     setFilteredTransactions(sorted);
+
+    if (currentPage !== 1) {
+      setCurrentPage(1);
+    }
+  };
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleSalePurchaseDelete = async (id, type) => {
+    const res = await DeleteAlert(
+      `/api/sale-purchase/delete?id=${id}&mode=${type}`, "", "Sale/Purchase transaction"
+    );
+    if (res) {
+      refetch();
+      toast.success("Transaction Deleted Successfully!");
+    }
+  };
+
+  const pathname = usePathname();
+
+  const getMenuItems = (transaction) => [
+    {
+      label: "View/Edit",
+      icon: FaEdit,
+      action: () => {
+        if (
+          transaction?.type === "Add Cash" ||
+          transaction?.type === "Reduce Cash"
+        ) {
+          onEditOfCash
+            ? onEditOfCash(transaction)
+            : toast.warning("View and Edit not available!");
+        } else if (
+          transaction?.type === "Sale" ||
+          transaction?.type === "Purchase" ||
+          invoiceType === "Sale" ||
+          invoiceType === "Purchase"
+        ) {
+          router.push(
+            `/update-sale-purchase?id=${transaction?.id}&type=${invoiceType}&partyId=${transaction?.partyId}`
+          );
+        } 
+        else if (transaction?.type === "LOAN_PAYMENT") {
+          const params = new URLSearchParams(searchParams.toString());
+          params.set("makepayment", "update");
+          params.set("paymentId", transaction?.id);
+          router.push(`/cash-bank/loan-accounts?${params.toString()}`);
+        }
+        else if (transaction?.type === "LOAN_INCREASE") {
+          const params = new URLSearchParams(searchParams.toString());
+          params.set("takeloan", "update");
+          params.set("takeloanId", transaction?.id);
+          router.push(`/cash-bank/loan-accounts?${params.toString()}`);
+        }
+        else if (transaction?.type === "LOAN_CHARGE") {
+          const params = new URLSearchParams(searchParams.toString());
+          params.set("charges", "update");
+          params.set("chargesId", transaction?.id);
+          router.push(`/cash-bank/loan-accounts?${params.toString()}`);
+        }
+        else {
+          toast.warning("View and Edit not available!");
+        }
+      },
+    },
+    {
+      label: "Download PDF",
+      icon: FaFilePdf,
+      action: async () => {
+        if (invoiceType === "Sale" || invoiceType === "Purchase") {
+          printAndPdfData("pdf", setInvoiceData, transaction?.id, invoiceType);
+        } else if (
+          transaction?.type === "Sale" ||
+          transaction?.type === "Purchase"
+        ) {
+          printAndPdfData(
+            "pdf",
+            setInvoiceData,
+            transaction?.type === "Sale"
+              ? transaction?.saleId
+              : transaction?.purchaseId,
+            transaction?.type
+          );
+        } else {
+          toast.warning("PDF generator not available in this transaction!");
+        }
+      },
+    },
+    {
+      label: "Print",
+      icon: FaPrint,
+      action: () => {
+        if (invoiceType === "Sale" || invoiceType === "Purchase") {
+          printAndPdfData(
+            "print",
+            setInvoiceData,
+            transaction?.id,
+            invoiceType
+          );
+        } else if (
+          transaction?.type === "Sale" ||
+          transaction?.type === "Purchase"
+        ) {
+          printAndPdfData(
+            "print",
+            setInvoiceData,
+            transaction?.type === "Sale"
+              ? transaction?.saleId
+              : transaction?.purchaseId,
+            transaction?.type
+          );
+        } else {
+          toast.warning("Print not available in this transaction!");
+        }
+      },
+    },
+    {
+      label: "Duplicate",
+      icon: FaCopy,
+      action: () => {
+        /* Duplicate logic */
+      },
+    },
+    {
+      label: "Delete",
+      icon: FaTrash,
+      action: async () => {
+        if (
+          transaction?.type === "Add Cash" ||
+          transaction?.type === "Reduce Cash"
+        ) {
+          const res = await DeleteAlert(
+            `/api/cashadjustment/delete-transaction?id=${transaction?.id}&userId=${session?.user?.id}`, "", "Cash adjustment transaction"
+          );
+          if (res) {
+            refetch();
+            toast.success("Transaction Deleted Successfully!");
+          }
+          return;
+        }
+        if (invoiceType === "Sale" || invoiceType === "Purchase") {
+          handleSalePurchaseDelete(
+            transaction?.id,
+            transaction?.transactionType.toLowerCase()
+          );
+        }
+        else if(transaction?.type === "Loan Disbursement"){
+          return toast.error("Cannot delete account with existing transactions. Please delete transactions first.");
+        }
+        else if(transaction?.type === "LOAN_PROCESSING_FEE"){
+          return toast.error("It is not allowed to delete loan processing fee transaction. Please contact support team.");
+        }
+        else if(transaction?.type === "LOAN_PAYMENT"){
+          const params = new URLSearchParams(searchParams.toString());
+          DeleteAlert(`/api/loan-accounts/make-payment?accountId=${params.get("tab")}&paymentId=${transaction?.id}`).then(res => {
+              if(res){
+                refetch();
+               return toast.success("Transaction Deleted Successfully!");
+              }
+          })
+        }
+        else if(transaction?.type === "LOAN_INCREASE"){
+          const params = new URLSearchParams(searchParams.toString());
+          DeleteAlert(`/api/loan-accounts/take-more-loan?accountId=${params.get("tab")}&takeLoanId=${transaction?.id}`).then(res => {
+              if(res){
+                refetch();
+               return toast.success("Transaction Deleted Successfully!");
+              }
+          })
+        }
+        else if(transaction?.type === "LOAN_CHARGE"){
+          const params = new URLSearchParams(searchParams.toString());
+          DeleteAlert(`/api/loan-accounts/charges?accountId=${params.get("tab")}&chargeId=${transaction?.id}`).then(res => {
+              if(res){
+                refetch();
+               return toast.success("Transaction Deleted Successfully!");
+              }
+          })
+        }
+        else {
+          const storeId =
+            transaction?.type === "Sale"
+              ? transaction?.saleId
+              : transaction?.purchaseId;
+          const storeType = transaction?.type === "Sale" ? "sale" : "purchase";
+          handleSalePurchaseDelete(storeId, storeType);
+        }
+      },
+      color: "text-red-600",
+    },
+  ];
+
+  const getSizeClasses = () => {
+    switch (size) {
+      case "small":
+        return "text-xs";
+      case "large":
+        return "text-base";
+      default:
+        return "text-sm";
+    }
+  };
+
+  const handleClearSearch = () => {
+    setFilteredTransactions(formatData(data));
+    setSearchTerm("");
+    if (currentPage > 1) {
+      const newTotalPages = Math.ceil(formatData(data).length / itemsPerPage);
+      if (currentPage > newTotalPages) {
+        setCurrentPage(1);
+      }
+    }
   };
 
   return (
     <div className="w-full p-4">
-      {/* Header */}
       {invoiceData && (
         <div
           className="bg-white hidden overflow-auto max-h-[800px] print:p-0 print:max-h-none"
@@ -732,162 +1628,165 @@ export default function TransactionsTable({ data = [], invoiceType, refetch }) {
           <InvoicePreview data={invoiceData} />
         </div>
       )}
-      <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <h1 className="text-3xl font-bold text-gray-900">TRANSACTIONS</h1>
 
-        <div className="md:w-1/3">
-          <div className="relative">
-            <FaSearch
-              className="absolute left-3 top-3.5 text-gray-400"
-              size={18}
-            />
-            <input
-              type="text"
-              placeholder="Search by party, invoice, date, or payment type..."
-              value={searchTerm}
-              onChange={handleSearch}
-              className="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100"
-            />
-            {searchTerm && (
-              <IoClose
-                onClick={() => {
-                  setFilteredTransactions(formatData(data));
-                  setSearchTerm("");
-                }}
-                className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-700 cursor-pointer"
+      {/* Header */}
+      <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <h1
+          className={`text-3xl font-bold text-gray-900 ${size === "small" ? "text-2xl" : size === "large" ? "text-4xl" : ""
+            }`}
+        >
+          {title}
+        </h1>
+
+        {showSearch && (
+          <div className={`${size === "small" ? "md:w-1/4" : "md:w-1/3"}`}>
+            <div className="relative">
+              <FaSearch
+                className="absolute left-3 top-3.5 text-gray-400"
                 size={18}
               />
-            )}
+              <input
+                type="text"
+                placeholder="Search transactions..."
+                value={searchTerm}
+                onChange={handleSearch}
+                className={`w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-4 ${getSizeClasses()} text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100`}
+              />
+              {searchTerm && (
+                <IoClose
+                  onClick={handleClearSearch}
+                  className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-700 cursor-pointer"
+                  size={18}
+                />
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Desktop Table */}
-      <div className="hidden md:block overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-gray-200 bg-gray-50">
-              <th className="px-6 py-3 text-left">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Date
-                  </span>
-                  <button
-                    onClick={() => handleSort("date")}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <FaFilter size={16} />
-                  </button>
-                </div>
-              </th>
+      {/* Conditionally render based on isMobile prop */}
+      {!isMobile ? (
+        <>
+          {/* Desktop Table */}
+          <div
+            className={`hidden md:block rounded-lg border border-gray-200 bg-white shadow-sm ${size === "small" ? "text-xs" : ""
+              }`}
+          >
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200 bg-gray-50">
+                  {responsiveColumns.map((column, index) => (
+                    <th
+                      key={column.key}
+                      className={`px-6 py-3 text-left ${column.className || ""
+                        } ${getResponsiveHeaderClasses(column, index)}`}
+                      style={column.headerStyle}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span
+                          className={`font-semibold text-gray-700 uppercase tracking-wider ${getSizeClasses()}`}
+                        >
+                          {column.label}
+                        </span>
+                        {showFilters && column.sortable && (
+                          <button
+                            onClick={() => handleSort(column.key)}
+                            className="text-gray-400 hover:text-gray-600"
+                            title={`Sort by ${column.label}`}
+                          >
+                            <FaFilter size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </th>
+                  ))}
+                  <th className="px-6 py-3 text-center">
+                    <span
+                      className={`font-semibold text-gray-700 uppercase tracking-wider ${getSizeClasses()}`}
+                    >
+                      Actions
+                    </span>
+                  </th>
+                </tr>
+              </thead>
 
-              <th className="px-6 py-3 text-left">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Invoice NO.
-                  </span>
-                  <button
-                    onClick={() => handleSort("invoiceNo")}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <FaFilter size={16} />
-                  </button>
-                </div>
-              </th>
+              <tbody>
+                {currentItems.map((transaction, index) => (
+                  <TransactionRow
+                    key={transaction.id}
+                    transaction={transaction}
+                    isAlternate={index % 2 === 0}
+                    setInvoiceData={setInvoiceData}
+                    invoiceType={invoiceType}
+                    refetch={refetch}
+                    columns={responsiveColumns} // Use responsive columns here
+                    menuItems={getMenuItems(transaction)}
+                    size={size}
+                    customRenderers={customRenderers}
+                    isLastItem={index === currentItems.length - 1}
+                    dateFormat={dateFormat} // Pass date format
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-              <th className="px-6 py-3 text-left">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Party Name
-                  </span>
-                  <button
-                    onClick={() => handleSort("partyName")}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <FaFilter size={16} />
-                  </button>
-                </div>
-              </th>
-
-              <th className="px-6 py-3 text-left">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Payment Type
-                  </span>
-                  <button
-                    onClick={() => handleSort("paymentType")}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <FaFilter size={16} />
-                  </button>
-                </div>
-              </th>
-
-              <th className="px-6 py-3 text-left">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Amount
-                  </span>
-                  <button
-                    onClick={() => handleSort("amount")}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <FaFilter size={16} />
-                  </button>
-                </div>
-              </th>
-
-              <th className="px-6 py-3 text-left">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Balance Due
-                  </span>
-                  <button
-                    onClick={() => handleSort("balanceDue")}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <FaFilter size={16} />
-                  </button>
-                </div>
-              </th>
-
-              <th className="px-6 py-3 text-center">
-                <span className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                  Actions
-                </span>
-              </th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {filteredTransactions.map((transaction, index) => (
-              <TransactionRow
-                refetch={refetch}
-                invoiceType={invoiceType}
-                setInvoiceData={setInvoiceData}
+          {/* Mobile View (only shown on actual mobile devices) */}
+          <div className="md:hidden space-y-3">
+            {currentItems.map((transaction) => (
+              <MobileTransactionAccordion
                 key={transaction.id}
                 transaction={transaction}
-                isAlternate={index % 2 === 0}
+                menuItems={getMenuItems(transaction)}
+                columns={orderedColumns} // Use all columns for mobile accordion
+                customRenderers={customRenderers}
+                dateFormat={dateFormat} // Pass date format
               />
             ))}
-          </tbody>
-        </table>
-      </div>
+          </div>
+        </>
+      ) : (
+        // Mobile accordion view when isMobile is true (regardless of device)
+        <div className="space-y-3">
+          {currentItems.map((transaction) => (
+            <MobileTransactionAccordion
+              key={transaction.id}
+              transaction={transaction}
+              menuItems={getMenuItems(transaction)}
+              columns={orderedColumns} // Use all columns for mobile accordion
+              customRenderers={customRenderers}
+              dateFormat={dateFormat} // Pass date format
+            />
+          ))}
+        </div>
+      )}
 
-      {/* Mobile */}
-      <div className="md:hidden space-y-3">
-        {filteredTransactions.map((transaction) => (
-          <MobileTransactionAccordion
-            key={transaction.id}
-            transaction={transaction}
-          />
-        ))}
-      </div>
-
-      {/* Empty state */}
+      {/* Empty State */}
       {filteredTransactions.length === 0 && (
         <div className="rounded-lg border border-gray-200 bg-gray-50 py-12 text-center">
           <p className="text-gray-500">No transactions found</p>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {showPagination && totalPages > 1 && (
+        <div className="mt-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="text-sm text-gray-600">
+              Showing <span className="font-semibold">{startIndex + 1}</span>-
+              <span className="font-semibold">
+                {Math.min(endIndex, totalItems)}
+              </span>{" "}
+              of <span className="font-semibold">{totalItems}</span> items
+            </div>
+
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+              size={size}
+            />
+          </div>
         </div>
       )}
     </div>

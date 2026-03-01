@@ -184,6 +184,7 @@ export async function POST(req) {
       phoneNumber: parseInt(body?.phoneNumber) || null,
       images: body?.images,
       billDate: body?.billDate || "",
+      warranty: body?.warranty || null,
       company: {
         connect: { id: await getCompanyId() },
       },

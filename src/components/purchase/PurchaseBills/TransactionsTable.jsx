@@ -1,8 +1,31 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { toast } from "react-toastify";
+import dayjs from "dayjs";
+import customParseFormat from "dayjs/plugin/customParseFormat";
+import { 
+  useFloating, 
+  offset, 
+  flip, 
+  shift, 
+  autoUpdate,
+  safePolygon,
+  useHover,
+  useFocus,
+  useDismiss,
+  useRole,
+  useInteractions,
+  FloatingPortal,
+  FloatingOverlay,
+  FloatingFocusManager,
+  useClick,
+  useTransitionStyles
+} from "@floating-ui/react";
+
+// Extend dayjs with plugins
+dayjs.extend(customParseFormat);
 
 // Icons
 import { BiChevronDown } from "react-icons/bi";
@@ -17,10 +40,16 @@ import {
   FaPrint,
   FaSearch,
   FaTrash,
+  FaRegEye,
+  FaRegFilePdf,
+  FaRegCopy,
+  FaRegTrashAlt,
 } from "react-icons/fa";
 import { GrMoreVertical } from "react-icons/gr";
 import { IoMdPrint } from "react-icons/io";
 import { IoClose } from "react-icons/io5";
+import { HiDotsVertical } from "react-icons/hi";
+import { TbPrinter, TbDownload } from "react-icons/tb";
 
 // Components
 import InvoicePreview from "@/components/invoice-preview";
@@ -32,104 +61,257 @@ import { useCurrencyStore } from "@/stores/useCurrencyStore";
 import { printAndPdfData } from "@/utils/handlePrintAndPdf";
 import { useSession } from "next-auth/react";
 
-// Dropdown Component (unchanged)
+// Professional Floating UI Dropdown Component with Portal
 const ProfessionalDropdown = ({
   items,
-  position = { x: 0, y: 0 },
   onClose,
-  align = "right",
+  children,
+  trigger,
+  placement = "bottom-end",
 }) => {
-  const getPositionStyle = () => {
-    if (align === "right") {
-      return {
-        right: `calc(100% - ${position.x}px)`,
-        top: position.y + 10,
-      };
-    }
-    return {
-      left: position.x,
-      top: position.y + 10,
-    };
-  };
+  const [isOpen, setIsOpen] = useState(false);
+
+  const { x, y, strategy, refs, context } = useFloating({
+    placement,
+    middleware: [
+      offset(8),
+      flip({ padding: 8 }),
+      shift({ padding: 8 }),
+    ],
+    whileElementsMounted: autoUpdate,
+    open: isOpen,
+    onOpenChange: setIsOpen,
+  });
+
+  // Interactions
+  const click = useClick(context);
+  const dismiss = useDismiss(context, { outsidePressEvent: 'mousedown' });
+  const role = useRole(context);
+
+  const { getReferenceProps, getFloatingProps } = useInteractions([
+    click,
+    dismiss,
+    role,
+  ]);
+
+  // Smooth transitions
+  const { isMounted, styles } = useTransitionStyles(context, {
+    initial: {
+      opacity: 0,
+      transform: 'scale(0.95)',
+    },
+    open: {
+      opacity: 1,
+      transform: 'scale(1)',
+    },
+    close: {
+      opacity: 0,
+      transform: 'scale(0.95)',
+    },
+    duration: 200,
+  });
 
   return (
     <>
-      {/* <div className="fixed inset-0 z-40" onClick={onClose} /> */}
       <div
-        className="z-50 min-w-[180px] rounded-lg border border-gray-200 bg-white shadow-lg animate-in fade-in zoom-in-95 duration-200"
-      // style={getPositionStyle()}
+        ref={refs.setReference}
+        {...getReferenceProps()}
+        className="inline-block"
       >
-        {items.map((item, index) => {
-          const Icon = item.icon;
-          return (
-            <button
-              key={index}
-              onClick={() => {
-                item.action();
-                onClose();
-              }}
-              className={`flex w-full items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-gray-50 transition-colors ${index !== items.length - 1 ? "border-b border-gray-100" : ""
-                } ${item.color || "text-gray-700"} ${item.disabled ? "opacity-50 cursor-not-allowed" : ""
-                }`}
-              disabled={item.disabled}
-              title={item.tooltip}
-            >
-              <Icon size={16} className="flex-shrink-0" />
-              <span className="truncate">{item.label}</span>
-            </button>
-          );
-        })}
+        {trigger}
       </div>
+
+      {isMounted && (
+        <FloatingPortal>
+          <div
+            ref={refs.setFloating}
+            style={{
+              position: strategy,
+              top: y ?? 0,
+              left: x ?? 0,
+              ...styles,
+            }}
+            {...getFloatingProps()}
+            className="z-[9999]"
+          >
+            <div className="min-w-[200px] rounded-xl border border-gray-200 bg-white shadow-xl overflow-hidden">
+              {/* Header */}
+              <div className="px-3 py-2 bg-gray-50 border-b border-gray-200">
+                <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </span>
+              </div>
+              
+              {/* Items */}
+              <div className="p-1.5">
+                {items.map((item, index) => {
+                  const Icon = item.icon;
+                  const isDestructive = item.color === "text-red-600";
+                  
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => {
+                        item.action();
+                        setIsOpen(false);
+                        onClose?.();
+                      }}
+                      disabled={item.disabled}
+                      className={`
+                        flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm
+                        transition-all duration-150
+                        ${isDestructive 
+                          ? 'text-red-600 hover:bg-red-50' 
+                          : 'text-gray-700 hover:bg-gray-100'
+                        }
+                        ${item.disabled ? 'opacity-50 cursor-not-allowed hover:bg-transparent' : 'cursor-pointer'}
+                      `}
+                      title={item.tooltip}
+                    >
+                      <Icon size={16} className={isDestructive ? 'text-red-500' : 'text-gray-500'} />
+                      <span className="flex-1 text-left font-medium">{item.label}</span>
+                      {item.shortcut && (
+                        <span className="text-xs text-gray-400">{item.shortcut}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </FloatingPortal>
+      )}
     </>
+  );
+};
+
+// Professional Mobile Action Sheet with Center Display
+const MobileActionSheet = ({
+  isOpen,
+  onClose,
+  menuItems,
+}) => {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setMounted(true);
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+      const timer = setTimeout(() => setMounted(false), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
+  if (!mounted) return null;
+
+  return (
+    <FloatingPortal>
+      <FloatingOverlay
+        lockScroll
+        className="bg-black/60 z-[9999] flex items-center justify-center p-4"
+        onClick={onClose}
+      >
+        <div
+          className={`
+            w-full max-w-sm bg-white rounded-2xl shadow-2xl
+            transition-all duration-300 ease-out
+            ${isOpen 
+              ? 'opacity-100 scale-100 translate-y-0' 
+              : 'opacity-0 scale-95 translate-y-4'
+            }
+          `}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between p-5 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">Actions</h3>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <IoClose size={20} className="text-gray-500" />
+            </button>
+          </div>
+
+          {/* Actions Grid */}
+          <div className="p-5 max-h-[70vh] overflow-y-auto">
+            <div className="grid grid-cols-2 gap-3">
+              {menuItems.map((item, index) => {
+                const Icon = item.icon;
+                const isDestructive = item.color === "text-red-600";
+                
+                return (
+                  <button
+                    key={index}
+                    onClick={() => {
+                      item.action();
+                      onClose();
+                    }}
+                    disabled={item.disabled}
+                    className={`
+                      flex flex-col items-center justify-center p-4 rounded-xl
+                      transition-all duration-200
+                      ${isDestructive 
+                        ? 'text-red-600 hover:bg-red-50 active:bg-red-100' 
+                        : 'text-gray-700 hover:bg-gray-100 active:bg-gray-200'
+                      }
+                      ${item.disabled ? 'opacity-50 pointer-events-none' : ''}
+                    `}
+                  >
+                    <div className={`
+                      p-3 rounded-full mb-2
+                      ${isDestructive ? 'bg-red-50' : 'bg-gray-100'}
+                    `}>
+                      <Icon size={22} className={isDestructive ? 'text-red-600' : 'text-gray-700'} />
+                    </div>
+                    <span className="text-xs font-medium text-center">{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </FloatingOverlay>
+    </FloatingPortal>
   );
 };
 
 // Helper function to calculate status (unchanged)
 const calculateStatus = (transaction) => {
-  // Check if user already provided a status field
   if (transaction.status && typeof transaction.status === "string") {
     return transaction.status;
   }
 
-  // Calculate status based on available properties
   const paidAmount = transaction.paidAmount || 0;
   const balanceDue = transaction.balanceDue || 0;
   const amount = transaction.amount || 0;
 
-  // If amount is 0, return "N/A"
-  if (amount === 0) {
-    return "N/A";
-  }
+  if (amount === 0) return "N/A";
 
-  // Calculate the actual balance due if not provided
-  const actualBalanceDue =
-    balanceDue !== undefined ? balanceDue : amount - paidAmount;
+  const actualBalanceDue = balanceDue !== undefined ? balanceDue : amount - paidAmount;
 
-  if (paidAmount >= amount || actualBalanceDue <= 0) {
-    return "Paid";
-  } else if (paidAmount > 0 && paidAmount < amount) {
-    return "Partially Paid";
-  } else {
-    return "Unpaid";
-  }
+  if (paidAmount >= amount || actualBalanceDue <= 0) return "Paid";
+  else if (paidAmount > 0 && paidAmount < amount) return "Partially Paid";
+  else return "Unpaid";
 };
 
-// Mobile Accordion Component - Optimized for Mobile
+// Mobile Accordion Component - Optimized for Mobile with Professional Design
 function MobileTransactionAccordion({
   transaction,
   menuItems,
-  onAction,
   columns,
   customRenderers,
   size = "medium",
   showStatusBadge = true,
-  showQuickActions = true,
   theme = "default",
+  isDesktop = false,
+  dateFormat = "DD/MM/YYYY",
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showActionSheet, setShowActionSheet] = useState(false);
   const { currencySymbol } = useCurrencyStore();
-  const hiderBoxRef = useOutsideClick(() => setIsMenuOpen(false));
 
   // Theme configuration
   const themes = {
@@ -137,75 +319,56 @@ function MobileTransactionAccordion({
       bg: "bg-white",
       border: "border-gray-200",
       headerBg: "bg-white",
-      headerHover: "hover:bg-gray-50",
+      headerHover: "active:bg-gray-50",
       expandedBg: "bg-gray-50",
       text: "text-gray-900",
       subtext: "text-gray-600",
     },
     modern: {
-      bg: "bg-gradient-to-r from-white to-gray-50",
-      border: "border-gray-300",
-      headerBg: "bg-gradient-to-r from-white to-blue-50",
-      headerHover: "hover:from-blue-50 hover:to-white",
-      expandedBg: "bg-gradient-to-r from-gray-50 to-blue-50",
+      bg: "bg-white",
+      border: "border-gray-200",
+      headerBg: "bg-gradient-to-r from-white to-blue-50/30",
+      headerHover: "active:from-blue-50 active:to-white",
+      expandedBg: "bg-gradient-to-r from-gray-50 to-blue-50/20",
       text: "text-gray-900",
       subtext: "text-gray-700",
-    },
-    dark: {
-      bg: "bg-gray-900",
-      border: "border-gray-700",
-      headerBg: "bg-gray-900",
-      headerHover: "hover:bg-gray-800",
-      expandedBg: "bg-gray-800",
-      text: "text-white",
-      subtext: "text-gray-300",
     },
   };
 
   const currentTheme = themes[theme] || themes.default;
 
-  // Size configuration optimized for mobile
+  // Size configuration
   const sizeClasses = {
-    small: {
-      padding: "p-2",
-      text: "text-xs",
-      icon: "text-sm",
-      badge: "text-xs px-1.5 py-0.5",
-    },
-    medium: {
-      padding: "p-3",
-      text: "text-sm",
-      icon: "text-base",
-      badge: "text-xs px-2 py-0.5",
-    },
-    large: {
-      padding: "p-3",
-      text: "text-base",
-      icon: "text-lg",
-      badge: "text-sm px-2 py-1",
-    },
+    small: { padding: "p-2", text: "text-xs", icon: "text-sm", gap: "gap-1" },
+    medium: { padding: "p-3", text: "text-sm", icon: "text-base", gap: "gap-2" },
+    large: { padding: "p-4", text: "text-base", icon: "text-lg", gap: "gap-3" },
   };
 
   const currentSize = sizeClasses[size] || sizeClasses.medium;
 
-  // Get primary and secondary columns
-  const primaryColumns = columns.slice(0, 2); // Reduced to 2 for mobile
-  const secondaryColumns = columns.slice(2);
-
-  // Find status column
   const statusColumn = columns.find(col => col.key === "status");
   const statusValue = statusColumn ? transaction[statusColumn.key] : null;
-
-  // Find amount column
+  
   const amountColumn = columns.find(col =>
     col.type === "currency" || col.type === "currency_with_sign"
   );
 
-  // Smart truncation function for mobile
-  const truncateText = (text, maxLength = 20) => {
-    if (!text || typeof text !== 'string') return text || "-";
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength - 3) + "...";
+  const headerColumns = columns.slice(0, 2);
+  const detailColumns = columns;
+
+  const formatDate = (dateValue, format) => {
+    if (!dateValue) return "-";
+    
+    const parsedDate = dayjs(dateValue);
+    if (parsedDate.isValid()) return parsedDate.format(format);
+    
+    const formats = ["YYYY-MM-DD", "DD/MM/YYYY", "MM/DD/YYYY", "YYYY/MM/DD", "DD-MM-YYYY", "MM-DD-YYYY"];
+    for (const fmt of formats) {
+      const parsed = dayjs(dateValue, fmt);
+      if (parsed.isValid()) return parsed.format(format);
+    }
+    
+    return dateValue;
   };
 
   const renderValue = (column, value, truncate = true) => {
@@ -214,7 +377,11 @@ function MobileTransactionAccordion({
     }
 
     if (column.type === "currency") {
-      return `${currencySymbol} ${parseFloat(value || 0).toFixed(2)}`;
+      return (
+        <span className="font-mono font-semibold">
+          {currencySymbol}{parseFloat(value || 0).toFixed(2)}
+        </span>
+      );
     }
 
     if (column.type === "currency_with_sign") {
@@ -222,22 +389,10 @@ function MobileTransactionAccordion({
       const sign = amount >= 0 ? "+" : "-";
       const colorClass = amount >= 0 ? "text-green-600" : "text-red-600";
       return (
-        <span className={`font-semibold ${colorClass}`}>
-          {sign} {currencySymbol} {Math.abs(amount).toFixed(2)}
+        <span className={`font-mono font-semibold ${colorClass}`}>
+          {sign} {currencySymbol}{Math.abs(amount).toFixed(2)}
         </span>
       );
-    }
-
-    if (column.type === "date" && column.format) {
-      // Format date for mobile
-      if (value) {
-        const date = new Date(value);
-        return date.toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric'
-        });
-      }
-      return value;
     }
 
     if (column.type === "status") {
@@ -246,19 +401,28 @@ function MobileTransactionAccordion({
       if (status === "Paid") statusClass = "bg-green-100 text-green-800";
       if (status === "Partially Paid") statusClass = "bg-yellow-100 text-yellow-800";
       if (status === "Unpaid") statusClass = "bg-red-100 text-red-800";
-      if (status === "N/A") statusClass = "bg-gray-100 text-gray-800";
       return (
-        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${statusClass} whitespace-nowrap`}>
-          {truncate ? truncateText(status, 10) : status}
+        <span className={`inline-block rounded-full px-2.5 py-1 text-xs font-semibold ${statusClass}`}>
+          {status}
+        </span>
+      );
+    }
+
+    if (column.type === "date") {
+      const dateFormatFromProps = column.dateFormat || dateFormat;
+      return (
+        <span className="font-mono text-sm">
+          {formatDate(value, dateFormatFromProps)}
         </span>
       );
     }
 
     const displayValue = value || "-";
-    return truncate ? truncateText(displayValue.toString(), 15) : displayValue;
+    return truncate && typeof displayValue === 'string' && displayValue.length > 20 
+      ? displayValue.substring(0, 20) + "..." 
+      : displayValue;
   };
 
-  // Get status color for indicator
   const getStatusColor = (status) => {
     if (!status) return "bg-gray-400";
     switch (status.toLowerCase()) {
@@ -269,291 +433,219 @@ function MobileTransactionAccordion({
     }
   };
 
-  return (
-    <div className={`rounded-lg ${currentTheme.border} border ${currentTheme.bg} shadow-sm transition-all duration-200 hover:shadow-md ${isExpanded ? 'shadow-lg' : ''}`}>
-      {/* Header - Optimized for mobile */}
-      <div
-        onClick={() => setIsExpanded(!isExpanded)}
-        className={`w-full ${currentSize.padding} flex items-start gap-2 ${currentTheme.headerBg} ${currentTheme.headerHover} transition-all duration-200 cursor-pointer`}
-      >
-        {/* Left Section: Chevron and Status */}
-        <div className="flex flex-col items-center pt-1">
-          {/* Status Dot */}
-          {showStatusBadge && statusValue && (
-            <div className={`w-2 h-2 rounded-full mb-1 ${getStatusColor(statusValue)}`} />
-          )}
-
-          {/* Chevron */}
-          <div className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}>
+  // Desktop mode
+  if (isDesktop) {
+    return (
+      <div className={`rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden`}>
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="w-full px-4 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
             <BiChevronDown
-              size={currentSize.icon === "text-lg" ? 20 : 16}
-              className={currentTheme.subtext}
+              size={18}
+              className={`text-gray-400 transition-transform duration-200 ${
+                isExpanded ? "rotate-180" : ""
+              }`}
             />
-          </div>
-        </div>
-
-        {/* Middle Section: Transaction Info */}
-        <div className="flex-1 min-w-0">
-          <div className="space-y-1">
-            {primaryColumns.map((column) => (
-              <div key={column.key} className="flex items-center gap-2">
-                {column.key === "date" ? (
-                  <span className={`${currentSize.text} ${currentTheme.text} font-medium whitespace-nowrap`}>
-                    {renderValue(column, transaction[column.key], false)}
-                  </span>
-                ) : column.type === "status" ? (
-                  <span className="whitespace-nowrap">
-                    {renderValue(column, transaction[column.key], false)}
-                  </span>
-                ) : (
-                  <span className={`${currentSize.text} ${currentTheme.text} truncate`}>
+            <div className="text-left">
+              <div className="flex items-center gap-2">
+                {columns.slice(0, 2).map((column) => (
+                  <span
+                    key={column.key}
+                    className="text-sm font-medium text-gray-900"
+                  >
                     {renderValue(column, transaction[column.key])}
                   </span>
-                )}
+                ))}
               </div>
-            ))}
-
-            {/* Show first secondary column if not expanded */}
-            {!isExpanded && secondaryColumns.length > 0 && (
-              <div className="flex items-center gap-1">
-                <span className={`${currentSize.text} ${currentTheme.subtext} truncate`}>
-                  {renderValue(secondaryColumns[0], transaction[secondaryColumns[0].key])}
-                </span>
-                {secondaryColumns.length > 1 && (
-                  <span className={`${currentSize.text} ${currentTheme.subtext} opacity-75`}>
-                    +{secondaryColumns.length - 1} more
-                  </span>
-                )}
-              </div>
-            )}
+              {columns.length > 2 && (
+                <p className="text-xs text-gray-500 mt-1">
+                  {renderValue(columns[2], transaction[columns[2].key])}
+                </p>
+              )}
+            </div>
           </div>
-        </div>
-
-        {/* Right Section: Amount and Actions */}
-        <div className="flex flex-col items-end gap-2 pt-1">
-          {/* Amount Display */}
           {amountColumn && (
-            <div className="text-right whitespace-nowrap">
-              <div className={`font-bold ${currentSize.text} ${currentTheme.text}`}>
-                {renderValue(amountColumn, transaction[amountColumn.key], false)}
-              </div>
+            <div className="text-right">
+              <p className="text-sm font-semibold text-gray-900">
+                {renderValue(amountColumn, transaction[amountColumn.key])}
+              </p>
             </div>
           )}
+        </button>
 
-          {/* Quick Actions - Only icons on mobile */}
-          {showQuickActions && !isExpanded && (
-            <div className="flex items-center gap-1">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const printAction = menuItems.find(item => item?.label === "Print");
-                  printAction?.action();
-                }}
-                className={`p-1 rounded ${currentTheme.subtext} hover:bg-gray-200 transition-colors`}
-                title="Print"
-              >
-                <IoMdPrint className={currentSize.icon} />
-              </button>
-              <div ref={hiderBoxRef} className="relative">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsMenuOpen(!isMenuOpen);
-                  }}
-                  className={`p-1 rounded ${currentTheme.subtext} hover:bg-gray-200 transition-colors`}
-                  title="More actions"
-                >
-                  <GrMoreVertical className={currentSize.icon} />
-                </button>
-                {isMenuOpen && (
-                  <div
-                    className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-end md:items-center md:justify-center"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    <div
-                      onClick={(e) => e.stopPropagation()}
-                      className="
-      bg-white p-4 max-h-[70vh] overflow-y-auto
-      w-full rounded-t-xl
-      md:w-[400px] md:rounded-xl
-    "
-                    >
-                      <div className="flex justify-between items-center mb-4">
-                        <h3 className="font-semibold text-lg">Actions</h3>
-                        <button
-                          onClick={() => setIsMenuOpen(false)}
-                          className="p-2 rounded-full hover:bg-gray-100"
-                        >
-                          <IoClose size={20} />
-                        </button>
-                      </div>
-                      <div className="space-y-2">
-                        {menuItems.map((item, index) => {
-                          const Icon = item.icon;
-                          const isDanger = item.label === "Delete";
-                          return (
-                            <button
-                              key={index}
-                              onClick={() => {
-                                item.action();
-                                setIsMenuOpen(false);
-                              }}
-                              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors ${isDanger
-                                ? 'text-red-600 hover:bg-red-50'
-                                : 'text-gray-700 hover:bg-gray-50'
-                                }`}
-                            >
-                              <Icon size={20} />
-                              <span className="font-medium">{item.label}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Expanded Content - Optimized for mobile */}
-      {isExpanded && (
-        <div className={`border-t ${currentTheme.border} ${currentTheme.expandedBg} ${currentSize.padding} animate-in slide-in-from-top-3 duration-200`}>
-          {/* Details Grid - Responsive */}
-          <div className="space-y-4">
-            {/* All Columns Details */}
-            <div className="space-y-3">
-              <div className={`${currentSize.text} ${currentTheme.subtext} font-semibold mb-2`}>
-                Transaction Details
-              </div>
-              {columns.map((column) => (
-                <div key={column.key} className="flex flex-col gap-1 pb-2 border-b border-gray-200 last:border-0">
-                  <div className="flex justify-between items-start">
-                    <span className={`${currentSize.text} ${currentTheme.subtext} font-medium`}>
-                      {column.label}
-                    </span>
-                    <span className={`${currentSize.text} ${currentTheme.text} font-semibold text-right break-words max-w-[60%] ml-2`}>
-                      {renderValue(column, transaction[column.key], false)}
-                    </span>
-                  </div>
+        {isExpanded && (
+          <div className="border-t border-gray-200 bg-gray-50 px-4 py-4 animate-in fade-in duration-200">
+            <div className="space-y-3 mb-4">
+              {columns.map((column, idx) => (
+                <div key={idx} className="flex justify-between">
+                  <span className="text-xs font-semibold text-gray-600 uppercase">
+                    {column.label}
+                  </span>
+                  <span className="text-sm font-medium text-gray-900">
+                    {renderValue(column, transaction[column.key])}
+                  </span>
                 </div>
               ))}
             </div>
 
-            {/* Progress Bar for Partially Paid */}
-            {statusValue === "Partially Paid" && transaction.amount && transaction.paidAmount && (
-              <div className="bg-white rounded-lg p-3 border border-gray-200">
-                <div className="flex justify-between items-center mb-2">
-                  <span className={`${currentSize.text} font-medium`}>Payment Progress</span>
-                  <span className={`${currentSize.text} font-semibold`}>
-                    {Math.round((transaction.paidAmount / transaction.amount) * 100)}%
-                  </span>
-                </div>
-                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(100, (transaction.paidAmount / transaction.amount) * 100)}%` }}
-                  />
-                </div>
-                <div className="flex justify-between mt-2">
-                  <span className={`${currentSize.text} ${currentTheme.subtext}`}>
-                    Paid: {currencySymbol}{transaction.paidAmount?.toFixed(2) || '0.00'}
-                  </span>
-                  <span className={`${currentSize.text} ${currentTheme.subtext}`}>
-                    Due: {currencySymbol}{(transaction.amount - transaction.paidAmount)?.toFixed(2) || '0.00'}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Action Buttons - Stacked on mobile */}
-            <div className="space-y-2">
-              <div className={`${currentSize.text} ${currentTheme.subtext} font-semibold mb-2`}>
-                Quick Actions
-              </div>
-              {menuItems.map((item, index) => {
-                const Icon = item.icon;
-                const isPrimary = item.label === "View/Edit";
-                const isDanger = item.label === "Delete";
-
-                return (
-                  <button
-                    key={index}
-                    onClick={() => {
-                      item.action();
-                      if (item.label !== "View/Edit") {
-                        setIsExpanded(false);
-                      }
-                    }}
-                    className={`w-full flex items-center justify-center gap-2 py-3 rounded-lg transition-all duration-200 ${isPrimary
-                      ? 'bg-blue-600 text-white hover:bg-blue-700'
-                      : isDanger
-                        ? 'bg-red-100 text-red-700 hover:bg-red-200 border border-red-200'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                  >
-                    <Icon size={18} />
-                    <span className="font-medium">{item.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Metadata */}
-            <div className="pt-3 border-t border-gray-300">
-              <div className="flex flex-wrap gap-3">
-                {transaction.invoiceNo && (
-                  <div className="flex items-center gap-1">
-                    <span className={`${currentSize.text} ${currentTheme.subtext}`}>#</span>
-                    <span className={`${currentSize.text} ${currentTheme.text} font-semibold`}>
-                      {transaction.invoiceNo}
-                    </span>
-                  </div>
-                )}
-                {transaction.transactionType && (
-                  <div className="flex items-center gap-1">
-                    <span className={`${currentSize.text} ${currentTheme.subtext}`}>Type:</span>
-                    <span className={`${currentSize.text} px-2 py-1 rounded-full bg-gray-200 ${currentTheme.text}`}>
-                      {transaction.transactionType}
-                    </span>
-                  </div>
-                )}
-                {transaction.date && (
-                  <div className="flex items-center gap-1">
-                    <span className={`${currentSize.text} ${currentTheme.subtext}`}>
-                      {new Date(transaction.date).toLocaleDateString()}
-                    </span>
-                  </div>
-                )}
+            <div className="flex justify-center items-center gap-2">
+              <button
+                onClick={() => {
+                  const findAction = menuItems.find(
+                    (item) => item?.label === "Print"
+                  );
+                  findAction?.action();
+                }}
+                className="rounded-lg p-2 text-gray-500 hover:bg-gray-200 transition-all duration-200"
+                title="Print"
+              >
+                <IoMdPrint />
+              </button>
+              <div className="relative">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowActionSheet(true);
+                  }}
+                  className="rounded-lg p-2 text-gray-500 hover:bg-gray-200 transition-all duration-200 relative"
+                  title="More actions"
+                >
+                  <GrMoreVertical size={18} />
+                </button>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Footer Status - Always visible */}
-      <div className={`border-t ${currentTheme.border} px-3 py-2 flex items-center justify-between`}>
-        <div className="flex items-center gap-2">
-          <span className={`${currentSize.text} ${currentTheme.subtext}`}>
-            {isExpanded ? "Tap to collapse" : "Tap to expand"}
-          </span>
+        {/* Mobile Action Sheet for Desktop mode */}
+        <MobileActionSheet
+          isOpen={showActionSheet}
+          onClose={() => setShowActionSheet(false)}
+          menuItems={menuItems}
+        />
+      </div>
+    );
+  }
+
+  // Mobile optimized version
+  return (
+    <>
+      <div className={`
+        rounded-xl border ${currentTheme.border} ${currentTheme.bg}
+        shadow-sm overflow-hidden transition-all duration-200
+        ${isExpanded ? 'shadow-md' : ''}
+      `}>
+        {/* Header */}
+        <div
+          onClick={() => setIsExpanded(!isExpanded)}
+          className={`
+            w-full ${currentSize.padding} flex items-center ${currentSize.gap}
+            ${currentTheme.headerBg} ${currentTheme.headerHover}
+            cursor-pointer transition-all select-none
+          `}
+        >
+          {/* Left: Chevron and Status */}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <div className={`
+              transform transition-transform duration-300 ease-spring
+              ${isExpanded ? 'rotate-180' : ''}
+            `}>
+              <BiChevronDown
+                size={currentSize.icon === "text-lg" ? 22 : 20}
+                className={currentTheme.subtext}
+              />
+            </div>
+            {showStatusBadge && statusValue && (
+              <div className={`w-2.5 h-2.5 rounded-full ${getStatusColor(statusValue)} ml-1 animate-pulse`} />
+            )}
+          </div>
+
+          {/* Middle: Primary Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              {headerColumns.map((column) => (
+                <span
+                  key={column.key}
+                  className={`${currentSize.text} ${currentTheme.text} font-medium truncate max-w-[120px]`}
+                >
+                  {renderValue(column, transaction[column.key], true)}
+                </span>
+              ))}
+            </div>
+            
+            {!isExpanded && detailColumns.length > 2 && (
+              <p className={`${currentSize.text} ${currentTheme.subtext} truncate mt-1 opacity-75`}>
+                {detailColumns.slice(2, 4).map((col, idx) => (
+                  <span key={col.key}>
+                    {renderValue(col, transaction[col.key], true)}
+                    {idx < Math.min(detailColumns.length - 2, 2) - 1 && " • "}
+                  </span>
+                ))}
+              </p>
+            )}
+          </div>
+
+          {/* Right: Amount and 3-dots */}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {amountColumn && (
+              <span className={`font-bold ${currentSize.text} ${currentTheme.text} whitespace-nowrap`}>
+                {renderValue(amountColumn, transaction[amountColumn.key], false)}
+              </span>
+            )}
+            
+            {/* Professional 3-dots button */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowActionSheet(true);
+              }}
+              className={`
+                p-2 rounded-lg ${currentTheme.subtext}
+                hover:bg-gray-200 active:bg-gray-300
+                transition-all duration-150 transform active:scale-95
+              `}
+              aria-label="More actions"
+            >
+              <HiDotsVertical size={currentSize.icon === "text-lg" ? 18 : 16} />
+            </button>
+          </div>
         </div>
-        {statusValue && (
-          <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${getStatusColor(statusValue)}`} />
-            <span className={`${currentSize.text} ${currentTheme.subtext}`}>
-              {statusValue}
-            </span>
+
+        {/* Expanded Details */}
+        {isExpanded && (
+          <div className={`
+            border-t ${currentTheme.border} ${currentTheme.expandedBg}
+            p-4 animate-in slide-in-from-top-2 duration-200
+          `}>
+            <div className="grid grid-cols-2 gap-4">
+              {detailColumns.map((column) => (
+                <div key={column.key} className="col-span-1 space-y-1">
+                  <div className={`text-xs ${currentTheme.subtext} font-medium uppercase tracking-wider`}>
+                    {column.label}
+                  </div>
+                  <div className={`${currentSize.text} ${currentTheme.text} font-medium break-words`}>
+                    {renderValue(column, transaction[column.key], false)}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
-    </div>
+
+      {/* Professional Mobile Action Sheet - Centered */}
+      <MobileActionSheet
+        isOpen={showActionSheet}
+        onClose={() => setShowActionSheet(false)}
+        menuItems={menuItems}
+      />
+    </>
   );
 }
 
-// Table Row Component (unchanged)
+// Table Row Component (unchanged but with ProfessionalDropdown integration)
 function TransactionRow({
   transaction,
   isAlternate,
@@ -565,16 +657,12 @@ function TransactionRow({
   size = "medium",
   customRenderers,
   isLastItem,
+  dateFormat = "DD/MM/YYYY",
 }) {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [clickPosition, setClickPosition] = useState({ x: 0, y: 0 });
+  const [visibleColumns, setVisibleColumns] = useState([]);
   const { currencySymbol } = useCurrencyStore();
   const router = useRouter();
-  const [visibleColumns, setVisibleColumns] = useState([]);
 
-  const hiderBoxRef = useOutsideClick(() => setIsMenuOpen(false));
-
-  // Responsive column configuration
   useEffect(() => {
     const updateVisibleColumns = () => {
       if (!columns || columns.length === 0) {
@@ -585,30 +673,21 @@ function TransactionRow({
       const screenWidth = window.innerWidth;
       let columnsToShow;
 
-      // Define breakpoints for different screen sizes
       if (screenWidth < 640) {
-        // Small devices (mobile)
         columnsToShow = columns.slice(0, 3);
       } else if (screenWidth < 1024) {
-        // Medium devices (tablet)
         columnsToShow = columns.slice(0, 4);
       } else if (screenWidth < 1280) {
-        // Large devices
         columnsToShow = columns.slice(0, 5);
       } else {
-        // Extra large devices
-        // Show all columns or a specific number for XL
-        columnsToShow = columns; // Show all columns
+        columnsToShow = columns;
       }
 
-      // Always include important columns if they exist (like ID, Name, Amount)
-      // You can customize this based on your needs
       const importantKeys = ["id", "partyName", "amount", "date", "status"];
       const importantColumns = columns.filter((col) =>
         importantKeys.includes(col.key)
       );
 
-      // Merge important columns with visible columns, removing duplicates
       const mergedColumns = [...importantColumns];
       columnsToShow.forEach((col) => {
         if (!mergedColumns.some((c) => c.key === col.key)) {
@@ -619,64 +698,62 @@ function TransactionRow({
       setVisibleColumns(mergedColumns.slice(0, columnsToShow.length));
     };
 
-    // Initial call
     updateVisibleColumns();
-
-    // Add event listener for window resize
     window.addEventListener("resize", updateVisibleColumns);
-
-    // Cleanup
     return () => window.removeEventListener("resize", updateVisibleColumns);
   }, [columns]);
 
-  const handleMenuClick = (e) => {
-    setIsMenuOpen(!isMenuOpen);
-  };
-
   const getSizeClasses = () => {
     switch (size) {
-      case "small":
-        return "px-4 py-2 text-xs";
-      case "large":
-        return "px-8 py-5 text-base";
-      default:
-        return "px-6 py-4 text-sm";
+      case "small": return "px-4 py-2 text-xs";
+      case "large": return "px-8 py-5 text-base";
+      default: return "px-6 py-4 text-sm";
     }
   };
 
+  const formatDate = (dateValue, format) => {
+    if (!dateValue) return "-";
+    
+    const parsedDate = dayjs(dateValue);
+    if (parsedDate.isValid()) return parsedDate.format(format);
+    
+    const formats = ["YYYY-MM-DD", "DD/MM/YYYY", "MM/DD/YYYY", "YYYY/MM/DD", "DD-MM-YYYY", "MM-DD-YYYY"];
+    for (const fmt of formats) {
+      const parsed = dayjs(dateValue, fmt);
+      if (parsed.isValid()) return parsed.format(format);
+    }
+    
+    return dateValue;
+  };
+
   const renderCell = (column, transaction) => {
-    // Use custom renderer if provided
     if (customRenderers && customRenderers[column.key]) {
       return customRenderers[column.key](transaction[column.key], transaction);
     }
 
-    // Default renderers based on column type
     switch (column.type) {
       case "currency":
-        return `${currencySymbol} ${transaction[column.key]?.toFixed(2) || "0.00"
-          }`;
+        return (
+          <span className="font-mono">
+            {currencySymbol}{transaction[column.key]?.toFixed(2) || "0.00"}
+          </span>
+        );
       case "currency_with_sign":
         const amount = parseFloat(transaction[column.key]) || 0;
         const sign = amount >= 0 ? "+" : "-";
         const colorClass = amount >= 0 ? "text-green-600" : "text-red-600";
         return (
-          <span className={`font-semibold ${colorClass}`}>
-            {currencySymbol} {sign} {Math.abs(amount).toFixed(2)}
+          <span className={`font-mono font-semibold ${colorClass}`}>
+            {sign} {currencySymbol}{Math.abs(amount).toFixed(2)}
           </span>
         );
       case "date":
-        return (
-          <span
-            className={`inline-block rounded-full px-3 py-1 text-xs font-semibold`}
-          >
-            {transaction[column.key]}
-          </span>
-        );
+        const dateFormatFromProps = column.dateFormat || dateFormat;
+        return formatDate(transaction[column.key], dateFormatFromProps);
       case "badge":
         return (
           <span
-            className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${column.badgeColor || "bg-blue-100 text-blue-800"
-              }`}
+            className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${column.badgeColor || "bg-blue-100 text-blue-800"}`}
           >
             {transaction[column.key]}
           </span>
@@ -685,14 +762,11 @@ function TransactionRow({
         const status = transaction[column.key];
         let statusClass = "bg-gray-100 text-gray-800";
         if (status === "Paid") statusClass = "bg-green-100 text-green-800";
-        if (status === "Partially Paid")
-          statusClass = "bg-yellow-100 text-yellow-800";
+        if (status === "Partially Paid") statusClass = "bg-yellow-100 text-yellow-800";
         if (status === "Unpaid") statusClass = "bg-red-100 text-red-800";
         if (status === "N/A") statusClass = "bg-gray-100 text-gray-800";
         return (
-          <span
-            className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${statusClass}`}
-          >
+          <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${statusClass}`}>
             {status}
           </span>
         );
@@ -701,29 +775,25 @@ function TransactionRow({
     }
   };
 
-  // Show ellipsis for hidden columns on mobile
   const hasHiddenColumns = visibleColumns.length < columns.length;
+
   return (
-    <tr
-      className={`border-b border-gray-200 max-h-10 overflow-hidden hover:bg-blue-50 transition-colors ${isAlternate ? "bg-white" : "bg-gray-50"
-        }`}
-    >
+    <tr className={`
+      border-b border-gray-200 hover:bg-blue-50/50 transition-colors
+      ${isAlternate ? "bg-white" : "bg-gray-50/50"}
+    `}>
       {visibleColumns.map((column) => (
         <td
           key={column.key}
-          className={`${getSizeClasses()} ${column.className || ""} ${column.cellClassName || ""
-            }`}
+          className={`${getSizeClasses()} ${column.className || ""} ${column.cellClassName || ""}`}
           style={column.cellStyle}
         >
-          <div
-            className={column.wrap ? "whitespace-normal" : "whitespace-nowrap"}
-          >
+          <div className={column.wrap ? "whitespace-normal" : "whitespace-nowrap"}>
             {renderCell(column, transaction)}
           </div>
         </td>
       ))}
 
-      {/* Show indicator for hidden columns on small screens */}
       {hasHiddenColumns && window.innerWidth < 640 && (
         <td className={`${getSizeClasses()} text-center`}>
           <span className="text-gray-400 text-xs">⋯</span>
@@ -731,50 +801,32 @@ function TransactionRow({
       )}
 
       <td className={`${getSizeClasses()} text-center`}>
-        <div className="flex justify-center space-x-1">
+        <div className="flex justify-center items-center gap-1">
+          {/* Print Button */}
           <button
             onClick={() => {
-              /* Print action */
-              const findAction = menuItems.find(
-                (item) => item?.label === "Print"
-              );
+              const findAction = menuItems.find(item => item?.label === "Print");
               findAction?.action();
             }}
-            className="rounded-lg p-2 text-gray-500 hover:bg-gray-200 transition-all duration-200"
+            className="p-2 text-gray-500 hover:bg-gray-200 hover:text-gray-700 rounded-lg transition-all duration-200 hover:scale-105 active:scale-95"
             title="Print"
           >
-            <IoMdPrint />
+            <TbPrinter size={18} />
           </button>
-          {/* <button
-            onClick={() => {
-            }}
-            className="rounded-lg p-2 text-gray-500 hover:bg-gray-200 transition-all duration-200"
-            title="Share"
-          >
-            <PiShareFatLight />
-          </button> */}
-          <div ref={hiderBoxRef} className="relative">
-            <button
-              onClick={handleMenuClick}
-              className="rounded-lg p-2 text-gray-500 hover:bg-gray-200 transition-all duration-200 relative"
-              title="More actions"
-            >
-              <GrMoreVertical size={18} />
-            </button>
 
-            <div
-              className={`absolute z-10 -left-[130px] ${isLastItem ? "-top-25" : "top-10"
-                }`}
-            >
-              {isMenuOpen && (
-                <ProfessionalDropdown
-                  items={menuItems}
-                  position={clickPosition}
-                  onClose={() => setIsMenuOpen(false)}
-                />
-              )}
-            </div>
-          </div>
+          {/* More Actions Dropdown */}
+          <ProfessionalDropdown
+            items={menuItems}
+            trigger={
+              <button
+                className="p-2 text-gray-500 hover:bg-gray-200 hover:text-gray-700 rounded-lg transition-all duration-200 hover:scale-105 active:scale-95"
+                title="More actions"
+              >
+                <HiDotsVertical size={18} />
+              </button>
+            }
+            placement="bottom-end"
+          />
         </div>
       </td>
     </tr>
@@ -782,12 +834,7 @@ function TransactionRow({
 }
 
 // Pagination Component (unchanged)
-const Pagination = ({
-  currentPage,
-  totalPages,
-  onPageChange,
-  size = "medium",
-}) => {
+const Pagination = ({ currentPage, totalPages, onPageChange, size = "medium" }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -795,25 +842,12 @@ const Pagination = ({
     const pages = [];
     pages.push(1);
 
-    if (currentPage > 3) {
-      pages.push("ellipsis-start");
-    }
-
-    for (
-      let i = Math.max(2, currentPage - 1);
-      i <= Math.min(totalPages - 1, currentPage + 1);
-      i++
-    ) {
+    if (currentPage > 3) pages.push("ellipsis-start");
+    for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
       pages.push(i);
     }
-
-    if (currentPage < totalPages - 2) {
-      pages.push("ellipsis-end");
-    }
-
-    if (totalPages > 1) {
-      pages.push(totalPages);
-    }
+    if (currentPage < totalPages - 2) pages.push("ellipsis-end");
+    if (totalPages > 1) pages.push(totalPages);
 
     return pages;
   };
@@ -829,23 +863,27 @@ const Pagination = ({
 
   const getButtonSize = () => {
     switch (size) {
-      case "small":
-        return "h-8 w-8 text-sm";
-      case "large":
-        return "h-12 w-12 text-lg";
-      default:
-        return "h-10 w-10";
+      case "small": return "h-8 w-8 text-sm";
+      case "large": return "h-12 w-12 text-lg";
+      default: return "h-10 w-10";
     }
   };
 
   const pageNumbers = getPageNumbers();
 
   return (
-    <div className="flex items-center justify-center space-x-1 mt-6">
+    <div className="flex items-center justify-center gap-2">
       <button
         onClick={() => handlePageClick(Math.max(1, currentPage - 1))}
         disabled={currentPage === 1}
-        className={`${getButtonSize()} flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors`}
+        className={`
+          ${getButtonSize()} flex items-center justify-center rounded-lg
+          border border-gray-300 bg-white text-gray-700
+          disabled:opacity-50 disabled:cursor-not-allowed
+          hover:bg-gray-50 hover:border-gray-400
+          active:bg-gray-100 active:scale-95
+          transition-all duration-200
+        `}
       >
         <FaChevronLeft size={14} />
       </button>
@@ -866,10 +904,14 @@ const Pagination = ({
           <button
             key={page}
             onClick={() => handlePageClick(page)}
-            className={`${getButtonSize()} flex items-center justify-center rounded-lg border font-medium transition-colors ${currentPage === page
-              ? "border-blue-500 bg-blue-50 text-blue-600"
-              : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-              }`}
+            className={`
+              ${getButtonSize()} flex items-center justify-center rounded-lg border font-medium
+              transition-all duration-200 transform active:scale-95
+              ${currentPage === page
+                ? "border-blue-500 bg-blue-50 text-blue-600 shadow-sm"
+                : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400"
+              }
+            `}
           >
             {page}
           </button>
@@ -879,7 +921,14 @@ const Pagination = ({
       <button
         onClick={() => handlePageClick(Math.min(totalPages, currentPage + 1))}
         disabled={currentPage === totalPages}
-        className={`${getButtonSize()} flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors`}
+        className={`
+          ${getButtonSize()} flex items-center justify-center rounded-lg
+          border border-gray-300 bg-white text-gray-700
+          disabled:opacity-50 disabled:cursor-not-allowed
+          hover:bg-gray-50 hover:border-gray-400
+          active:bg-gray-100 active:scale-95
+          transition-all duration-200
+        `}
       >
         <FaChevronRight size={14} />
       </button>
@@ -887,6 +936,7 @@ const Pagination = ({
   );
 };
 
+// Main TransactionsTable Component (unchanged but with updated imports)
 export default function TransactionsTable({
   data = [],
   invoiceType,
@@ -902,274 +952,145 @@ export default function TransactionsTable({
   columnOrder = [],
   defaultSort = null,
   onEditOfCash,
-  isMobile = false, // New prop with default value false
+  isMobile = false,
+  dateFormat = "DD/MM/YYYY",
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
 
   const urlPage = searchParams.get("page");
-  const initialPage =
-    urlPage && !isNaN(parseInt(urlPage)) ? parseInt(urlPage) : 1;
+  const initialPage = urlPage && !isNaN(parseInt(urlPage)) ? parseInt(urlPage) : 1;
 
   const [currentPage, setCurrentPage] = useState(initialPage);
   const [hasInitialized, setHasInitialized] = useState(false);
-  const [screenSize, setScreenSize] = useState("xl"); // Track screen size
+  const [screenSize, setScreenSize] = useState("xl");
 
-  // Track screen size for responsive columns
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth;
-      if (width < 640) {
-        setScreenSize("sm");
-      } else if (width < 1024) {
-        setScreenSize("md");
-      } else if (width < 1280) {
-        setScreenSize("lg");
-      } else {
-        setScreenSize("xl");
-      }
+      if (width < 640) setScreenSize("sm");
+      else if (width < 1024) setScreenSize("md");
+      else if (width < 1280) setScreenSize("lg");
+      else setScreenSize("xl");
     };
 
-    // Initial call
     handleResize();
-
-    // Add event listener
     window.addEventListener("resize", handleResize);
-
-    // Cleanup
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Get responsive columns based on screen size
-  const getResponsiveColumns = useCallback(
-    (cols) => {
-      if (!cols || cols.length === 0) return [];
+  const getResponsiveColumns = useCallback((cols) => {
+    if (!cols || cols.length === 0) return [];
 
-      let visibleCount;
+    let visibleCount;
+    switch (screenSize) {
+      case "sm": visibleCount = 4; break;
+      case "md": visibleCount = 6; break;
+      case "lg": visibleCount = 6; break;
+      case "xl": default: visibleCount = cols.length;
+    }
 
-      switch (screenSize) {
-        case "sm": // Small devices (mobile)
-          visibleCount = 4;
-          break;
-        case "md": // Medium devices (tablet)
-          visibleCount = 6;
-          break;
-        case "lg": // Large devices
-          visibleCount = 6;
-          break;
-        case "xl": // Extra large devices
-        default:
-          visibleCount = cols.length; // Show all columns
+    const importantKeys = ["date", "status", "partyName", "amount", "balanceDue"];
+    const importantColumns = cols.filter(col => importantKeys.includes(col.key));
+    const regularColumns = cols.filter((col, index) => {
+      const isImportant = importantKeys.includes(col.key);
+      const isWithinLimit = index < visibleCount;
+      return !isImportant && isWithinLimit;
+    });
+
+    const combinedColumns = [...importantColumns, ...regularColumns];
+    const uniqueColumns = [];
+    const seenKeys = new Set();
+
+    combinedColumns.forEach(col => {
+      if (!seenKeys.has(col.key)) {
+        seenKeys.add(col.key);
+        uniqueColumns.push(col);
       }
+    });
 
-      // Always include important columns
-      const importantKeys = [
-        "date",
-        "status",
-        "partyName",
-        "amount",
-        "balanceDue",
-      ];
-
-      // Filter columns to show
-      const importantColumns = cols.filter((col) =>
-        importantKeys.includes(col.key)
-      );
-
-      // Take the first N columns that are not already in important columns
-      const regularColumns = cols.filter((col, index) => {
-        const isImportant = importantKeys.includes(col.key);
-        const isWithinLimit = index < visibleCount;
-        return !isImportant && isWithinLimit;
-      });
-
-      // Combine and remove duplicates
-      const combinedColumns = [...importantColumns, ...regularColumns];
-      const uniqueColumns = [];
-      const seenKeys = new Set();
-
-      combinedColumns.forEach((col) => {
-        if (!seenKeys.has(col.key)) {
+    if (uniqueColumns.length < visibleCount) {
+      cols.forEach(col => {
+        if (!seenKeys.has(col.key) && uniqueColumns.length < visibleCount) {
           seenKeys.add(col.key);
           uniqueColumns.push(col);
         }
       });
-
-      // If we have fewer columns than visibleCount, add more from the original array
-      if (uniqueColumns.length < visibleCount) {
-        cols.forEach((col, index) => {
-          if (!seenKeys.has(col.key) && uniqueColumns.length < visibleCount) {
-            seenKeys.add(col.key);
-            uniqueColumns.push(col);
-          }
-        });
-      }
-
-      return uniqueColumns;
-    },
-    [screenSize]
-  );
-
-  // Default columns if none provided
-  const defaultColumns = useMemo(
-    () => [
-      {
-        key: "date",
-        label: "Date",
-        sortable: true,
-        className: "text-left",
-        type: "date",
-      },
-      {
-        key: "status",
-        label: "Status",
-        sortable: true,
-        className: "text-center",
-        type: "status",
-      },
-      {
-        key: "partyName",
-        label: "Party Name",
-        sortable: true,
-        className: "text-left",
-      },
-      {
-        key: "paymentType",
-        label: "Payment Type",
-        sortable: true,
-        className: "text-left",
-        type: "badge",
-      },
-      {
-        key: "amount",
-        label: "Amount",
-        sortable: true,
-        className: "text-left font-semibold",
-        type: "currency",
-      },
-      {
-        key: "balanceDue",
-        label: "Balance Due",
-        sortable: true,
-        className: "text-left font-semibold",
-        type: "currency",
-      },
-    ],
-    []
-  );
-
-  // Process userProvidedColumns with status conflict check
-  const columns = useMemo(() => {
-    if (!userProvidedColumns || userProvidedColumns.length === 0) {
-      return defaultColumns;
     }
 
-    // Check if user provided a status column
-    const hasUserStatusColumn = userProvidedColumns.some(
-      (col) => col.key === "status"
-    );
+    return uniqueColumns;
+  }, [screenSize]);
 
-    return userProvidedColumns.map((col) => ({
+  const defaultColumns = useMemo(() => [
+    { key: "date", label: "Date", sortable: true, className: "text-left", type: "date", dateFormat },
+    { key: "status", label: "Status", sortable: true, className: "text-center", type: "status" },
+    { key: "partyName", label: "Party Name", sortable: true, className: "text-left" },
+    { key: "paymentType", label: "Payment Type", sortable: true, className: "text-left", type: "badge" },
+    { key: "amount", label: "Amount", sortable: true, className: "text-left font-semibold", type: "currency" },
+    { key: "balanceDue", label: "Balance Due", sortable: true, className: "text-left font-semibold", type: "currency" },
+  ], [dateFormat]);
+
+  const columns = useMemo(() => {
+    if (!userProvidedColumns || userProvidedColumns.length === 0) return defaultColumns;
+
+    const hasUserStatusColumn = userProvidedColumns.some(col => col.key === "status");
+
+    return userProvidedColumns.map(col => ({
       key: col.key,
       label: col.label || col.key.charAt(0).toUpperCase() + col.key.slice(1),
       sortable: col.sortable !== undefined ? col.sortable : true,
       className: col.className || "text-left",
-      type:
-        col.type ||
-        (col.key === "status" && !hasUserStatusColumn ? "status" : "text"),
+      type: col.type || (col.key === "status" && !hasUserStatusColumn ? "status" : "text"),
       cellClassName: col.cellClassName || "",
       cellStyle: col.cellStyle || {},
       wrap: col.wrap || false,
       format: col?.format,
       badgeColor: col.badgeColor,
       filterable: col.filterable !== undefined ? col.filterable : true,
+      dateFormat: col.dateFormat || dateFormat,
     }));
-  }, [userProvidedColumns, defaultColumns]);
+  }, [userProvidedColumns, defaultColumns, dateFormat]);
 
-  // Apply column order if specified
   const orderedColumns = useMemo(() => {
-    if (!columnOrder || columnOrder.length === 0) {
-      return columns;
-    }
+    if (!columnOrder || columnOrder.length === 0) return columns;
 
     const ordered = [];
-    const columnMap = new Map(columns.map((col) => [col.key, col]));
+    const columnMap = new Map(columns.map(col => [col.key, col]));
 
-    columnOrder.forEach((key) => {
+    columnOrder.forEach(key => {
       if (columnMap.has(key)) {
         ordered.push(columnMap.get(key));
         columnMap.delete(key);
       }
     });
 
-    // Add any remaining columns
-    columnMap.forEach((col) => ordered.push(col));
-
+    columnMap.forEach(col => ordered.push(col));
     return ordered;
   }, [columns, columnOrder]);
 
-  // Get responsive columns for current screen size
-  const responsiveColumns = useMemo(() => {
-    return getResponsiveColumns(orderedColumns);
-  }, [orderedColumns, getResponsiveColumns]);
+  const responsiveColumns = useMemo(() => getResponsiveColumns(orderedColumns), [orderedColumns, getResponsiveColumns]);
 
-  // Helper function to get responsive classes for table headers
   const getResponsiveHeaderClasses = (column, index) => {
-    // Default responsive classes based on index
     let responsiveClasses = "";
-
     switch (screenSize) {
-      case "sm": // Small devices: show only first 4 columns
-        if (index >= 2) {
-          responsiveClasses = "hidden";
-        }
-        break;
-      case "md": // Medium devices: show first 6 columns
-        if (index >= 3) {
-          responsiveClasses = "hidden";
-        }
-        break;
-      case "lg": // Large devices: show first 6 columns
-        if (index >= 4) {
-          responsiveClasses = "hidden";
-        }
-        break;
-      case "xl": // Extra large: show all
-      default:
-        // Show all columns
-        break;
+      case "sm": if (index >= 2) responsiveClasses = "hidden"; break;
+      case "md": if (index >= 3) responsiveClasses = "hidden"; break;
+      case "lg": if (index >= 4) responsiveClasses = "hidden"; break;
+      case "xl": default: break;
     }
-
     return responsiveClasses;
   };
 
   const formatData = useCallback((items) => {
-    return items.map((item) => {
-      // Check if user already provided status in the data
+    return items.map(item => {
       const hasUserStatus = item.status && typeof item.status === "string";
       const calculatedStatus = calculateStatus(item);
 
-      // Determine if amount should be positive or negative based on type
       let displayAmount = item.amount || 0;
-
-      // For certain transaction types, you might want to show negative amounts
-      // This is just an example - adjust based on your business logic
-      if (
-        item.type === "Reduce Cash" ||
-        item.type === "Expense" ||
-        item.type === "Purchase" ||
-        item.type === "Withdrawal"
-      ) {
-        // Ensure negative amount is displayed
+      if (["Reduce Cash", "Expense", "Purchase", "Withdrawal"].includes(item.type)) {
         displayAmount = -Math.abs(displayAmount);
-      } else if (
-        item.type === "Add Cash" ||
-        item.type === "Income" ||
-        item.type === "Sale" ||
-        item.type === "Deposit"
-      ) {
-        // Ensure positive amount is displayed
+      } else if (["Add Cash", "Income", "Sale", "Deposit"].includes(item.type)) {
         displayAmount = Math.abs(displayAmount);
       }
 
@@ -1180,50 +1101,36 @@ export default function TransactionsTable({
         partyName: item.partyName || item.name || "N/A",
         partyId: item.partyId,
         paymentType: item.paymentType,
-        amount: displayAmount, // Use the adjusted amount
+        amount: displayAmount,
         transactionType: item.transactionType || item.type,
         balanceDue: item.isPaid ? 0 : item.balanceDue || 0,
         paidAmount: item.paidAmount || 0,
-        // Only add status if user didn't provide one or we need to calculate it
         ...(hasUserStatus ? {} : { status: calculatedStatus }),
-        // Add any additional fields from the data
         ...item,
       };
     });
   }, []);
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortConfig, setSortConfig] = useState({
-    key: defaultSort?.key || null,
-    direction: defaultSort?.direction || "asc",
-  });
+  const [sortConfig, setSortConfig] = useState({ key: defaultSort?.key || null, direction: defaultSort?.direction || "asc" });
   const [filteredTransactions, setFilteredTransactions] = useState([]);
   const [invoiceData, setInvoiceData] = useState(null);
 
-  // Calculate pagination
   const totalItems = filteredTransactions.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentItems = filteredTransactions.slice(startIndex, endIndex);
 
-  // Initialize from URL
   useEffect(() => {
     if (!hasInitialized) {
       const urlPage = searchParams.get("page");
-      const pageFromUrl =
-        urlPage && !isNaN(parseInt(urlPage)) ? parseInt(urlPage) : 1;
-
-      if (pageFromUrl !== currentPage) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setCurrentPage(pageFromUrl);
-      }
-
+      const pageFromUrl = urlPage && !isNaN(parseInt(urlPage)) ? parseInt(urlPage) : 1;
+      if (pageFromUrl !== currentPage) setCurrentPage(pageFromUrl);
       setHasInitialized(true);
     }
   }, [searchParams, currentPage, hasInitialized]);
 
-  // Update URL when page changes
   useEffect(() => {
     if (!hasInitialized) return;
 
@@ -1242,103 +1149,64 @@ export default function TransactionsTable({
     }
   }, [currentPage, router, searchParams, hasInitialized]);
 
-  // Process data
   useEffect(() => {
     const formattedData = formatData(data);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFilteredTransactions(formattedData);
 
-    // Apply default sort if specified
     if (defaultSort && defaultSort.key) {
       const sorted = [...formattedData].sort((a, b) => {
         if (!a[defaultSort.key] || !b[defaultSort.key]) return 0;
 
-        // Special handling for status sorting
         if (defaultSort.key === "status") {
-          const statusOrder = {
-            Paid: 1,
-            "Partially Paid": 2,
-            Unpaid: 3,
-            "N/A": 4,
-          };
+          const statusOrder = { Paid: 1, "Partially Paid": 2, Unpaid: 3, "N/A": 4 };
           const aValue = statusOrder[a[defaultSort.key]] || 5;
           const bValue = statusOrder[b[defaultSort.key]] || 5;
-          return defaultSort.direction === "asc"
-            ? aValue - bValue
-            : bValue - aValue;
+          return defaultSort.direction === "asc" ? aValue - bValue : bValue - aValue;
         }
 
-        if (
-          typeof a[defaultSort.key] === "number" &&
-          typeof b[defaultSort.key] === "number"
-        ) {
-          return defaultSort.direction === "asc"
-            ? a[defaultSort.key] - b[defaultSort.key]
-            : b[defaultSort.key] - a[defaultSort.key];
+        if (typeof a[defaultSort.key] === "number" && typeof b[defaultSort.key] === "number") {
+          return defaultSort.direction === "asc" ? a[defaultSort.key] - b[defaultSort.key] : b[defaultSort.key] - a[defaultSort.key];
         }
         return defaultSort.direction === "asc"
           ? String(a[defaultSort.key]).localeCompare(String(b[defaultSort.key]))
-          : String(b[defaultSort.key]).localeCompare(
-            String(a[defaultSort.key])
-          );
+          : String(b[defaultSort.key]).localeCompare(String(a[defaultSort.key]));
       });
       setFilteredTransactions(sorted);
       setSortConfig({ key: defaultSort.key, direction: defaultSort.direction });
     }
 
-    // Reset page if needed
     if (hasInitialized && currentPage > 1) {
       const newTotalPages = Math.ceil(formattedData.length / itemsPerPage);
-      if (currentPage > newTotalPages) {
-        setCurrentPage(1);
-      }
+      if (currentPage > newTotalPages) setCurrentPage(1);
     }
-  }, [
-    data,
-    formatData,
-    itemsPerPage,
-    hasInitialized,
-    currentPage,
-    defaultSort,
-  ]);
+  }, [data, formatData, itemsPerPage, hasInitialized, currentPage, defaultSort]);
 
   const handleSearch = (e) => {
     const term = e.target.value.toLowerCase();
     setSearchTerm(term);
 
     const original = formatData(data);
-    const filtered = original.filter((t) =>
+    const filtered = original.filter(t =>
       Object.entries(t).some(([key, value]) => {
-        const column = columns.find((col) => col.key === key);
-        // Skip filtering on non-filterable columns
+        const column = columns.find(col => col.key === key);
         if (column && column.filterable === false) return false;
         return String(value).toLowerCase().includes(term);
       })
     );
 
     setFilteredTransactions(filtered);
-    if (filtered.length > 0 && currentPage !== 1) {
-      setCurrentPage(1);
-    }
+    if (filtered.length > 0 && currentPage !== 1) setCurrentPage(1);
   };
 
   const handleSort = (key) => {
     let direction = "asc";
-    if (sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
-    }
+    if (sortConfig.key === key && sortConfig.direction === "asc") direction = "desc";
 
     const sorted = [...filteredTransactions].sort((a, b) => {
       if (!a[key] || !b[key]) return 0;
 
-      // Special handling for status sorting
       if (key === "status") {
-        const statusOrder = {
-          Paid: 1,
-          "Partially Paid": 2,
-          Unpaid: 3,
-          "N/A": 4,
-        };
+        const statusOrder = { Paid: 1, "Partially Paid": 2, Unpaid: 3, "N/A": 4 };
         const aValue = statusOrder[a[key]] || 5;
         const bValue = statusOrder[b[key]] || 5;
         return direction === "asc" ? aValue - bValue : bValue - aValue;
@@ -1354,10 +1222,7 @@ export default function TransactionsTable({
 
     setSortConfig({ key, direction });
     setFilteredTransactions(sorted);
-
-    if (currentPage !== 1) {
-      setCurrentPage(1);
-    }
+    if (currentPage !== 1) setCurrentPage(1);
   };
 
   const handlePageChange = (page) => {
@@ -1366,9 +1231,7 @@ export default function TransactionsTable({
   };
 
   const handleSalePurchaseDelete = async (id, type) => {
-    const res = await DeleteAlert(
-      `/api/sale-purchase/delete?id=${id}&mode=${type}`, "", "Sale/Purchase transaction"
-    );
+    const res = await DeleteAlert(`/api/sale-purchase/delete?id=${id}&mode=${type}`, "", "Sale/Purchase transaction");
     if (res) {
       refetch();
       toast.success("Transaction Deleted Successfully!");
@@ -1380,64 +1243,43 @@ export default function TransactionsTable({
   const getMenuItems = (transaction) => [
     {
       label: "View/Edit",
-      icon: FaEdit,
+      icon: FaRegEye,
       action: () => {
-        if (
-          transaction?.type === "Add Cash" ||
-          transaction?.type === "Reduce Cash"
-        ) {
-          onEditOfCash
-            ? onEditOfCash(transaction)
-            : toast.warning("View and Edit not available!");
-        } else if (
-          transaction?.type === "Sale" ||
-          transaction?.type === "Purchase" ||
-          invoiceType === "Sale" ||
-          invoiceType === "Purchase"
-        ) {
-          router.push(
-            `/update-sale-purchase?id=${transaction?.id}&type=${invoiceType}&partyId=${transaction?.partyId}`
-          );
-        } 
-        else if (transaction?.type === "LOAN_PAYMENT") {
+        if (transaction?.type === "Add Cash" || transaction?.type === "Reduce Cash") {
+          onEditOfCash ? onEditOfCash(transaction) : toast.warning("View and Edit not available!");
+        } else if (transaction?.type === "Sale" || transaction?.type === "Purchase" || invoiceType === "Sale" || invoiceType === "Purchase") {
+          router.push(`/update-sale-purchase?id=${transaction?.id}&type=${invoiceType}&partyId=${transaction?.partyId}`);
+        } else if (transaction?.type === "LOAN_PAYMENT") {
           const params = new URLSearchParams(searchParams.toString());
           params.set("makepayment", "update");
           params.set("paymentId", transaction?.id);
           router.push(`/cash-bank/loan-accounts?${params.toString()}`);
-        }
-        else if (transaction?.type === "LOAN_INCREASE") {
+        } else if (transaction?.type === "LOAN_INCREASE") {
           const params = new URLSearchParams(searchParams.toString());
           params.set("takeloan", "update");
           params.set("takeloanId", transaction?.id);
           router.push(`/cash-bank/loan-accounts?${params.toString()}`);
-        }
-        else if (transaction?.type === "LOAN_CHARGE") {
+        } else if (transaction?.type === "LOAN_CHARGE") {
           const params = new URLSearchParams(searchParams.toString());
           params.set("charges", "update");
           params.set("chargesId", transaction?.id);
           router.push(`/cash-bank/loan-accounts?${params.toString()}`);
-        }
-        else {
+        } else {
           toast.warning("View and Edit not available!");
         }
       },
     },
     {
       label: "Download PDF",
-      icon: FaFilePdf,
+      icon: FaRegFilePdf,
       action: async () => {
         if (invoiceType === "Sale" || invoiceType === "Purchase") {
           printAndPdfData("pdf", setInvoiceData, transaction?.id, invoiceType);
-        } else if (
-          transaction?.type === "Sale" ||
-          transaction?.type === "Purchase"
-        ) {
+        } else if (transaction?.type === "Sale" || transaction?.type === "Purchase") {
           printAndPdfData(
             "pdf",
             setInvoiceData,
-            transaction?.type === "Sale"
-              ? transaction?.saleId
-              : transaction?.purchaseId,
+            transaction?.type === "Sale" ? transaction?.saleId : transaction?.purchaseId,
             transaction?.type
           );
         } else {
@@ -1447,25 +1289,15 @@ export default function TransactionsTable({
     },
     {
       label: "Print",
-      icon: FaPrint,
+      icon: TbPrinter,
       action: () => {
         if (invoiceType === "Sale" || invoiceType === "Purchase") {
+          printAndPdfData("print", setInvoiceData, transaction?.id, invoiceType);
+        } else if (transaction?.type === "Sale" || transaction?.type === "Purchase") {
           printAndPdfData(
             "print",
             setInvoiceData,
-            transaction?.id,
-            invoiceType
-          );
-        } else if (
-          transaction?.type === "Sale" ||
-          transaction?.type === "Purchase"
-        ) {
-          printAndPdfData(
-            "print",
-            setInvoiceData,
-            transaction?.type === "Sale"
-              ? transaction?.saleId
-              : transaction?.purchaseId,
+            transaction?.type === "Sale" ? transaction?.saleId : transaction?.purchaseId,
             transaction?.type
           );
         } else {
@@ -1475,22 +1307,15 @@ export default function TransactionsTable({
     },
     {
       label: "Duplicate",
-      icon: FaCopy,
-      action: () => {
-        /* Duplicate logic */
-      },
+      icon: FaRegCopy,
+      action: () => {},
     },
     {
       label: "Delete",
-      icon: FaTrash,
+      icon: FaRegTrashAlt,
       action: async () => {
-        if (
-          transaction?.type === "Add Cash" ||
-          transaction?.type === "Reduce Cash"
-        ) {
-          const res = await DeleteAlert(
-            `/api/cashadjustment/delete-transaction?id=${transaction?.id}&userId=${session?.user?.id}`, "", "Cash adjustment transaction"
-          );
+        if (transaction?.type === "Add Cash" || transaction?.type === "Reduce Cash") {
+          const res = await DeleteAlert(`/api/cashadjustment/delete-transaction?id=${transaction?.id}&userId=${session?.user?.id}`, "", "Cash adjustment transaction");
           if (res) {
             refetch();
             toast.success("Transaction Deleted Successfully!");
@@ -1498,49 +1323,37 @@ export default function TransactionsTable({
           return;
         }
         if (invoiceType === "Sale" || invoiceType === "Purchase") {
-          handleSalePurchaseDelete(
-            transaction?.id,
-            transaction?.transactionType.toLowerCase()
-          );
-        }
-        else if(transaction?.type === "Loan Disbursement"){
+          handleSalePurchaseDelete(transaction?.id, transaction?.transactionType.toLowerCase());
+        } else if (transaction?.type === "Loan Disbursement") {
           return toast.error("Cannot delete account with existing transactions. Please delete transactions first.");
-        }
-        else if(transaction?.type === "LOAN_PROCESSING_FEE"){
+        } else if (transaction?.type === "LOAN_PROCESSING_FEE") {
           return toast.error("It is not allowed to delete loan processing fee transaction. Please contact support team.");
-        }
-        else if(transaction?.type === "LOAN_PAYMENT"){
+        } else if (transaction?.type === "LOAN_PAYMENT") {
           const params = new URLSearchParams(searchParams.toString());
           DeleteAlert(`/api/loan-accounts/make-payment?accountId=${params.get("tab")}&paymentId=${transaction?.id}`).then(res => {
-              if(res){
-                refetch();
-               return toast.success("Transaction Deleted Successfully!");
-              }
-          })
-        }
-        else if(transaction?.type === "LOAN_INCREASE"){
+            if (res) {
+              refetch();
+              return toast.success("Transaction Deleted Successfully!");
+            }
+          });
+        } else if (transaction?.type === "LOAN_INCREASE") {
           const params = new URLSearchParams(searchParams.toString());
           DeleteAlert(`/api/loan-accounts/take-more-loan?accountId=${params.get("tab")}&takeLoanId=${transaction?.id}`).then(res => {
-              if(res){
-                refetch();
-               return toast.success("Transaction Deleted Successfully!");
-              }
-          })
-        }
-        else if(transaction?.type === "LOAN_CHARGE"){
+            if (res) {
+              refetch();
+              return toast.success("Transaction Deleted Successfully!");
+            }
+          });
+        } else if (transaction?.type === "LOAN_CHARGE") {
           const params = new URLSearchParams(searchParams.toString());
           DeleteAlert(`/api/loan-accounts/charges?accountId=${params.get("tab")}&chargeId=${transaction?.id}`).then(res => {
-              if(res){
-                refetch();
-               return toast.success("Transaction Deleted Successfully!");
-              }
-          })
-        }
-        else {
-          const storeId =
-            transaction?.type === "Sale"
-              ? transaction?.saleId
-              : transaction?.purchaseId;
+            if (res) {
+              refetch();
+              return toast.success("Transaction Deleted Successfully!");
+            }
+          });
+        } else {
+          const storeId = transaction?.type === "Sale" ? transaction?.saleId : transaction?.purchaseId;
           const storeType = transaction?.type === "Sale" ? "sale" : "purchase";
           handleSalePurchaseDelete(storeId, storeType);
         }
@@ -1551,12 +1364,9 @@ export default function TransactionsTable({
 
   const getSizeClasses = () => {
     switch (size) {
-      case "small":
-        return "text-xs";
-      case "large":
-        return "text-base";
-      default:
-        return "text-sm";
+      case "small": return "text-xs";
+      case "large": return "text-base";
+      default: return "text-sm";
     }
   };
 
@@ -1565,9 +1375,7 @@ export default function TransactionsTable({
     setSearchTerm("");
     if (currentPage > 1) {
       const newTotalPages = Math.ceil(formatData(data).length / itemsPerPage);
-      if (currentPage > newTotalPages) {
-        setCurrentPage(1);
-      }
+      if (currentPage > newTotalPages) setCurrentPage(1);
     }
   };
 
@@ -1584,31 +1392,30 @@ export default function TransactionsTable({
 
       {/* Header */}
       <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <h1
-          className={`text-3xl font-bold text-gray-900 ${size === "small" ? "text-2xl" : size === "large" ? "text-4xl" : ""
-            }`}
-        >
+        <h1 className={`font-bold text-gray-900 ${size === "small" ? "text-2xl" : size === "large" ? "text-4xl" : "text-3xl"}`}>
           {title}
         </h1>
 
         {showSearch && (
           <div className={`${size === "small" ? "md:w-1/4" : "md:w-1/3"}`}>
             <div className="relative">
-              <FaSearch
-                className="absolute left-3 top-3.5 text-gray-400"
-                size={18}
-              />
+              <FaSearch className="absolute left-3 top-3.5 text-gray-400" size={18} />
               <input
                 type="text"
                 placeholder="Search transactions..."
                 value={searchTerm}
                 onChange={handleSearch}
-                className={`w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-4 ${getSizeClasses()} text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100`}
+                className={`
+                  w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-4
+                  ${getSizeClasses()} text-gray-900 placeholder-gray-500
+                  focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100
+                  transition-all duration-200
+                `}
               />
               {searchTerm && (
                 <IoClose
                   onClick={handleClearSearch}
-                  className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-700 cursor-pointer"
+                  className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-700 cursor-pointer transition-colors"
                   size={18}
                 />
               )}
@@ -1617,34 +1424,28 @@ export default function TransactionsTable({
         )}
       </div>
 
-      {/* Conditionally render based on isMobile prop */}
+      {/* Table/Accordion View */}
       {!isMobile ? (
         <>
           {/* Desktop Table */}
-          <div
-            className={`hidden md:block rounded-lg border border-gray-200 bg-white shadow-sm ${size === "small" ? "text-xs" : ""
-              }`}
-          >
+          <div className={`hidden md:block rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden ${size === "small" ? "text-xs" : ""}`}>
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
                   {responsiveColumns.map((column, index) => (
                     <th
                       key={column.key}
-                      className={`px-6 py-3 text-left ${column.className || ""
-                        } ${getResponsiveHeaderClasses(column, index)}`}
+                      className={`px-6 py-3 text-left ${column.className || ""} ${getResponsiveHeaderClasses(column, index)}`}
                       style={column.headerStyle}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span
-                          className={`font-semibold text-gray-700 uppercase tracking-wider ${getSizeClasses()}`}
-                        >
+                        <span className={`font-semibold text-gray-700 uppercase tracking-wider ${getSizeClasses()}`}>
                           {column.label}
                         </span>
                         {showFilters && column.sortable && (
                           <button
                             onClick={() => handleSort(column.key)}
-                            className="text-gray-400 hover:text-gray-600"
+                            className="text-gray-400 hover:text-gray-600 transition-colors"
                             title={`Sort by ${column.label}`}
                           >
                             <FaFilter size={14} />
@@ -1654,9 +1455,7 @@ export default function TransactionsTable({
                     </th>
                   ))}
                   <th className="px-6 py-3 text-center">
-                    <span
-                      className={`font-semibold text-gray-700 uppercase tracking-wider ${getSizeClasses()}`}
-                    >
+                    <span className={`font-semibold text-gray-700 uppercase tracking-wider ${getSizeClasses()}`}>
                       Actions
                     </span>
                   </th>
@@ -1672,46 +1471,43 @@ export default function TransactionsTable({
                     setInvoiceData={setInvoiceData}
                     invoiceType={invoiceType}
                     refetch={refetch}
-                    columns={responsiveColumns} // Use responsive columns here
+                    columns={responsiveColumns}
                     menuItems={getMenuItems(transaction)}
                     size={size}
                     customRenderers={customRenderers}
                     isLastItem={index === currentItems.length - 1}
+                    dateFormat={dateFormat}
                   />
                 ))}
               </tbody>
             </table>
           </div>
 
-          {/* Mobile View (only shown on actual mobile devices) */}
+          {/* Mobile View */}
           <div className="md:hidden space-y-3">
             {currentItems.map((transaction) => (
               <MobileTransactionAccordion
                 key={transaction.id}
                 transaction={transaction}
                 menuItems={getMenuItems(transaction)}
-                columns={orderedColumns} // Use all columns for mobile accordion
+                columns={orderedColumns}
                 customRenderers={customRenderers}
-                onAction={(action, transaction) => {
-                  // Handle mobile actions
-                }}
+                dateFormat={dateFormat}
               />
             ))}
           </div>
         </>
       ) : (
-        // Mobile accordion view when isMobile is true (regardless of device)
+        // Mobile accordion view when isMobile is true
         <div className="space-y-3">
           {currentItems.map((transaction) => (
             <MobileTransactionAccordion
               key={transaction.id}
               transaction={transaction}
               menuItems={getMenuItems(transaction)}
-              columns={orderedColumns} // Use all columns for mobile accordion
+              columns={orderedColumns}
               customRenderers={customRenderers}
-              onAction={(action, transaction) => {
-                // Handle mobile actions
-              }}
+              dateFormat={dateFormat}
             />
           ))}
         </div>
@@ -1719,8 +1515,8 @@ export default function TransactionsTable({
 
       {/* Empty State */}
       {filteredTransactions.length === 0 && (
-        <div className="rounded-lg border border-gray-200 bg-gray-50 py-12 text-center">
-          <p className="text-gray-500">No transactions found</p>
+        <div className="rounded-xl border border-gray-200 bg-gray-50 py-16 text-center">
+          <p className="text-gray-500 text-lg">No transactions found</p>
         </div>
       )}
 
@@ -1730,10 +1526,8 @@ export default function TransactionsTable({
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="text-sm text-gray-600">
               Showing <span className="font-semibold">{startIndex + 1}</span>-
-              <span className="font-semibold">
-                {Math.min(endIndex, totalItems)}
-              </span>{" "}
-              of <span className="font-semibold">{totalItems}</span> items
+              <span className="font-semibold">{Math.min(endIndex, totalItems)}</span> of{' '}
+              <span className="font-semibold">{totalItems}</span> items
             </div>
 
             <Pagination
