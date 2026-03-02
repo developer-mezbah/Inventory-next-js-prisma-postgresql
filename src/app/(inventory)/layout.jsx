@@ -33,6 +33,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import "./style.css";
+import StateMiddleware from "@/components/stateMiddleware";
 
 // Function to get display name for any role, including OWNER
 const getRoleDisplayName = (role) => {
@@ -149,7 +150,7 @@ const initMenuItems = [
       { name: "Purchase Bils", href: "/purchase/purchase-bils" },
       { name: "Payment-Out", href: "/purchase/payment-out" },
       { name: "Expenses", href: "/purchase/expenses" },
-      { name: "Add Expense", href: "/purchase/add-expense" }, 
+      { name: "Add Expense", href: "/purchase/add-expense" },
       { name: "Purchase Order", href: "/purchase/purchase-order" },
       {
         name: "Purchase Return/ Dr. Note",
@@ -255,6 +256,7 @@ const initMenuItems = [
     icon: "⚙️",
     subItems: [
       { name: "GENERAL", href: "/settings/general" },
+      { name: "FORM SETTINGS", href: "/settings/form-settings" },
       { name: "TRANSACTION", href: "/settings/transaction" },
       { name: "PRINT", href: "/settings/print" },
       { name: "TAXES", href: "/settings/taxes" },
@@ -481,266 +483,258 @@ const Layout = (props) => {
   }
 
   return (
-    <div className={`flex ${toggleSidebar ? "gap-5" : "gap-0"}`}>
-      {/* sidebar */}
-      <div
-        ref={boxRef}
-        className={`${
-          toggleSidebar
-            ? "w-[256px] visible fixed z-20"
-            : "w-[0px] invisible fixed z-0"
-        } transition-all overflow-hidden bg-gray-900 text-white p-4 h-screen`}
-      >
-        <Link href="/">
-          <Image
-            className="my-5 h-16 object-contain"
-            width={200}
-            height={100}
-            alt="Dashboard Logo"
-            src="/logo.png"
-          />
-        </Link>
-
-        {/* Show role indicator in sidebar for debugging */}
-        {userRole && (
-          <div className="mb-3 px-3 py-1 bg-gray-800 rounded-lg text-sm text-center">
-            <span className="text-gray-400">Role: </span>
-            <span className="font-semibold text-blue-300">
-              {getRoleDisplayName(userRole)}
-            </span>
-          </div>
-        )}
-
-        <div className="relative mb-4">
-          <input
-            type="text"
-            placeholder="Search in menu"
-            value={searchValue}
-            onChange={(e) => handleSearch(e.target.value)}
-            className="w-full p-2 pl-4 pr-10 rounded-lg bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-gray-600"
-          />
-          {searchValue ? (
-            <IoMdClose
-              onClick={() => {
-                setSearchValue("");
-                // Reset to role-filtered items
-                const filteredItems = filterMenuItemsByRole(
-                  initMenuItems,
-                  userRole
-                );
-                setMenuItems(filteredItems);
-              }}
-              className="absolute right-3 top-2.5 text-gray-400 cursor-pointer"
+    <>
+      <StateMiddleware />
+      <div className={`flex ${toggleSidebar ? "gap-5" : "gap-0"}`}>
+        {/* sidebar */}
+        <div
+          ref={boxRef}
+          className={`${toggleSidebar
+              ? "w-[256px] visible fixed z-20"
+              : "w-[0px] invisible fixed z-0"
+            } transition-all overflow-hidden bg-gray-900 text-white p-4 h-screen`}
+        >
+          <Link href="/">
+            <Image
+              className="my-5 h-16 object-contain"
+              width={200}
+              height={100}
+              alt="Dashboard Logo"
+              src="/logo.png"
             />
-          ) : (
-            <IoSearch className="absolute right-3 top-2.5 text-gray-400" />
+          </Link>
+
+          {/* Show role indicator in sidebar for debugging */}
+          {userRole && (
+            <div className="mb-3 px-3 py-1 bg-gray-800 rounded-lg text-sm text-center">
+              <span className="text-gray-400">Role: </span>
+              <span className="font-semibold text-blue-300">
+                {getRoleDisplayName(userRole)}
+              </span>
+            </div>
           )}
-        </div>
-        <ul className="custom-scrollbox pb-40">
-          {menuItems.length === 0 ? (
-            <li className="p-3 text-gray-400 text-center">
-              No menu items available for your role
-            </li>
-          ) : (
-            menuItems.map((item, index) => (
-              <li key={index}>
-                <Link
-                  href={item?.href || "#"}
-                  className={`flex justify-between items-center w-full p-3 mb-1 ${
-                    item?.href == pathName && "bg-gray-700"
-                  } rounded-lg transition-all hover:bg-gray-700 ${
-                    item?.subItems
-                      ? item?.subItems.some(
+
+          <div className="relative mb-4">
+            <input
+              type="text"
+              placeholder="Search in menu"
+              value={searchValue}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="w-full p-2 pl-4 pr-10 rounded-lg bg-gray-800 text-white focus:outline-none focus:ring-2 focus:ring-gray-600"
+            />
+            {searchValue ? (
+              <IoMdClose
+                onClick={() => {
+                  setSearchValue("");
+                  // Reset to role-filtered items
+                  const filteredItems = filterMenuItemsByRole(
+                    initMenuItems,
+                    userRole
+                  );
+                  setMenuItems(filteredItems);
+                }}
+                className="absolute right-3 top-2.5 text-gray-400 cursor-pointer"
+              />
+            ) : (
+              <IoSearch className="absolute right-3 top-2.5 text-gray-400" />
+            )}
+          </div>
+          <ul className="custom-scrollbox pb-40">
+            {menuItems.length === 0 ? (
+              <li className="p-3 text-gray-400 text-center">
+                No menu items available for your role
+              </li>
+            ) : (
+              menuItems.map((item, index) => (
+                <li key={index}>
+                  <Link
+                    href={item?.href || "#"}
+                    className={`flex justify-between items-center w-full p-3 mb-1 ${item?.href == pathName && "bg-gray-700"
+                      } rounded-lg transition-all hover:bg-gray-700 ${item?.subItems
+                        ? item?.subItems.some(
                           (nested) => pathName === nested?.href
                         ) && "bg-gray-700"
-                      : ""
-                  }`}
-                  onClick={() => item.subItems && toggleDropdown(index)}
-                >
-                  <span className="flex items-center gap-2">
-                    {item.icon} {item.name}
-                  </span>
-                  {item.subItems && item.subItems.length > 0 && (
-                    <IoChevronDownSharp
-                      className={`transition-transform ${
-                        openDropdown === index ? "rotate-180" : "rotate-0"
+                        : ""
                       }`}
-                    />
-                  )}
-                </Link>
-
-                {/* DropDown */}
-                {item.subItems && item.subItems.length > 0 && (
-                  <ul
-                    className={`transition-all duration-300 ease-in-out overflow-hidden ${
-                      openDropdown === index ? "opacity-100" : "opacity-0"
-                    }`}
-                    style={{
-                      maxHeight:
-                        openDropdown === index
-                          ? `${item?.subItems.length * 4}rem`
-                          : "0",
-                    }}
+                    onClick={() => item.subItems && toggleDropdown(index)}
                   >
-                    {item.subItems.map((subItem, subIndex) => (
-                      <li
-                        key={subIndex}
-                        className={`pl-8 py-2 hover:bg-gray-800 rounded-md mt-1 ${
-                          pathName === subItem?.href && "bg-gray-800"
+                    <span className="flex items-center gap-2">
+                      {item.icon} {item.name}
+                    </span>
+                    {item.subItems && item.subItems.length > 0 && (
+                      <IoChevronDownSharp
+                        className={`transition-transform ${openDropdown === index ? "rotate-180" : "rotate-0"
+                          }`}
+                      />
+                    )}
+                  </Link>
+
+                  {/* DropDown */}
+                  {item.subItems && item.subItems.length > 0 && (
+                    <ul
+                      className={`transition-all duration-300 ease-in-out overflow-hidden ${openDropdown === index ? "opacity-100" : "opacity-0"
                         }`}
-                      >
-                        <Link
-                          href={subItem?.href}
-                          className="flex gap-2 items-center"
+                      style={{
+                        maxHeight:
+                          openDropdown === index
+                            ? `${item?.subItems.length * 4}rem`
+                            : "0",
+                      }}
+                    >
+                      {item.subItems.map((subItem, subIndex) => (
+                        <li
+                          key={subIndex}
+                          className={`pl-8 py-2 hover:bg-gray-800 rounded-md mt-1 ${pathName === subItem?.href && "bg-gray-800"
+                            }`}
                         >
-                          <span
-                            className={`${
-                              pathName === subItem?.href &&
-                              "bg-slate-100 w-[7px] h-[7px]"
-                            } w-[5px] h-[5px] rounded-full border-slate-500 border-[1px]`}
-                          ></span>
-                          <span>{subItem?.name}</span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </li>
-            ))
-          )}
-        </ul>
-      </div>
-      <div
-        className={`mt-[70px] w-full transition-all ${
-          toggleSidebar ? "md:ml-[256px] ml-0" : "ml-0"
-        }`}
-        style={{
-          paddingBottom:
-            typeof window !== "undefined" && window.innerWidth < 768
-              ? "4rem"
-              : "0",
-        }}
-      >
-        <div>{props.children}</div>
-      </div>
-      {/* Top Bar */}
-      <div
-        className={`fixed ${
-          toggleSidebar
-            ? "md:left-[256px] left-0 md:w-[calc(100%-256px)] w-full"
-            : "left-0 w-full"
-        } transition-all bg-white shadow-md p-4 flex justify-between items-center h-[70px] overflow-hidden z-10`}
-      >
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => {
-              setToggleSidebar(!toggleSidebar);
-            }}
-          >
-            <CiMenuFries className="text-gray-700 cursor-pointer" size={24} />
-          </button>
-          <CiGlobe className="text-gray-700 cursor-pointer" size={24} />
-          <Link
-            href="/"
-            className="text-gray-700 font-semibold hover:text-blue-500"
-          >
-            Home
-          </Link>
-          {checkAccess(userRole, "/sales/sale-invoices") && (
-            <Link
-              href="/sales/sale-invoices"
-              className="text-gray-700 hover:text-blue-500"
-            >
-              All Sales
-            </Link>
-          )}
-          {checkAccess(userRole, "/settings/general", "GENERAL") && (
-            <Link
-              href="/settings/general"
-              className="text-gray-700 hover:text-blue-500"
-            >
-              Settings
-            </Link>
-          )}
+                          <Link
+                            href={subItem?.href}
+                            className="flex gap-2 items-center"
+                          >
+                            <span
+                              className={`${pathName === subItem?.href &&
+                                "bg-slate-100 w-[7px] h-[7px]"
+                                } w-[5px] h-[5px] rounded-full border-slate-500 border-[1px]`}
+                            ></span>
+                            <span>{subItem?.name}</span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              ))
+            )}
+          </ul>
         </div>
-        <div className="lg:flex hidden items-center gap-4">
-          {checkAccess(userRole, "/sale-management") && (
-            <Link
-              href="/sale-management"
-              className="flex items-center gap-2 bg-blue-100 text-blue-600 px-3 py-1 rounded-lg"
+        <div
+          className={`mt-[70px] w-full transition-all ${toggleSidebar ? "md:ml-[256px] ml-0" : "ml-0"
+            }`}
+          style={{
+            paddingBottom:
+              typeof window !== "undefined" && window.innerWidth < 768
+                ? "4rem"
+                : "0",
+          }}
+        >
+          <div>{props.children}</div>
+        </div>
+        {/* Top Bar */}
+        <div
+          className={`fixed ${toggleSidebar
+              ? "md:left-[256px] left-0 md:w-[calc(100%-256px)] w-full"
+              : "left-0 w-full"
+            } transition-all bg-white shadow-md p-4 flex justify-between items-center h-[70px] overflow-hidden z-10`}
+        >
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => {
+                setToggleSidebar(!toggleSidebar);
+              }}
             >
-              Add Sale <AiOutlinePlus size={16} />
-            </Link>
-          )}
-          {checkAccess(userRole, "/purchase/purchase-bils") && (
-            <AddPurchaseBtn />
-          )}
-          <GoBell className="text-gray-700 cursor-pointer" size={24} />
-          {checkAccess(userRole, "/settings/general", "GENERAL") && (
-            <button onClick={() => setIsSettingsOpen(true)}>
-              <IoSettingsOutline
-                className="text-gray-700 cursor-pointer"
-                size={24}
-              />
+              <CiMenuFries className="text-gray-700 cursor-pointer" size={24} />
             </button>
-          )}
-          <div
-            onClick={() => setIsSettingsOpen(true)}
-            className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center cursor-pointer"
-          >
-            <Avatar
-              name={session?.user?.name}
-              image={session?.user?.image}
-              size="sm"
-            />
-          </div>
-          <div
-            onClick={() => setIsSettingsOpen(true)}
-            className="text-gray-700 flex flex-col cursor-pointer"
-          >
-            <span className="block font-semibold">
-              {session?.user?.name || "Not set"}
-            </span>
-            <span className="text-sm">
-              {userRole ? getRoleDisplayName(userRole) : "User"}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile Bottom Navigation */}
-      <div className="mobile-bottom-nav md:hidden">
-        <div className="flex justify-around items-center h-16">
-          {getBottomNavItemsForUser.map((item) => (
-            <div
-              key={item.id}
-              className={`bottom-nav-item flex flex-col items-center justify-center w-full h-full ${
-                activeBottomNav === item.id
-                  ? "text-blue-600 bg-blue-50"
-                  : "text-gray-600"
-              }`}
-              onClick={() => handleBottomNavClick(item)}
+            <CiGlobe className="text-gray-700 cursor-pointer" size={24} />
+            <Link
+              href="/"
+              className="text-gray-700 font-semibold hover:text-blue-500"
             >
-              {item.action ? (
-                <button className="flex flex-col items-center">
-                  <span className="text-xl">{item.icon}</span>
-                  <span className="text-xs mt-1">{item.label}</span>
-                </button>
-              ) : (
-                <Link
-                  href={item.href}
-                  className="flex flex-col items-center w-full h-full justify-center"
-                >
-                  <span className="text-xl">{item.icon}</span>
-                  <span className="text-xs mt-1">{item.label}</span>
-                </Link>
-              )}
+              Home
+            </Link>
+            {checkAccess(userRole, "/sales/sale-invoices") && (
+              <Link
+                href="/sales/sale-invoices"
+                className="text-gray-700 hover:text-blue-500"
+              >
+                All Sales
+              </Link>
+            )}
+            {checkAccess(userRole, "/settings/general", "GENERAL") && (
+              <Link
+                href="/settings/general"
+                className="text-gray-700 hover:text-blue-500"
+              >
+                Settings
+              </Link>
+            )}
+          </div>
+          <div className="lg:flex hidden items-center gap-4">
+            {checkAccess(userRole, "/sale-management") && (
+              <Link
+                href="/sale-management"
+                className="flex items-center gap-2 bg-blue-100 text-blue-600 px-3 py-1 rounded-lg"
+              >
+                Add Sale <AiOutlinePlus size={16} />
+              </Link>
+            )}
+            {checkAccess(userRole, "/purchase/purchase-bils") && (
+              <AddPurchaseBtn />
+            )}
+            <GoBell className="text-gray-700 cursor-pointer" size={24} />
+            {checkAccess(userRole, "/settings/general", "GENERAL") && (
+              <button onClick={() => setIsSettingsOpen(true)}>
+                <IoSettingsOutline
+                  className="text-gray-700 cursor-pointer"
+                  size={24}
+                />
+              </button>
+            )}
+            <div
+              onClick={() => setIsSettingsOpen(true)}
+              className="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center cursor-pointer"
+            >
+              <Avatar
+                name={session?.user?.name}
+                image={session?.user?.image}
+                size="sm"
+              />
             </div>
-          ))}
+            <div
+              onClick={() => setIsSettingsOpen(true)}
+              className="text-gray-700 flex flex-col cursor-pointer"
+            >
+              <span className="block font-semibold">
+                {session?.user?.name || "Not set"}
+              </span>
+              <span className="text-sm">
+                {userRole ? getRoleDisplayName(userRole) : "User"}
+              </span>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <style jsx>{`
+        {/* Mobile Bottom Navigation */}
+        <div className="mobile-bottom-nav md:hidden">
+          <div className="flex justify-around items-center h-16">
+            {getBottomNavItemsForUser.map((item) => (
+              <div
+                key={item.id}
+                className={`bottom-nav-item flex flex-col items-center justify-center w-full h-full ${activeBottomNav === item.id
+                    ? "text-blue-600 bg-blue-50"
+                    : "text-gray-600"
+                  }`}
+                onClick={() => handleBottomNavClick(item)}
+              >
+                {item.action ? (
+                  <button className="flex flex-col items-center">
+                    <span className="text-xl">{item.icon}</span>
+                    <span className="text-xs mt-1">{item.label}</span>
+                  </button>
+                ) : (
+                  <Link
+                    href={item.href}
+                    className="flex flex-col items-center w-full h-full justify-center"
+                  >
+                    <span className="text-xl">{item.icon}</span>
+                    <span className="text-xs mt-1">{item.label}</span>
+                  </Link>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <style jsx>{`
         @media (max-width: 767px) {
           .mt-[70px] {
             margin-bottom: 4rem;
@@ -748,11 +742,12 @@ const Layout = (props) => {
         }
       `}</style>
 
-      <SettingsModal
-        isVisible={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-      />
-    </div>
+        <SettingsModal
+          isVisible={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+        />
+      </div>
+    </>
   );
 };
 

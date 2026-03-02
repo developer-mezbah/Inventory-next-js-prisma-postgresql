@@ -12,15 +12,14 @@ import { toast } from "react-toastify";
 import ItemsTable from "./ItemsTable";
 import PartySelector from "./PartySelector";
 import PaymentSection from "./PaymentSection";
-import WarrantySection from "./WarrantySection"; // Import the new WarrantySection component
+import WarrantySection from "./WarrantySection";
 import CustomDatePicker from "@/components/DatePicker";
+import useSettingsStore from "@/stores/settingsStore";
 
 function generateUniqueId() {
-  // Check for the availability of the modern Crypto API
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
   } else {
-    // Fallback for very old or non-standard environments (less secure/unique)
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
       /[xy]/g,
       function (c) {
@@ -48,6 +47,14 @@ export default function SalePurchaseForm({
   type,
   initData,
 }) {
+  // Get form settings from Zustand store
+  const { settings } = useSettingsStore();
+  const formSettings = settings?.formSettings || {
+    warranty: true,
+    tax: true,
+    discount: true,
+  };
+
   const [selectedParty, setSelectedParty] = useState(null);
   const [billNumber, setBillNumber] = useState("");
   const [billDate, setBillDate] = useState(
@@ -60,41 +67,35 @@ export default function SalePurchaseForm({
     sale.items.length
       ? sale.items
       : [
-        {
-          id: 1762926852456,
-          item: "",
-          qty: 1,
-          unit: "NONE",
-          price: 0,
-          amount: 0,
-        },
-      ]
+          {
+            id: 1762926852456,
+            item: "",
+            qty: 1,
+            unit: "NONE",
+            price: 0,
+            amount: 0,
+          },
+        ]
   );
 
   const [paymentType, setPaymentType] = useState("Cash");
   const [discount, setDiscount] = useState("");
   const [tax, setTax] = useState("");
-  // Removed setBalanceDue and setPaidAmount from useState for dynamic calculation
-  // const [balanceDue, setBalanceDue] = useState("")
-  // const [paidAmount, setPaidAmount] = useState("")
   const [description, setDescription] = useState("");
 
-  // New states for Paid Amount feature
   const [isFullPayment, setIsFullPayment] = useState(false);
   const [manualPaidAmount, setManualPaidAmount] = useState(0);
   const [paidAmount, setPaidAmount] = useState(0);
   const [balanceDue, setBalanceDue] = useState(0);
 
-  // New states for Warranty feature
   const [warranty, setWarranty] = useState({
     duration: "",
-    period: "Years", // Default to Years as shown in the image
+    period: "Years",
     enabled: false,
   });
 
   useEffect(() => {
     if (mode === "update" && initData?.data) {
-      // Set all initial values from initData
       setItems(
         initData.data.items.map((item) => ({
           id: item?.id || "",
@@ -120,9 +121,9 @@ export default function SalePurchaseForm({
         initData.data.paymentType === "Cash"
           ? "Cash"
           : {
-            id: initData.data.paymentTypeId,
-            accountdisplayname: initData.data.paymentType,
-          }
+              id: initData.data.paymentTypeId,
+              accountdisplayname: initData.data.paymentType,
+            }
       );
       setSelectedParty({ ...initData.party, name: initData.party?.partyName });
       setPhoneNumber(initData.data.phoneNumber || "");
@@ -131,17 +132,13 @@ export default function SalePurchaseForm({
       setImages(initData.data.images || []);
       setDescription(initData.data.description || "");
 
-      // Set warranty data if exists
       if (initData.data.warranty) {
         setWarranty(initData.data.warranty);
       }
 
-      // Only set paidAmount and manualPaidAmount from initData, balanceDue will be calculated
       const initialPaidAmount = initData.data.paidAmount || 0;
       setPaidAmount(initialPaidAmount);
       setManualPaidAmount(initialPaidAmount);
-
-      // Don't set balanceDue here - let the calculation effect handle it
     }
   }, [initData, mode, type]);
 
@@ -154,27 +151,24 @@ export default function SalePurchaseForm({
 
   const calculateTotal = () => {
     const itemsTotal = items.reduce((sum, item) => sum + (item.amount || 0), 0);
-    const discountAmount = (itemsTotal * discount) / 100;
-    const taxAmount = ((itemsTotal - discountAmount) * tax) / 100;
+    const discountAmount = formSettings.discount ? (itemsTotal * discount) / 100 : 0;
+    const taxAmount = formSettings.tax ? ((itemsTotal - discountAmount) * tax) / 100 : 0;
     return itemsTotal - discountAmount + taxAmount;
   };
 
-  // Effect to calculate paid amount and balance due dynamically
   useEffect(() => {
     const total = calculateTotal();
     let currentPaidAmount = isFullPayment
       ? total
       : Number(manualPaidAmount) || 0;
 
-    // Ensure paid amount doesn't exceed total (optional but good practice)
     currentPaidAmount = Math.min(currentPaidAmount, total);
 
     const newBalanceDue = total - currentPaidAmount;
 
     setPaidAmount(currentPaidAmount);
     setBalanceDue(newBalanceDue);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, discount, tax, isFullPayment, manualPaidAmount]);
+  }, [items, discount, tax, isFullPayment, manualPaidAmount, formSettings]);
 
   const handleAddItem = () => {
     setItems([
@@ -201,17 +195,14 @@ export default function SalePurchaseForm({
         const qty = Number(updated.qty) || 0;
         const amount = Number(updated.amount) || 0;
 
-        // If user edits QTY → recalc amount
         if (field === "qty") {
           updated.amount = qty * price;
         }
 
-        // If user edits PRICE → recalc amount
         if (field === "price") {
           updated.amount = qty * price;
         }
 
-        // If user edits AMOUNT → recalc price (NOT qty)
         if (field === "amount") {
           updated.price = qty ? amount / qty : 0;
         }
@@ -225,21 +216,17 @@ export default function SalePurchaseForm({
   };
 
   const handleSave = () => {
-    // 1. Check if at least one item is present
     if (items.length === 0) {
       return toast.error("At least one item should be included.");
     }
-    // 2. Validate each item and exit on the first error
+
     for (let i = 0; i < items.length; i++) {
       const checkItem = items[i];
 
-      // Validation 1: Check for Item Name
       if (!checkItem.item) {
         return toast.error(`Item name must be required in row no: ${i + 1}`);
       }
 
-      // Validation 2: Check for Item Price (must be a positive number)
-      // We check for falsy values (null, undefined, 0, '') OR if it's not a positive number
       if (!checkItem.price || Number(checkItem.price) <= 0) {
         return toast.error(
           `Item price must be greater than zero in row no: ${i + 1}`
@@ -247,12 +234,10 @@ export default function SalePurchaseForm({
       }
     }
 
-    // Validate warranty if enabled
-    if (warranty.enabled && !warranty.duration) {
+    if (formSettings.warranty && warranty.enabled && !warranty.duration) {
       return toast.error("Please enter warranty duration");
     }
 
-    // 3. If all validation passes, proceed with saving/updating
     onUpdate({
       items,
       total: calculateTotal(),
@@ -262,13 +247,13 @@ export default function SalePurchaseForm({
       billDate,
       phoneNumber,
       paymentType: paymentType,
-      discount,
-      tax,
+      discount: formSettings.discount ? discount : 0,
+      tax: formSettings.tax ? tax : 0,
       balanceDue,
       paidAmount,
       images,
       description,
-      warranty: warranty.enabled ? warranty : null, // Only include warranty if enabled
+      warranty: formSettings.warranty && warranty.enabled ? warranty : null,
     });
   };
 
@@ -312,8 +297,9 @@ export default function SalePurchaseForm({
           <button
             disabled={isSubmitting}
             onClick={handleSave}
-            className={`p-2 hover:bg-gray-100 rounded-lg transition-colors ${isSubmitting ? "opacity-50 cursor-not-allowed" : ""
-              }`}
+            className={`p-2 hover:bg-gray-100 rounded-lg transition-colors ${
+              isSubmitting ? "opacity-50 cursor-not-allowed" : ""
+            }`}
             title="Save"
           >
             {isSubmitting ? (
@@ -367,7 +353,6 @@ export default function SalePurchaseForm({
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:justify-end lg:max-w-sm">
           <div className="min-w-50">
-
             <CustomDatePicker
               defaultValue={billDate && billDate}
               size="large"
@@ -390,11 +375,13 @@ export default function SalePurchaseForm({
           type={type}
         />
 
-        {/* Warranty Section - Added here */}
-        <WarrantySection
-          warranty={warranty}
-          onWarrantyChange={handleWarrantyChange}
-        />
+        {/* Warranty Section - Only show if enabled in settings */}
+        {formSettings.warranty && (
+          <WarrantySection
+            warranty={warranty}
+            onWarrantyChange={handleWarrantyChange}
+          />
+        )}
 
         {/* Totals and Payment */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -444,33 +431,42 @@ export default function SalePurchaseForm({
                     .toFixed(2)}
                 </span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Discount ({discount}%)</span>
-                <span className="font-medium text-gray-900">
-                  -$
-                  {(
-                    (items.reduce((sum, item) => sum + (item.amount || 0), 0) *
-                      discount) /
-                    100
-                  ).toFixed(2)}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Tax ({tax}%)</span>
-                <span className="font-medium text-gray-900">
-                  +$
-                  {(
-                    (((items.reduce(
-                      (sum, item) => sum + (item.amount || 0),
-                      0
-                    ) *
-                      (100 - discount)) /
-                      100) *
-                      tax) /
-                    100
-                  ).toFixed(2)}
-                </span>
-              </div>
+              
+              {/* Discount - Only show if enabled in settings */}
+              {formSettings.discount && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Discount ({discount}%)</span>
+                  <span className="font-medium text-gray-900">
+                    -$
+                    {(
+                      (items.reduce((sum, item) => sum + (item.amount || 0), 0) *
+                        discount) /
+                      100
+                    ).toFixed(2)}
+                  </span>
+                </div>
+              )}
+              
+              {/* Tax - Only show if enabled in settings */}
+              {formSettings.tax && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Tax ({tax}%)</span>
+                  <span className="font-medium text-gray-900">
+                    +$
+                    {(
+                      (((items.reduce(
+                        (sum, item) => sum + (item.amount || 0),
+                        0
+                      ) *
+                        (100 - (formSettings.discount ? discount : 0))) /
+                        100) *
+                        tax) /
+                      100
+                    ).toFixed(2)}
+                  </span>
+                </div>
+              )}
+              
               <div className="border-t border-gray-200 pt-3 flex justify-between">
                 <span className="font-semibold text-gray-900">Total</span>
                 <span className="text-lg font-bold text-blue-600">
@@ -478,7 +474,7 @@ export default function SalePurchaseForm({
                 </span>
               </div>
 
-              {/* === Paid Amount Box (New addition) === */}
+              {/* Paid Amount Box */}
               <div className="border-t border-gray-200 pt-3 flex items-center gap-2">
                 <label className="flex items-center space-x-2 cursor-pointer">
                   <input
@@ -486,10 +482,8 @@ export default function SalePurchaseForm({
                     checked={isFullPayment}
                     onChange={(e) => {
                       setIsFullPayment(e.target.checked);
-                      // If checked, clear manual input, as paidAmount is now total
                       if (e.target.checked)
                         setManualPaidAmount(calculateTotal().toFixed(2));
-                      // If unchecked, set manual input to the current total, ready for user edit
                       else setManualPaidAmount(calculateTotal().toFixed(2));
                     }}
                     className="form-checkbox text-blue-600 h-4 w-4"
@@ -516,67 +510,74 @@ export default function SalePurchaseForm({
                     }
                     disabled={isFullPayment}
                     placeholder="0"
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-right ${isFullPayment
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-right ${
+                      isFullPayment
                         ? "bg-gray-200 cursor-not-allowed"
                         : "border-gray-300"
-                      }`}
+                    }`}
                   />
                 </div>
               </div>
-              {/* ======================================= */}
 
               <div className="flex justify-between text-sm pt-1">
                 <span className="font-semibold text-gray-900">Balance Due</span>
                 <span
-                  className={`text-lg font-bold ${balanceDue > 0 ? "text-red-600" : "text-green-600"
-                    }`}
+                  className={`text-lg font-bold ${
+                    balanceDue > 0 ? "text-red-600" : "text-green-600"
+                  }`}
                 >
                   ${balanceDue.toFixed(2)}
                 </span>
               </div>
             </div>
 
-            {/* Discount and Tax Inputs */}
+            {/* Discount and Tax Inputs - Only show based on settings */}
             <div className="space-y-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Discount (%)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={discount}
-                  placeholder="0"
-                  onChange={(e) =>
-                    setDiscount(Number.parseFloat(e.target.value) || "")
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tax (%)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  value={tax}
-                  placeholder="0"
-                  onChange={(e) =>
-                    setTax(Number.parseFloat(e.target.value) || "")
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
+              {formSettings.discount && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Discount (%)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={discount}
+                    placeholder="0"
+                    onChange={(e) =>
+                      setDiscount(Number.parseFloat(e.target.value) || "")
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              )}
+              
+              {formSettings.tax && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Tax (%)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={tax}
+                    placeholder="0"
+                    onChange={(e) =>
+                      setTax(Number.parseFloat(e.target.value) || "")
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              )}
             </div>
 
             <button
               disabled={isSubmitting}
               onClick={handleSave}
-              className={`w-full bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm sm:text-base ${isSubmitting ? "opacity-50 cursor-not-allowed" : ""
-                }`}
+              className={`w-full bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm sm:text-base ${
+                isSubmitting ? "opacity-50 cursor-not-allowed" : ""
+              }`}
             >
               {isSubmitting ? (
                 <span className="flex items-center gap-1 justify-center">
@@ -595,8 +596,9 @@ export default function SalePurchaseForm({
                     ? "/sales/sale-invoices"
                     : "/purchase/purchase-bils"
                 }
-                className={`w-full block text-center bg-red-600 text-white py-2.5 rounded-lg hover:bg-red-700 transition-colors font-medium text-sm sm:text-base ${isSubmitting ? "opacity-50 cursor-not-allowed" : ""
-                  }`}
+                className={`w-full block text-center bg-red-600 text-white py-2.5 rounded-lg hover:bg-red-700 transition-colors font-medium text-sm sm:text-base ${
+                  isSubmitting ? "opacity-50 cursor-not-allowed" : ""
+                }`}
               >
                 Go Back
               </Link>

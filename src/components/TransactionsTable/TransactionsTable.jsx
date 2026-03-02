@@ -5,11 +5,11 @@ import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { toast } from "react-toastify";
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
-import { 
-  useFloating, 
-  offset, 
-  flip, 
-  shift, 
+import {
+  useFloating,
+  offset,
+  flip,
+  shift,
   autoUpdate,
   safePolygon,
   useHover,
@@ -60,6 +60,7 @@ import useOutsideClick from "@/hook/useOutsideClick";
 import { useCurrencyStore } from "@/stores/useCurrencyStore";
 import { printAndPdfData } from "@/utils/handlePrintAndPdf";
 import { useSession } from "next-auth/react";
+import Pagination from "./Pagination";
 
 // Professional Floating UI Dropdown Component with Portal
 const ProfessionalDropdown = ({
@@ -141,13 +142,13 @@ const ProfessionalDropdown = ({
                   Actions
                 </span>
               </div>
-              
+
               {/* Items */}
               <div className="p-1.5">
                 {items.map((item, index) => {
                   const Icon = item.icon;
                   const isDestructive = item.color === "text-red-600";
-                  
+
                   return (
                     <button
                       key={index}
@@ -160,8 +161,8 @@ const ProfessionalDropdown = ({
                       className={`
                         flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm
                         transition-all duration-150
-                        ${isDestructive 
-                          ? 'text-red-600 hover:bg-red-50' 
+                        ${isDestructive
+                          ? 'text-red-600 hover:bg-red-50'
                           : 'text-gray-700 hover:bg-gray-100'
                         }
                         ${item.disabled ? 'opacity-50 cursor-not-allowed hover:bg-transparent' : 'cursor-pointer'}
@@ -217,8 +218,8 @@ const MobileActionSheet = ({
           className={`
             w-full max-w-sm bg-white rounded-2xl shadow-2xl
             transition-all duration-300 ease-out
-            ${isOpen 
-              ? 'opacity-100 scale-100 translate-y-0' 
+            ${isOpen
+              ? 'opacity-100 scale-100 translate-y-0'
               : 'opacity-0 scale-95 translate-y-4'
             }
           `}
@@ -241,7 +242,7 @@ const MobileActionSheet = ({
               {menuItems.map((item, index) => {
                 const Icon = item.icon;
                 const isDestructive = item.color === "text-red-600";
-                
+
                 return (
                   <button
                     key={index}
@@ -253,8 +254,8 @@ const MobileActionSheet = ({
                     className={`
                       flex flex-col items-center justify-center p-4 rounded-xl
                       transition-all duration-200
-                      ${isDestructive 
-                        ? 'text-red-600 hover:bg-red-50 active:bg-red-100' 
+                      ${isDestructive
+                        ? 'text-red-600 hover:bg-red-50 active:bg-red-100'
                         : 'text-gray-700 hover:bg-gray-100 active:bg-gray-200'
                       }
                       ${item.disabled ? 'opacity-50 pointer-events-none' : ''}
@@ -348,7 +349,7 @@ function MobileTransactionAccordion({
 
   const statusColumn = columns.find(col => col.key === "status");
   const statusValue = statusColumn ? transaction[statusColumn.key] : null;
-  
+
   const amountColumn = columns.find(col =>
     col.type === "currency" || col.type === "currency_with_sign"
   );
@@ -358,16 +359,16 @@ function MobileTransactionAccordion({
 
   const formatDate = (dateValue, format) => {
     if (!dateValue) return "-";
-    
+
     const parsedDate = dayjs(dateValue);
     if (parsedDate.isValid()) return parsedDate.format(format);
-    
+
     const formats = ["YYYY-MM-DD", "DD/MM/YYYY", "MM/DD/YYYY", "YYYY/MM/DD", "DD-MM-YYYY", "MM-DD-YYYY"];
     for (const fmt of formats) {
       const parsed = dayjs(dateValue, fmt);
       if (parsed.isValid()) return parsed.format(format);
     }
-    
+
     return dateValue;
   };
 
@@ -418,8 +419,8 @@ function MobileTransactionAccordion({
     }
 
     const displayValue = value || "-";
-    return truncate && typeof displayValue === 'string' && displayValue.length > 20 
-      ? displayValue.substring(0, 20) + "..." 
+    return truncate && typeof displayValue === 'string' && displayValue.length > 20
+      ? displayValue.substring(0, 20) + "..."
       : displayValue;
   };
 
@@ -444,9 +445,8 @@ function MobileTransactionAccordion({
           <div className="flex items-center gap-3">
             <BiChevronDown
               size={18}
-              className={`text-gray-400 transition-transform duration-200 ${
-                isExpanded ? "rotate-180" : ""
-              }`}
+              className={`text-gray-400 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""
+                }`}
             />
             <div className="text-left">
               <div className="flex items-center gap-2">
@@ -574,7 +574,7 @@ function MobileTransactionAccordion({
                 </span>
               ))}
             </div>
-            
+
             {!isExpanded && detailColumns.length > 2 && (
               <p className={`${currentSize.text} ${currentTheme.subtext} truncate mt-1 opacity-75`}>
                 {detailColumns.slice(2, 4).map((col, idx) => (
@@ -594,7 +594,7 @@ function MobileTransactionAccordion({
                 {renderValue(amountColumn, transaction[amountColumn.key], false)}
               </span>
             )}
-            
+
             {/* Professional 3-dots button */}
             <button
               onClick={(e) => {
@@ -713,16 +713,16 @@ function TransactionRow({
 
   const formatDate = (dateValue, format) => {
     if (!dateValue) return "-";
-    
+
     const parsedDate = dayjs(dateValue);
     if (parsedDate.isValid()) return parsedDate.format(format);
-    
+
     const formats = ["YYYY-MM-DD", "DD/MM/YYYY", "MM/DD/YYYY", "YYYY/MM/DD", "DD-MM-YYYY", "MM-DD-YYYY"];
     for (const fmt of formats) {
       const parsed = dayjs(dateValue, fmt);
       if (parsed.isValid()) return parsed.format(format);
     }
-    
+
     return dateValue;
   };
 
@@ -833,108 +833,7 @@ function TransactionRow({
   );
 }
 
-// Pagination Component (unchanged)
-const Pagination = ({ currentPage, totalPages, onPageChange, size = "medium" }) => {
-  const router = useRouter();
-  const searchParams = useSearchParams();
 
-  const getPageNumbers = () => {
-    const pages = [];
-    pages.push(1);
-
-    if (currentPage > 3) pages.push("ellipsis-start");
-    for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
-      pages.push(i);
-    }
-    if (currentPage < totalPages - 2) pages.push("ellipsis-end");
-    if (totalPages > 1) pages.push(totalPages);
-
-    return pages;
-  };
-
-  const handlePageClick = (page) => {
-    if (page === "ellipsis-start" || page === "ellipsis-end") return;
-    onPageChange(page);
-
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("page", page);
-    router.push(`?${params.toString()}`, { scroll: false });
-  };
-
-  const getButtonSize = () => {
-    switch (size) {
-      case "small": return "h-8 w-8 text-sm";
-      case "large": return "h-12 w-12 text-lg";
-      default: return "h-10 w-10";
-    }
-  };
-
-  const pageNumbers = getPageNumbers();
-
-  return (
-    <div className="flex items-center justify-center gap-2">
-      <button
-        onClick={() => handlePageClick(Math.max(1, currentPage - 1))}
-        disabled={currentPage === 1}
-        className={`
-          ${getButtonSize()} flex items-center justify-center rounded-lg
-          border border-gray-300 bg-white text-gray-700
-          disabled:opacity-50 disabled:cursor-not-allowed
-          hover:bg-gray-50 hover:border-gray-400
-          active:bg-gray-100 active:scale-95
-          transition-all duration-200
-        `}
-      >
-        <FaChevronLeft size={14} />
-      </button>
-
-      {pageNumbers.map((page, index) => {
-        if (page === "ellipsis-start" || page === "ellipsis-end") {
-          return (
-            <span
-              key={`ellipsis-${index}`}
-              className={`${getButtonSize()} flex items-center justify-center text-gray-500`}
-            >
-              <FaEllipsisH size={14} />
-            </span>
-          );
-        }
-
-        return (
-          <button
-            key={page}
-            onClick={() => handlePageClick(page)}
-            className={`
-              ${getButtonSize()} flex items-center justify-center rounded-lg border font-medium
-              transition-all duration-200 transform active:scale-95
-              ${currentPage === page
-                ? "border-blue-500 bg-blue-50 text-blue-600 shadow-sm"
-                : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400"
-              }
-            `}
-          >
-            {page}
-          </button>
-        );
-      })}
-
-      <button
-        onClick={() => handlePageClick(Math.min(totalPages, currentPage + 1))}
-        disabled={currentPage === totalPages}
-        className={`
-          ${getButtonSize()} flex items-center justify-center rounded-lg
-          border border-gray-300 bg-white text-gray-700
-          disabled:opacity-50 disabled:cursor-not-allowed
-          hover:bg-gray-50 hover:border-gray-400
-          active:bg-gray-100 active:scale-95
-          transition-all duration-200
-        `}
-      >
-        <FaChevronRight size={14} />
-      </button>
-    </div>
-  );
-};
 
 // Main TransactionsTable Component (unchanged but with updated imports)
 export default function TransactionsTable({
@@ -1308,7 +1207,7 @@ export default function TransactionsTable({
     {
       label: "Duplicate",
       icon: FaRegCopy,
-      action: () => {},
+      action: () => { },
     },
     {
       label: "Delete",

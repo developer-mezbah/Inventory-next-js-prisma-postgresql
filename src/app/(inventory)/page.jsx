@@ -2,6 +2,7 @@ import GetCurrencty from "@/components/home/GetCurrencty";
 import SalesDashboard from "@/components/home/SalesDashboard";
 import client_api from "@/utils/API_FETCH";
 import { getCompanyId } from "@/utils/GetCompanyId";
+import dayjs from "dayjs";
 import Link from "next/link";
 import { BsGraphUp } from "react-icons/bs";
 import {
@@ -572,7 +573,7 @@ export default async function DashboardPage({ searchParams }) {
                       <p className="text-sm font-medium text-gray-900 truncate">
                         {transaction.party?.partyName || "No Party"}
                       </p>
-                      <div className="flex items-center mt-1">
+                      <div className="flex flex-wrap gap-1 items-center mt-1">
                         <span
                           className={`text-xs px-2 py-0.5 rounded-full ${transaction.type === "Sale"
                             ? "bg-green-100 text-green-800"
@@ -583,7 +584,8 @@ export default async function DashboardPage({ searchParams }) {
                         </span>
                         <span className="text-xs text-gray-500 ml-2">
                           <FiCalendar className="h-3 w-3 inline mr-1" />
-                          {new Date().toLocaleDateString()}
+                          {/* {new Date().toLocaleDateString()} */}
+                          {dayjs(transaction?.createdAt).format("DD MMM YYYY")}
                         </span>
                       </div>
                     </div>

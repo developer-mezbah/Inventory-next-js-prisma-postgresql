@@ -94,6 +94,7 @@ model Company {
   currencies       Currency[]
   expenses         Expense[]
   loanAccounts     LoanAccount[] // Added loan accounts relation
+  setting          Setting?         
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 }
@@ -425,4 +426,13 @@ model LoanAccount {
   companyId               String
   company                 Company       @relation(fields: [companyId], references: [id])
   transactions            Transaction[] // Relation to track loan transactions
+}
+
+
+// All kink of setting
+model Setting {                       // PascalCase naming
+  id        String   @id @default(cuid())
+  formSettings     Json?
+  company   Company  @relation(fields: [companyId], references: [id])
+  companyId String   @unique    
 }

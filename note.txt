@@ -19,6 +19,11 @@ npx prisma generate
     refetch,
   } = useFetchData("/api/categories", ["category"]);
 
+  client_api.create('/api/categories', 'your_token_here', {
+            name: newCategory.name,
+            subcategories: newCategory.subcategories.map((sub, i) => ({ id: i + 1, name: sub })),
+        }).then
+
   https://web.hishabee.business/
 
 ======================= Item Modal ============================
@@ -69,3 +74,6 @@ new Date(dataToUpsert?.adjustmentDate.replace(/[\[\]]/g, ''))
 
   aabulkhair68808@gmail.com
   Aa123456@
+
+
+  https://react-hot-toast.com/
