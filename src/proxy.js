@@ -85,13 +85,13 @@ export async function proxy(request) {
     }
 
     // 🟢 3️⃣ CHECK FOR VALID SESSION
-    if (!token) {
-      console.log(`No token found for path: ${pathname}`);
-      const loginUrl = new URL("/auth/login", request.url);
-      loginUrl.searchParams.set("callbackUrl", pathname);
-      NextResponse.redirect(loginUrl);
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-    }
+    // if (!token) {
+    //   console.log(`No token found for path: ${pathname}`);
+    //   const loginUrl = new URL("/auth/login", request.url);
+    //   loginUrl.searchParams.set("callbackUrl", pathname);
+    //   NextResponse.redirect(loginUrl);
+    //   return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    // }
 
     // 🟢 4️⃣ CHECK FOR COMPANY ID FOR PROTECTED ROUTES
     if (!companyId && !isTokenOnlyRoute) {
