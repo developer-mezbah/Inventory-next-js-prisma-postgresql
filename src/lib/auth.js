@@ -8,6 +8,7 @@ export const authOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      allowDangerousEmailAccountLinking: true, // Helps with account linking
     }),
     CredentialsProvider({
       name: "Credentials",
@@ -16,33 +17,38 @@ export const authOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          throw new Error("Invalid credentials");
+        try {
+          if (!credentials?.email || !credentials?.password) {
+            throw new Error("Missing credentials");
+          }
+
+          const user = await prisma.user.findUnique({
+            where: { email: credentials.email },
+          });
+
+          if (!user || !user.password) {
+            throw new Error("Invalid email or password");
+          }
+
+          const isPasswordValid = await bcrypt.compare(
+            credentials.password,
+            user.password
+          );
+
+          if (!isPasswordValid) {
+            throw new Error("Invalid email or password");
+          }
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            image: user.image,
+          };
+        } catch (error) {
+          console.error("Authorize error:", error);
+          throw new Error("Authentication failed");
         }
-
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
-        });
-
-        if (!user || !user.password) {
-          throw new Error("Invalid credentials");
-        }
-
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password,
-          user.password
-        );
-
-        if (!isPasswordValid) {
-          throw new Error("Invalid credentials");
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.image,
-        };
       },
     }),
   ],
@@ -52,57 +58,66 @@ export const authOptions = {
   },
   callbacks: {
     async signIn({ user, account, profile }) {
-      if (account?.provider === "google") {
-        try {
-          // First, try to find existing user
-          let dbUser = await prisma.user.findUnique({
+      try {
+        if (account?.provider === "google") {
+          // Use upsert to handle race conditions
+          const dbUser = await prisma.user.upsert({
             where: { email: user.email },
+            update: {
+              name: user.name,
+              image: user.image,
+              updatedAt: new Date(),
+            },
+            create: {
+              email: user.email,
+              name: user.name,
+              image: user.image,
+            },
           });
 
-          // If user doesn't exist, create new user
-          if (!dbUser) {
-            dbUser = await prisma.user.create({
-              data: {
-                email: user.email,
-                name: user.name,
-                image: user.image,
-              },
-            });
-          }
-
-          // IMPORTANT: Attach the database user ID to the user object
-          // This ensures it's passed to the jwt callback
+          // Attach the database user ID to the user object
           user.id = dbUser.id;
-        } catch (error) {
-          console.error("Error in signIn callback:", error);
-          return false;
         }
+        return true;
+      } catch (error) {
+        console.error("SignIn callback error:", error);
+        return false;
       }
-      return true;
     },
 
-    async jwt({ token, user, trigger, session }) {
-      // When user first signs in, user object is available
-      if (user) {
-        token.id = user.id; // This now contains your MongoDB ID
+    async jwt({ token, user, account, trigger, session }) {
+      // Initial sign in
+      if (account && user) {
+        return {
+          ...token,
+          id: user.id,
+          provider: account.provider,
+          accessToken: account.access_token,
+        };
       }
 
-      if (trigger === "update") {
-        token.name = session.name;
-        token.image = session.image;
-        token.phoneNumber = session.phoneNumber;
-        token.role = session.role;
+      // Handle session updates
+      if (trigger === "update" && session) {
+        token = { ...token, ...session };
       }
 
       return token;
     },
 
     async session({ session, token }) {
-      if (session.user) {
+      if (session?.user) {
         session.user.id = token.id;
-        session.user.phoneNumber = token.phoneNumber;
-        session.user.role = token.role;
-        session.user.image = token.image;
+        session.user.email = token.email;
+        session.user.name = token.name;
+        session.user.image = token.picture;
+        
+        // Add custom fields if they exist
+        if (token.phoneNumber) {
+          session.user.phoneNumber = token.phoneNumber;
+        }
+        if (token.role) {
+          session.user.role = token.role;
+        }
       }
       return session;
     },
@@ -111,5 +126,9 @@ export const authOptions = {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
+  jwt: {
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
   secret: process.env.NEXTAUTH_SECRET,
+  debug: process.env.NODE_ENV === "development", // Enable debug logs in development
 };

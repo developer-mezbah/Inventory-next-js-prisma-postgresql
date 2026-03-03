@@ -26,7 +26,11 @@ import {
 // Updated DashboardPage component - add these new sections
 export default async function DashboardPage({ searchParams }) {
   const params = await searchParams;
+
   const data = await client_api.get(`${process.env.BASE_URL}/api/dashboard?period=${params?.period || "thisMonth"}&companyId=${await getCompanyId()}`);
+
+
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
@@ -47,7 +51,7 @@ export default async function DashboardPage({ searchParams }) {
               <p className="text-gray-600 mt-2">
                 Welcome back to{" "}
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                  {data.company.name}
+                  {data?.company?.name || "Your Company"}
                 </span>
                 •{" "}
                 {new Date().toLocaleDateString("en-US", {
@@ -96,7 +100,7 @@ export default async function DashboardPage({ searchParams }) {
             <p className="text-sm text-gray-500 mb-2">Cash Balance</p>
             <div className="flex items-baseline">
               <span className="text-2xl font-bold text-gray-900">
-                <GetCurrencty /> {data.cashBalance.toFixed(2)}
+                {/* <GetCurrencty /> {data?.cashBalance.toFixed(2)} */}
               </span>
             </div>
             <div className="mt-4 pt-4 border-t border-gray-100">
@@ -375,89 +379,89 @@ export default async function DashboardPage({ searchParams }) {
           </div>
         </div>
 
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-8">
-  <div className="flex items-center justify-between mb-6">
-    <div>
-      <h3 className="text-lg font-semibold text-gray-900">Cash & Bank Accounts</h3>
-      <p className="text-sm text-gray-500">Current opening balances</p>
-    </div>
-  </div>
-
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-    {/* DYNAMIC ACCOUNTS WILL BE MAPPED HERE */}
-    {data?.accounts.map((account, index) => {
-      // Determine color theme based on index (circular pattern)
-      let theme;
-      const colorIndex = index % 3; // This will cycle through 0, 1, 2
-      
-      if (colorIndex === 0) {
-        theme = {
-          gradient: 'from-blue-50 to-blue-100',
-          border: 'border-blue-200',
-          textColor: 'text-blue-800',
-          iconColor: 'text-blue-600',
-        };
-      } else if (colorIndex === 1) {
-        theme = {
-          gradient: 'from-green-50 to-green-100',
-          border: 'border-green-200',
-          textColor: 'text-green-800',
-          iconColor: 'text-green-600',
-        };
-      } else {
-        theme = {
-          gradient: 'from-purple-50 to-purple-100',
-          border: 'border-purple-200',
-          textColor: 'text-purple-800',
-          iconColor: 'text-purple-600',
-        };
-      }
-
-      // Check if balance is negative
-      const isNegativeBalance = parseFloat(account.openingbalance) < 0;
-      
-      return (
-        <div
-          key={account.id}
-          className={`bg-gradient-to-r ${theme.gradient} rounded-xl p-4 border ${theme.border}`}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <span className={`text-sm font-medium ${theme.textColor} truncate`}>
-              {account.accountdisplayname}
-            </span>
-
-            {/* Icon based on account type - keeping the icon logic from original */}
-            {account.type === 'cash' ? (
-              <svg className={`h-5 w-5 ${theme.iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-            ) : account.type === 'online' ? (
-              <svg className={`h-5 w-5 ${theme.iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-              </svg>
-            ) : (
-              <svg className={`h-5 w-5 ${theme.iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-              </svg>
-            )}
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Cash & Bank Accounts</h3>
+              <p className="text-sm text-gray-500">Current opening balances</p>
+            </div>
           </div>
 
-          {/* Balance with conditional red color */}
-          <p className={`text-2xl font-bold mb-1 ${isNegativeBalance ? 'text-red-600' : 'text-gray-900'}`}>
-            <GetCurrencty />
-            {account.openingbalance}
-          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* DYNAMIC ACCOUNTS WILL BE MAPPED HERE */}
+            {data?.accounts.map((account, index) => {
+              // Determine color theme based on index (circular pattern)
+              let theme;
+              const colorIndex = index % 3; // This will cycle through 0, 1, 2
 
-          {account.asOfDate && (
-            <p className="text-xs text-gray-600">
-              As of: {account.asOfDate}
-            </p>
-          )}
+              if (colorIndex === 0) {
+                theme = {
+                  gradient: 'from-blue-50 to-blue-100',
+                  border: 'border-blue-200',
+                  textColor: 'text-blue-800',
+                  iconColor: 'text-blue-600',
+                };
+              } else if (colorIndex === 1) {
+                theme = {
+                  gradient: 'from-green-50 to-green-100',
+                  border: 'border-green-200',
+                  textColor: 'text-green-800',
+                  iconColor: 'text-green-600',
+                };
+              } else {
+                theme = {
+                  gradient: 'from-purple-50 to-purple-100',
+                  border: 'border-purple-200',
+                  textColor: 'text-purple-800',
+                  iconColor: 'text-purple-600',
+                };
+              }
+
+              // Check if balance is negative
+              const isNegativeBalance = parseFloat(account.openingbalance) < 0;
+
+              return (
+                <div
+                  key={account.id}
+                  className={`bg-gradient-to-r ${theme.gradient} rounded-xl p-4 border ${theme.border}`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`text-sm font-medium ${theme.textColor} truncate`}>
+                      {account.accountdisplayname}
+                    </span>
+
+                    {/* Icon based on account type - keeping the icon logic from original */}
+                    {account.type === 'cash' ? (
+                      <svg className={`h-5 w-5 ${theme.iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                    ) : account.type === 'online' ? (
+                      <svg className={`h-5 w-5 ${theme.iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                      </svg>
+                    ) : (
+                      <svg className={`h-5 w-5 ${theme.iconColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                      </svg>
+                    )}
+                  </div>
+
+                  {/* Balance with conditional red color */}
+                  <p className={`text-2xl font-bold mb-1 ${isNegativeBalance ? 'text-red-600' : 'text-gray-900'}`}>
+                    <GetCurrencty />
+                    {account.openingbalance}
+                  </p>
+
+                  {account.asOfDate && (
+                    <p className="text-xs text-gray-600">
+                      As of: {account.asOfDate}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
-      );
-    })}
-  </div>
-</div>
 
         {/* Additional Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -611,7 +615,7 @@ export default async function DashboardPage({ searchParams }) {
         <div className="pt-6 border-t border-gray-200">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between">
             <p className="text-sm text-gray-500">
-              © {new Date().getFullYear()} {data.company.name}. All rights
+              © {new Date().getFullYear()} {data?.company?.name || "Company Name"}. All rights
               reserved.
             </p>
             <div className="flex items-center gap-4 mt-2 md:mt-0">

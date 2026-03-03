@@ -1,6 +1,4 @@
-import IsExistCompany from "@/components/IsExistCompany";
 import SessionProvider from "@/components/session-provider";
-import { getCompanyId } from "@/utils/GetCompanyId";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ToastContainer } from "react-toastify";
 import "./globals.css";
@@ -21,7 +19,6 @@ export const metadata = {
 };
 
 export default async function RootLayout({ children }) {
-  const companyId = await getCompanyId();
 
   return (
     <html lang="en">
@@ -29,7 +26,7 @@ export default async function RootLayout({ children }) {
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <SessionProvider>
-          <IsExistCompany companyId={companyId} />
+          {/* <IsExistCompany companyId={companyId} /> */}
           {children}
           <ToastContainer />
         </SessionProvider>

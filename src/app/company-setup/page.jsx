@@ -260,12 +260,14 @@ export default function CompanyListPage() {
   const [searchQuery, setSearchQuery] = useState("");
   // const [companies, setCompanies] = useState([])
   const { data: session, status } = useSession();
+
   const {
     isInitialLoading,
     error,
     data = [],
     refetch,
   } = useFetchData(`/api/company?userId=${session?.user?.id}`, ["comapny"]);
+
 
   // Use the URL hash to set the active tab on mount and hash change
   useEffect(() => {
