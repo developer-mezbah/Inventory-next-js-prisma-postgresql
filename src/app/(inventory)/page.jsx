@@ -127,7 +127,7 @@ export default async function DashboardPage({ searchParams }) {
             <p className="text-sm text-gray-500 mb-2">Total Receivable</p>
             <div className="flex items-baseline">
               <span className="text-2xl font-bold text-gray-900">
-                <GetCurrencty /> {data.totalReceivable.toFixed(2)}
+                <GetCurrencty /> {data.totalReceivable && data?.totalReceivable.toFixed(2)}
               </span>
             </div>
             <div className="mt-4 pt-4 border-t border-gray-100">
@@ -149,7 +149,7 @@ export default async function DashboardPage({ searchParams }) {
             <p className="text-sm text-gray-500 mb-2">Overdue Invoices</p>
             <div className="flex items-baseline">
               <span className="text-2xl font-bold text-gray-900">
-                {data.overdueInvoices}
+                {data?.overdueInvoices && data?.overdueInvoices}
               </span>
               <span className="text-sm text-gray-500 ml-2">invoices</span>
             </div>
@@ -167,21 +167,21 @@ export default async function DashboardPage({ searchParams }) {
               <div className="p-3 bg-gradient-to-br from-green-50 to-green-100 rounded-xl">
                 <FiTrendingUp className="h-6 w-6 text-green-600" />
               </div>
-              <div className={`flex items-center px-2 py-1 ${data.profitLoss.margin >= 0 ? 'bg-green-50' : 'bg-red-50'} rounded-lg`}>
-                {data.profitLoss.margin >= 0 ? (
+              <div className={`flex items-center px-2 py-1 ${data?.profitLoss?.margin >= 0 ? 'bg-green-50' : 'bg-red-50'} rounded-lg`}>
+                {data?.profitLoss?.margin >= 0 ? (
                   <FiArrowUpRight className="h-4 w-4 text-green-600 mr-1" />
                 ) : (
                   <FiArrowDownRight className="h-4 w-4 text-red-600 mr-1" />
                 )}
-                <span className={`text-xs font-medium ${data.profitLoss.margin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {data.profitLoss.margin >= 0 ? '+' : ''}{data.profitLoss.margin.toFixed(1)}%
+                <span className={`text-xs font-medium ${data?.profitLoss?.margin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {data?.profitLoss?.margin >= 0 ? '+' : ''}{data?.profitLoss?.margin.toFixed(1)}%
                 </span>
               </div>
             </div>
             <p className="text-sm text-gray-500 mb-2">Profit Margin</p>
             <div className="flex items-baseline">
               <span className="text-2xl font-bold text-gray-900">
-                <GetCurrencty /> {data.profitLoss.profit.toFixed(2)}
+                <GetCurrencty /> {data?.profitLoss?.profit.toFixed(2)}
               </span>
             </div>
             <div className="mt-4 pt-4 border-t border-gray-100">
@@ -203,7 +203,7 @@ export default async function DashboardPage({ searchParams }) {
             <p className="text-sm text-gray-500 mb-2">Total Payable</p>
             <div className="flex items-baseline">
               <span className="text-2xl font-bold text-gray-900">
-                <GetCurrencty /> {data.totalPayable.toFixed(2)}
+                <GetCurrencty /> {data?.totalPayable && data?.totalPayable.toFixed(2)}
               </span>
             </div>
             <div className="mt-4 pt-4 border-t border-gray-100">
@@ -227,7 +227,7 @@ export default async function DashboardPage({ searchParams }) {
             <p className="text-sm text-gray-500 mb-2">Total Expenses</p>
             <div className="flex items-baseline">
               <span className="text-2xl font-bold text-gray-900">
-                <GetCurrencty /> {data.totalExpenses.toFixed(2)}
+                <GetCurrencty /> {data?.totalExpenses?.toFixed(2)}
               </span>
             </div>
             <div className="mt-4 pt-4 border-t border-gray-100">
@@ -285,7 +285,7 @@ export default async function DashboardPage({ searchParams }) {
             <p className="text-sm text-gray-500 mb-2">Total Sales</p>
             <div className="flex items-baseline">
               <span className="text-2xl font-bold text-gray-900">
-                <GetCurrencty /> {data.totalSales.toFixed(2)}
+                <GetCurrencty /> {data?.totalSales && data?.totalSales.toFixed(2)}
               </span>
             </div>
             <div className="mt-4 pt-4 border-t border-gray-100">
@@ -309,7 +309,7 @@ export default async function DashboardPage({ searchParams }) {
               </Link>
             </div>
             <div className="space-y-4">
-              {data.topCustomers.map((customer, index) => (
+              {data.topCustomer && data?.topCustomers.map((customer, index) => (
                 <div key={customer.partyId || index} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg">
                   <div className="flex items-center">
                     <div className="w-8 h-8 flex items-center justify-center rounded-full bg-gradient-to-r from-blue-500 to-purple-500 text-white font-semibold mr-3">
@@ -328,7 +328,7 @@ export default async function DashboardPage({ searchParams }) {
                   </div>
                 </div>
               ))}
-              {data.topCustomers.length === 0 && (
+              {data?.topCustomers && data?.topCustomers.length === 0 && (
                 <div className="text-center py-8 text-gray-500">
                   <FiAlertCircle className="h-12 w-12 mx-auto mb-3 opacity-50" />
                   <p>No customer data available</p>
@@ -350,7 +350,7 @@ export default async function DashboardPage({ searchParams }) {
               </Link>
             </div>
             <div className="space-y-4">
-              {data.topProducts.map((product, index) => (
+              {data.topProducts && data?.topProducts.map((product, index) => (
                 <div key={product.itemId || index} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg">
                   <div className="flex items-center">
                     <div className="w-8 h-8 flex items-center justify-center rounded-full bg-gradient-to-r from-green-500 to-teal-500 text-white font-semibold mr-3">
@@ -369,7 +369,7 @@ export default async function DashboardPage({ searchParams }) {
                   </div>
                 </div>
               ))}
-              {data.topProducts.length === 0 && (
+              {data?.topProducts && data?.topProducts.length === 0 && (
                 <div className="text-center py-8 text-gray-500">
                   <FiAlertCircle className="h-12 w-12 mx-auto mb-3 opacity-50" />
                   <p>No product data available</p>
@@ -389,7 +389,7 @@ export default async function DashboardPage({ searchParams }) {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* DYNAMIC ACCOUNTS WILL BE MAPPED HERE */}
-            {data?.accounts.map((account, index) => {
+            {data?.accounts && data?.accounts.map((account, index) => {
               // Determine color theme based on index (circular pattern)
               let theme;
               const colorIndex = index % 3; // This will cycle through 0, 1, 2
@@ -477,7 +477,7 @@ export default async function DashboardPage({ searchParams }) {
                 </div>
                 <p className="text-2xl font-bold text-gray-900">
                   <GetCurrencty />
-                  {data.purchaseData.purchases.toFixed(2)}
+                  {data?.purchaseData?.purchases && data.purchaseData.purchases.toFixed(2)}
                 </p>
                 <p className="text-sm text-amber-700 mt-1">
                   Total purchases this quarter
@@ -499,7 +499,7 @@ export default async function DashboardPage({ searchParams }) {
                 </div>
                 <p className="text-2xl font-bold text-gray-900">
                   <GetCurrencty />
-                  {data.purchaseData.sales.toFixed(2)}
+                  {data?.purchaseData?.sales && data.purchaseData.sales.toFixed(2)}
                 </p>
                 <p className="text-sm text-teal-700 mt-1">
                   Last 7 days revenue
@@ -555,7 +555,7 @@ export default async function DashboardPage({ searchParams }) {
               </div>
             </div>
             <div className="divide-y divide-gray-100 max-h-[400px]">
-              {data.recentTransactions.map((transaction) => (
+              {data?.recentTransactions && data.recentTransactions.map((transaction) => (
                 <div
                   key={transaction.id}
                   className="p-4 hover:bg-gray-50 transition-colors duration-150"
