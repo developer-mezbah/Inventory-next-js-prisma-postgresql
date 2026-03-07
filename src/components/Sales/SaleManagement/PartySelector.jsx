@@ -134,11 +134,11 @@ export default function PartySelector({
   const mapPartyData = (data) =>
     data
       ? data.map((item) => ({
-          id: item?.id,
-          name: item?.partyName,
-          balance: item?.creditBalance?.openingBalance || 0, // Ensure balance is number
-          ...item, // Keep all original properties
-        }))
+        id: item?.id,
+        name: item?.partyName,
+        balance: item?.creditBalance?.openingBalance || 0, // Ensure balance is number
+        ...item, // Keep all original properties
+      }))
       : [];
 
   const { currencySymbol, formatPrice } = useCurrencyStore();
@@ -148,7 +148,7 @@ export default function PartySelector({
   // State management
   const [parties, setParties] = useState(initialParties);
   const [isOpen, setIsOpen] = useState(false);
-  // Renamed newPartyName to mainInputValue for clarity of where it's used
+  // Initialize mainInputValue with selectedParty name if it exists
   const [mainInputValue, setMainInputValue] = useState(
     selectedParty ? selectedParty.name : ""
   );
@@ -169,10 +169,11 @@ export default function PartySelector({
     setParties(mapPartyData(partyData));
   }, [partyData]);
 
+  // Update mainInputValue when selectedParty changes (including tab changes)
   useEffect(() => {
-    if (selectedParty && selectedParty.name !== mainInputValue) {
+    if (selectedParty) {
       setMainInputValue(selectedParty.name);
-    } else if (!selectedParty) {
+    } else {
       setMainInputValue("");
     }
   }, [selectedParty]);
@@ -188,19 +189,22 @@ export default function PartySelector({
     if (isNewPartyCandidate) {
       // Call the prop with the desired object structure
       setNewParty(mainInputValue);
+
+      // FIXED: Create a temporary party object for manually entered names
+      // This ensures the name persists when switching tabs
+      const tempParty = {
+        id: `temp-${Date.now()}`,
+        name: mainInputValue,
+        isTemporary: true
+      };
+      onSelect(tempParty);
     } else if (!isNewPartyCandidate && mainInputValue.trim() !== "") {
-      // Clear the new party suggestion if the name now matches an existing one
-      // or if it was cleared and we want to ensure setNewParty is called with null/empty if the name matches a party in the list.
-      // You might need to refine this based on your specific backend logic for 'new' vs 'selected'.
-      // For now, we only call setNewParty if it's a *new* party candidate.
-      // If a party is selected, `onSelect` handles it.
-      // If the input is cleared, it should send null to clear the new party state.
       setNewParty(null);
     } else if (mainInputValue.trim() === "") {
       setNewParty(null);
       setPhoneNumber("");
     }
-  }, [mainInputValue, parties, setNewParty]); // Depend on mainInputValue, parties, and setNewParty
+  }, [mainInputValue, parties, setNewParty, onSelect]);
 
   // Handle input change for main input field
   const handleMainInputChange = (e) => {
@@ -229,14 +233,14 @@ export default function PartySelector({
   // Filtering logic: Use dropdownSearchTerm if dropdown is open, otherwise use mainInputValue
   const currentSearchTerm = isOpen ? dropdownSearchTerm : mainInputValue;
   const filteredParties = parties.filter((party) =>
-    party.name.toLowerCase().includes(currentSearchTerm.toLowerCase())
+    party?.name.toLowerCase().includes(currentSearchTerm && currentSearchTerm?.toLowerCase())
   );
 
   // Select a party from the dropdown
   const handleSelectParty = (party) => {
     onSelect(party);
     setPhoneNumber(party?.phoneNumber || "");
-    setMainInputValue(party.name);
+    setMainInputValue(party?.name);
     setIsOpen(false);
     setDropdownSearchTerm(""); // Clear dropdown search on selection
   };
@@ -311,9 +315,8 @@ export default function PartySelector({
                 setSelectedParty(null);
               }
             }}
-            placeholder={`Inter ${
-              mode === "sale" ? "Customer" : "Party"
-            } Name *`}
+            placeholder={`Inter ${mode === "sale" ? "Customer" : "Party"
+              } Name *`}
             className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-left focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10 shadow-sm transition duration-150"
             aria-expanded={isOpen}
           />
@@ -325,9 +328,8 @@ export default function PartySelector({
             aria-label={isOpen ? "Close dropdown" : "Open dropdown"}
           >
             <BiChevronDown
-              className={`w-5 h-5 transition-transform ${
-                isOpen ? "transform rotate-180" : ""
-              }`}
+              className={`w-5 h-5 transition-transform ${isOpen ? "transform rotate-180" : ""
+                }`}
             />
           </button>
         </div>
@@ -357,11 +359,10 @@ export default function PartySelector({
                   <button
                     key={party.id}
                     onClick={() => handleSelectParty(party)}
-                    className={`w-full px-4 py-3 text-left hover:bg-blue-50 border-b border-gray-100 transition-colors flex justify-between items-center ${
-                      selectedParty && selectedParty.id === party.id
+                    className={`w-full px-4 py-3 text-left hover:bg-blue-50 border-b border-gray-100 transition-colors flex justify-between items-center ${selectedParty && selectedParty.id === party.id
                         ? "bg-blue-100 font-semibold"
                         : ""
-                    }`}
+                      }`}
                   >
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-gray-900 text-sm truncate">
@@ -370,23 +371,22 @@ export default function PartySelector({
                     </div>
                     <div className="text-right ml-4 flex flex-col justify-center items-end">
                       <p
-                        className={`font-bold text-sm ${
-                          party?.openingBalance
+                        className={`font-bold text-sm ${party?.openingBalance
                             ? party?.balanceType === "ToReceive"
                               ? "text-green-600"
                               : "text-red-600"
                             : "text-gray-500" // Fallback color if no opening balance exists
-                        }`}
+                          }`}
                       >
                         {
                           party.openingBalance
                             ? parseFloat(party.openingBalance) >= 0
                               ? `${currencySymbol}${parseFloat(
-                                  party.openingBalance
-                                ).toFixed(2)}`
+                                party.openingBalance
+                              ).toFixed(2)}`
                               : `-${currencySymbol}${Math.abs(
-                                  parseFloat(party.openingBalance)
-                                ).toFixed(2)}`
+                                parseFloat(party.openingBalance)
+                              ).toFixed(2)}`
                             : `${currencySymbol}0.00` // Default to $0.00 if openingBalance is null/undefined/empty
                         }
                       </p>

@@ -52,13 +52,11 @@ const getDefaultClasses = (size, error) => {
   };
 
   return {
-    container: `relative bg-white border rounded-lg transition-all ${
-      error ? 'border-red-500' : 'border-gray-300'
-    } hover:border-blue-400 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100`,
+    container: `relative bg-white border rounded-lg transition-all ${error ? 'border-red-500' : 'border-gray-300'
+      } hover:border-blue-400 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100`,
     picker: `w-full border-0 focus:outline-none focus:ring-0 ${sizePadding[size] || sizePadding.medium}`,
-    label: `flex items-center gap-2 font-medium text-gray-700 mb-1 ${
-      size === 'small' ? 'text-xs' : size === 'large' ? 'text-base' : 'text-sm'
-    }`,
+    label: `flex items-center gap-2 font-medium text-gray-700 mb-1 ${size === 'small' ? 'text-xs' : size === 'large' ? 'text-base' : 'text-sm'
+      }`,
     icon: size === 'small' ? 'text-sm' : size === 'large' ? 'text-lg' : 'text-base',
   };
 };
@@ -89,10 +87,10 @@ const CustomDatePicker = ({
 
   // Icon selection based on prop
   const getIcon = () => {
-    const iconClass = floatingDesign 
-      ? "text-gray-400" 
+    const iconClass = floatingDesign
+      ? "text-gray-400"
       : `text-gray-400 ${getDefaultClasses(size, error).icon}`;
-    
+
     switch (icon) {
       case 'calendar':
         return <FaCalendarAlt className={iconClass} />;
@@ -126,24 +124,28 @@ const CustomDatePicker = ({
         onChange={handleDateChange}
         defaultValue={defaultValue ? dayjs(defaultValue) : (showToday ? today : null)}
         format={format}
-        placeholder=" " // Empty placeholder for floating effect
+        placeholder={placeholder || "Select date"} // Empty placeholder for floating effect
         disabled={disabled}
         size={size === 'large' ? 'large' : size === 'small' ? 'small' : 'middle'}
         className={classes.picker}
-        style={{padding: padding}}
+        style={{ padding: padding }}
         disabledDate={disabledDate}
         minDate={minDate ? dayjs(minDate) : null}
         maxDate={maxDate ? dayjs(maxDate) : null}
         allowClear
         suffixIcon={null} // Hide default suffix icon
-        popupClassName="custom-datepicker-popup"
+        classNames={{
+          popup: {
+            root: classes.popup,
+          },
+        }}
       />
-      
+
       {/* Floating Label */}
       <label className={classes.label}>
         {label} {required && <span className="text-red-500">*</span>}
       </label>
-      
+
       {/* Custom Icon */}
       {icon && (
         <div className={classes.icon}>
@@ -175,13 +177,17 @@ const CustomDatePicker = ({
           disabled={disabled}
           size={size === 'large' ? 'large' : size === 'small' ? 'small' : 'middle'}
           className={classes.picker}
-        style={{padding: padding}}
+          style={{ padding: padding }}
           disabledDate={disabledDate}
           minDate={minDate ? dayjs(minDate) : null}
           maxDate={maxDate ? dayjs(maxDate) : null}
           allowClear
           suffixIcon={<span>{getIcon()}</span>}
-          popupClassName="custom-datepicker-popup"
+          classNames={{
+            popup: {
+              root: classes.popup,
+            },
+          }}
         />
       </div>
     </>

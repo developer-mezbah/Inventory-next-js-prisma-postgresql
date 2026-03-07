@@ -72,7 +72,7 @@ function SearchableItemInput({
   autoAddItem,
 }) {
   // searchTerm now ONLY controls the main input box value (for item name)
-  const [searchTerm, setSearchTerm] = useState(value);
+  const [searchTerm, setSearchTerm] = useState(value || "");
   // NEW: searchFilter controls the search input within the dropdown
   const [searchFilter, setSearchFilter] = useState("");
   const [activeItemName, setActiveItemName] = useState("");
@@ -83,7 +83,7 @@ function SearchableItemInput({
   // Use the new item structure properties: id, itemName, salePrice, stock.openingQuantity
   // Filter based on the searchFilter state
   const filteredItems = (availableItems || []).filter((item) =>
-    item.itemName.toLowerCase().includes(searchFilter.toLowerCase())
+    item.itemName?.toLowerCase().includes(searchFilter.toLowerCase())
   );
 
   const handleSelect = (item) => {
@@ -176,7 +176,7 @@ function SearchableItemInput({
           {/* Main Input Box (Input/Enter Item Name) - REMOVED FiSearch, adjusted padding/placeholder */}
           <input
             type="text"
-            value={searchTerm}
+            value={searchTerm || ""}
             onChange={handleMainInputChange} // Use new handler
             // onFocus={() => setIsOpen(true)}
             onBlur={(e) => handleChangeItem(e)}
@@ -207,7 +207,7 @@ function SearchableItemInput({
               <FiSearch className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                value={searchFilter}
+                value={searchFilter || ""}
                 onChange={handleSearchFilterChange}
                 placeholder="Search available items..."
                 className="w-full pl-8 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
@@ -357,7 +357,7 @@ export default function ItemsTable({
                   <td className="px-4 py-3 text-gray-600">{index + 1}</td>
                   <td className="px-4 py-3">
                     <SearchableItemInput
-                      value={item.item}
+                      value={item.item || ""}
                       onChange={onUpdateItem}
                       type={type}
                       autoAddItem={autoAddItem}
@@ -376,7 +376,7 @@ export default function ItemsTable({
                     <input
                       type="number"
                       min="0"
-                      value={item.qty}
+                      value={item.qty ?? 1}
                       onChange={(e) =>
                         onUpdateItem(
                           item.id,
@@ -389,7 +389,7 @@ export default function ItemsTable({
                   </td>
                   <td className="px-4 py-3">
                     <select
-                      value={item.unit}
+                      value={item.unit || "None"}
                       // defaultValue={item?.unit}
                       onChange={(e) =>
                         onUpdateItem(item.id, "unit", e.target.value)
@@ -408,7 +408,7 @@ export default function ItemsTable({
                       type="number"
                       min="0"
                       step="0.01"
-                      value={item?.price}
+                      value={item?.price ?? 0}
                       placeholder="0"
                       // New: Clear the value property if it's 0 when the input gets focus
                       onFocus={(e) => {

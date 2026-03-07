@@ -42,6 +42,7 @@ async function handleCash(body) {
     //         companyId: await getCompanyId(),
     //     },
     // });
+
     const res = await prisma.CashAdjustment.upsert({
       where: {
         userId: body?.userId,
@@ -160,6 +161,7 @@ export async function POST(req) {
 
     const newPartyId = await handleParty(body);
     const cashId = await handleCash(body);
+
 
     const salePucaseData = {
       balanceDue: body?.balanceDue || 0,

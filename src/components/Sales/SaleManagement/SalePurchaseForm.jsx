@@ -1,10 +1,8 @@
 "use client";
 
-import Loading from "@/components/Loading";
 import Media from "@/components/gallery/Media";
-import { useFetchData } from "@/hook/useFetchData";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BiLoader } from "react-icons/bi";
 import { FiPrinter, FiSave, FiShare2 } from "react-icons/fi";
 import { RiArrowGoBackLine } from "react-icons/ri";
@@ -32,20 +30,22 @@ function generateUniqueId() {
 }
 
 function getMode(type) {
-  if (type === "sale") {
-    return "Sale";
-  } else {
-    return "Purchase";
-  }
+  return type === "sale" ? "Sale" : "Purchase";
 }
 
 export default function SalePurchaseForm({
   sale,
   onUpdate,
+  onSubmit,
   isSubmitting,
+  isSubmitted = false,
   mode,
   type,
   initData,
+  data = {},
+  refetch,
+  formData: initialFormData = {},
+  hideTabs = false,
 }) {
   // Get form settings from Zustand store
   const { settings } = useSettingsStore();
@@ -55,20 +55,22 @@ export default function SalePurchaseForm({
     discount: true,
   };
 
-  const [selectedParty, setSelectedParty] = useState(null);
-  const [billNumber, setBillNumber] = useState("");
+  const [selectedParty, setSelectedParty] = useState(initialFormData?.selectedParty || null);
+  const [billNumber, setBillNumber] = useState(initialFormData?.billNumber || "");
   const [billDate, setBillDate] = useState(
-    new Date().toISOString().split("T")[0]
+    initialFormData?.billDate || new Date().toISOString().split("T")[0]
   );
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [newParty, setNewParty] = useState(null);
-  const [images, setImages] = useState([]);
+  const [phoneNumber, setPhoneNumber] = useState(initialFormData?.phoneNumber || "");
+  const [newParty, setNewParty] = useState(initialFormData?.newParty || null);
+  const [images, setImages] = useState(initialFormData?.images || []);
   const [items, setItems] = useState(
-    sale.items.length
-      ? sale.items
-      : [
+    initialFormData?.items?.length
+      ? initialFormData.items
+      : sale?.items?.length
+        ? sale.items
+        : [
           {
-            id: 1762926852456,
+            id: generateUniqueId(),
             item: "",
             qty: 1,
             unit: "NONE",
@@ -78,40 +80,48 @@ export default function SalePurchaseForm({
         ]
   );
 
-  const [paymentType, setPaymentType] = useState("Cash");
-  const [discount, setDiscount] = useState("");
-  const [tax, setTax] = useState("");
-  const [description, setDescription] = useState("");
+  const [paymentType, setPaymentType] = useState(initialFormData?.paymentType || "Cash");
+  const [discount, setDiscount] = useState(initialFormData?.discount || "");
+  const [tax, setTax] = useState(initialFormData?.tax || "");
+  const [description, setDescription] = useState(initialFormData?.description || "");
 
-  const [isFullPayment, setIsFullPayment] = useState(false);
-  const [manualPaidAmount, setManualPaidAmount] = useState(0);
-  const [paidAmount, setPaidAmount] = useState(0);
-  const [balanceDue, setBalanceDue] = useState(0);
+  const [isFullPayment, setIsFullPayment] = useState(initialFormData?.isFullPayment || false);
+  const [manualPaidAmount, setManualPaidAmount] = useState(initialFormData?.manualPaidAmount || 0);
+  const [paidAmount, setPaidAmount] = useState(initialFormData?.paidAmount || 0);
+  const [balanceDue, setBalanceDue] = useState(initialFormData?.balanceDue || 0);
 
-  const [warranty, setWarranty] = useState({
-    duration: "",
-    period: "Years",
-    enabled: false,
-  });
+  const [warranty, setWarranty] = useState(
+    initialFormData?.warranty || {
+      duration: "",
+      period: "Years",
+      enabled: false,
+    }
+  );
 
+  // Reset isInitialMount when sale changes (tab changes)
   useEffect(() => {
-    if (mode === "update" && initData?.data) {
+    isInitialMount.current = true;
+  }, [sale?.id]);
+
+  // Initialize with initData when in update mode
+  useEffect(() => {
+    if (mode === "update" && initData?.data && !initialFormData?.selectedParty) {
       setItems(
-        initData.data.items.map((item) => ({
-          id: item?.id || "",
+        initData.data.items?.map((item) => ({
+          id: item?.id || generateUniqueId(),
           itemId: item?.id || "",
           item: item?.itemName || " ",
           qty:
-            initData.invoiceData.find((newItem) => newItem?.itemId === item?.id)
+            initData.invoiceData?.find((newItem) => newItem?.itemId === item?.id)
               ?.qty || 1,
           unit: item?.baseUnit || "None",
           price:
-            initData.invoiceData.find((newItem) => newItem?.itemId === item?.id)
+            initData.invoiceData?.find((newItem) => newItem?.itemId === item?.id)
               ?.unitPrice || 0,
           amount:
-            initData.invoiceData.find((newItem) => newItem?.itemId === item?.id)
+            initData.invoiceData?.find((newItem) => newItem?.itemId === item?.id)
               ?.price || 0,
-        }))
+        })) || []
       );
 
       setDiscount(initData.data.discount || "");
@@ -121,14 +131,14 @@ export default function SalePurchaseForm({
         initData.data.paymentType === "Cash"
           ? "Cash"
           : {
-              id: initData.data.paymentTypeId,
-              accountdisplayname: initData.data.paymentType,
-            }
+            id: initData.data.paymentTypeId,
+            accountdisplayname: initData.data.paymentType,
+          }
       );
       setSelectedParty({ ...initData.party, name: initData.party?.partyName });
       setPhoneNumber(initData.data.phoneNumber || "");
       setBillNumber(initData.data.billNumber || "");
-      setBillDate(initData.data.billDate || "");
+      setBillDate(initData.data.billDate || new Date().toISOString().split("T")[0]);
       setImages(initData.data.images || []);
       setDescription(initData.data.description || "");
 
@@ -140,19 +150,72 @@ export default function SalePurchaseForm({
       setPaidAmount(initialPaidAmount);
       setManualPaidAmount(initialPaidAmount);
     }
-  }, [initData, mode, type]);
+  }, [initData, mode, initialFormData]);
 
-  const {
-    isInitialLoading,
-    error,
-    data = {},
-    refetch,
-  } = useFetchData("/api/purchase-init-data", ["purchase-init-data"]);
+  const isInitialMount = useRef(true);
+  const prevFormDataString = useRef('');
+
+  // Auto-update parent when form data changes (for tab persistence)
+  useEffect(() => {
+    // Skip if submitted
+    if (isSubmitted) return;
+    
+    // Skip the first render to prevent infinite loop
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
+    const formState = {
+      selectedParty,
+      billNumber,
+      billDate,
+      phoneNumber,
+      newParty,
+      images,
+      items,
+      paymentType,
+      discount,
+      tax,
+      description,
+      isFullPayment,
+      manualPaidAmount,
+      paidAmount,
+      balanceDue,
+      warranty,
+    };
+
+    // Only update if data actually changed
+    const currentFormString = JSON.stringify(formState);
+    if (prevFormDataString.current !== currentFormString) {
+      prevFormDataString.current = currentFormString;
+      onUpdate(formState);
+    }
+  }, [
+    selectedParty,
+    billNumber,
+    billDate,
+    phoneNumber,
+    newParty,
+    images,
+    items,
+    paymentType,
+    discount,
+    tax,
+    description,
+    isFullPayment,
+    manualPaidAmount,
+    paidAmount,
+    balanceDue,
+    warranty,
+    onUpdate,
+    isSubmitted
+  ]);
 
   const calculateTotal = () => {
     const itemsTotal = items.reduce((sum, item) => sum + (item.amount || 0), 0);
-    const discountAmount = formSettings.discount ? (itemsTotal * discount) / 100 : 0;
-    const taxAmount = formSettings.tax ? ((itemsTotal - discountAmount) * tax) / 100 : 0;
+    const discountAmount = formSettings.discount ? (itemsTotal * (Number(discount) || 0)) / 100 : 0;
+    const taxAmount = formSettings.tax ? ((itemsTotal - discountAmount) * (Number(tax) || 0)) / 100 : 0;
     return itemsTotal - discountAmount + taxAmount;
   };
 
@@ -171,6 +234,7 @@ export default function SalePurchaseForm({
   }, [items, discount, tax, isFullPayment, manualPaidAmount, formSettings]);
 
   const handleAddItem = () => {
+    if (isSubmitted) return;
     setItems([
       ...items,
       {
@@ -185,6 +249,7 @@ export default function SalePurchaseForm({
   };
 
   const handleUpdateItem = (id, field, value) => {
+    if (isSubmitted) return;
     setItems((prevItems) =>
       prevItems.map((item) => {
         if (item.id !== id) return item;
@@ -212,41 +277,59 @@ export default function SalePurchaseForm({
   };
 
   const handleDeleteItem = (id) => {
+    if (isSubmitted) return;
     setItems(items.filter((item) => item.id !== id));
   };
 
-  const handleSave = () => {
+  const validateForm = () => {
     if (items.length === 0) {
-      return toast.error("At least one item should be included.");
+      toast.error("At least one item should be included.");
+      return false;
     }
 
     for (let i = 0; i < items.length; i++) {
       const checkItem = items[i];
 
       if (!checkItem.item) {
-        return toast.error(`Item name must be required in row no: ${i + 1}`);
+        toast.error(`Item name must be required in row no: ${i + 1}`);
+        return false;
       }
 
       if (!checkItem.price || Number(checkItem.price) <= 0) {
-        return toast.error(
+        toast.error(
           `Item price must be greater than zero in row no: ${i + 1}`
         );
+        return false;
       }
     }
 
     if (formSettings.warranty && warranty.enabled && !warranty.duration) {
-      return toast.error("Please enter warranty duration");
+      toast.error("Please enter warranty duration");
+      return false;
     }
 
-    onUpdate({
+    return true;
+  };
+
+  const handleSave = () => {
+    if (isSubmitted) {
+      toast.info("This item has already been submitted");
+      return;
+    }
+    
+    if (!validateForm()) return;
+
+    const total = calculateTotal();
+
+    const submitData = {
       items,
-      total: calculateTotal(),
+      total,
       selectedParty,
       newParty,
       billNumber,
       billDate,
       phoneNumber,
-      paymentType: paymentType,
+      paymentType,
       discount: formSettings.discount ? discount : 0,
       tax: formSettings.tax ? tax : 0,
       balanceDue,
@@ -254,30 +337,39 @@ export default function SalePurchaseForm({
       images,
       description,
       warranty: formSettings.warranty && warranty.enabled ? warranty : null,
-    });
+    };
+
+    if (onSubmit) {
+      onSubmit(submitData);
+    } else {
+      onUpdate(submitData);
+    }
   };
 
   const handleWarrantyChange = (updatedWarranty) => {
+    if (isSubmitted) return;
     setWarranty(updatedWarranty);
   };
 
-  if (isInitialLoading) {
-    return <Loading />;
-  }
+  const total = calculateTotal();
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-      {/* All Modals  */}
       {/* Header Actions */}
       <div className="border-b border-gray-200 p-4 sm:p-6 flex flex-wrap gap-2 justify-between items-center">
         <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
-          {getMode(type)} Details
+          {getMode(type)} Details {!hideTabs && `- ${sale?.name}`}
+          {isSubmitted && (
+            <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+              Submitted
+            </span>
+          )}
         </h2>
         <div className="flex flex-wrap gap-2">
           {mode === "update" && (
             <Link
-              href="/sales/sale-invoices"
-              className={`p-2 hover:bg-gray-100 rounded-lg transition-colors text-xl`}
+              href={type === "sale" ? "/sales/sale-invoices" : "/purchase/purchase-bills"}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-xl"
             >
               <RiArrowGoBackLine />
             </Link>
@@ -285,27 +377,29 @@ export default function SalePurchaseForm({
           <button
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
             title="Share"
+            disabled={isSubmitted}
           >
-            <FiShare2 className="w-5 h-5 text-gray-600" />
+            <FiShare2 className={`w-5 h-5 ${isSubmitted ? 'text-gray-400' : 'text-gray-600'}`} />
           </button>
           <button
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
             title="Print"
+            disabled={isSubmitted}
           >
-            <FiPrinter className="w-5 h-5 text-gray-600" />
+            <FiPrinter className={`w-5 h-5 ${isSubmitted ? 'text-gray-400' : 'text-gray-600'}`} />
           </button>
           <button
-            disabled={isSubmitting}
+            disabled={isSubmitting || isSubmitted}
             onClick={handleSave}
             className={`p-2 hover:bg-gray-100 rounded-lg transition-colors ${
-              isSubmitting ? "opacity-50 cursor-not-allowed" : ""
+              isSubmitting || isSubmitted ? "opacity-50 cursor-not-allowed" : ""
             }`}
-            title="Save"
+            title={isSubmitted ? "Already submitted" : "Save"}
           >
             {isSubmitting ? (
-              <BiLoader />
+              <BiLoader className="animate-spin w-5 h-5" />
             ) : (
-              <FiSave className="w-5 h-5 text-gray-600" />
+              <FiSave className={`w-5 h-5 ${isSubmitted ? 'text-green-600' : 'text-gray-600'}`} />
             )}
           </button>
         </div>
@@ -324,6 +418,7 @@ export default function SalePurchaseForm({
             selectedParty={selectedParty}
             onSelect={setSelectedParty}
             refetch={refetch}
+            disabled={isSubmitted}
           />
           <div className="relative">
             <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
@@ -334,7 +429,8 @@ export default function SalePurchaseForm({
               placeholder="Phone Number"
               value={phoneNumber}
               onChange={(e) => setPhoneNumber(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              disabled={isSubmitted}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
             />
           </div>
           <div className="relative">
@@ -345,8 +441,9 @@ export default function SalePurchaseForm({
               type="number"
               placeholder="Bill Number"
               value={billNumber}
-              onChange={(e) => setBillNumber(parseInt(e.target.value))}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              onChange={(e) => setBillNumber(parseInt(e.target.value) || "")}
+              disabled={isSubmitted}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
             />
           </div>
         </div>
@@ -354,11 +451,12 @@ export default function SalePurchaseForm({
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:justify-end lg:max-w-sm">
           <div className="min-w-50">
             <CustomDatePicker
-              defaultValue={billDate && billDate}
+              defaultValue={billDate}
               size="large"
               label="Bill Date"
               onChange={(date) => setBillDate(date)}
               icon="calendar"
+              disabled={isSubmitted}
             />
           </div>
         </div>
@@ -373,6 +471,7 @@ export default function SalePurchaseForm({
           refetch={refetch}
           autoAddItem={setItems}
           type={type}
+          disabled={isSubmitted}
         />
 
         {/* Warranty Section - Only show if enabled in settings */}
@@ -380,6 +479,7 @@ export default function SalePurchaseForm({
           <WarrantySection
             warranty={warranty}
             onWarrantyChange={handleWarrantyChange}
+            disabled={isSubmitted}
           />
         )}
 
@@ -392,9 +492,10 @@ export default function SalePurchaseForm({
               cashData={data?.cash || []}
               paymentType={paymentType}
               onPaymentTypeChange={setPaymentType}
+              disabled={isSubmitted}
             />
             <div>
-              <div>
+              <div className="mb-4">
                 <div className="block text-sm font-medium text-gray-700 mb-2">
                   Select Images
                 </div>
@@ -402,6 +503,7 @@ export default function SalePurchaseForm({
                   images={images}
                   setImages={setImages}
                   multiImages={true}
+                  disabled={isSubmitted}
                 />
               </div>
               <div>
@@ -412,7 +514,8 @@ export default function SalePurchaseForm({
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Add any additional notes..."
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  disabled={isSubmitted}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none disabled:bg-gray-100 disabled:cursor-not-allowed"
                   rows="3"
                 />
               </div>
@@ -425,52 +528,46 @@ export default function SalePurchaseForm({
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Subtotal</span>
                 <span className="font-medium text-gray-900">
-                  $
-                  {items
-                    .reduce((sum, item) => sum + (item.amount || 0), 0)
-                    .toFixed(2)}
+                  ${items.reduce((sum, item) => sum + (item.amount || 0), 0).toFixed(2)}
                 </span>
               </div>
-              
+
               {/* Discount - Only show if enabled in settings */}
               {formSettings.discount && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Discount ({discount}%)</span>
+                  <span className="text-gray-600">Discount ({discount || 0}%)</span>
                   <span className="font-medium text-gray-900">
                     -$
                     {(
                       (items.reduce((sum, item) => sum + (item.amount || 0), 0) *
-                        discount) /
+                        (Number(discount) || 0)) /
                       100
                     ).toFixed(2)}
                   </span>
                 </div>
               )}
-              
+
               {/* Tax - Only show if enabled in settings */}
               {formSettings.tax && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Tax ({tax}%)</span>
+                  <span className="text-gray-600">Tax ({tax || 0}%)</span>
                   <span className="font-medium text-gray-900">
                     +$
                     {(
-                      (((items.reduce(
-                        (sum, item) => sum + (item.amount || 0),
-                        0
-                      ) *
-                        (100 - (formSettings.discount ? discount : 0))) /
-                        100) *
-                        tax) /
+                      ((items.reduce((sum, item) => sum + (item.amount || 0), 0) *
+                        (100 - (Number(discount) || 0))) /
+                        100 *
+                        (Number(tax) || 0)) /
                       100
                     ).toFixed(2)}
                   </span>
                 </div>
               )}
-              
+
               <div className="border-t border-gray-200 pt-3 flex justify-between">
                 <span className="font-semibold text-gray-900">Total</span>
                 <span className="text-lg font-bold text-blue-600">
-                  ${calculateTotal().toFixed(2)}
+                  ${total.toFixed(2)}
                 </span>
               </div>
 
@@ -482,11 +579,12 @@ export default function SalePurchaseForm({
                     checked={isFullPayment}
                     onChange={(e) => {
                       setIsFullPayment(e.target.checked);
-                      if (e.target.checked)
-                        setManualPaidAmount(calculateTotal().toFixed(2));
-                      else setManualPaidAmount(calculateTotal().toFixed(2));
+                      if (e.target.checked) {
+                        setManualPaidAmount(total);
+                      }
                     }}
-                    className="form-checkbox text-blue-600 h-4 w-4"
+                    disabled={isSubmitted}
+                    className="form-checkbox text-blue-600 h-4 w-4 disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                   <span className="text-sm font-medium text-gray-700">
                     Paid
@@ -496,23 +594,20 @@ export default function SalePurchaseForm({
                   <input
                     type="number"
                     min="0"
+                    step="0.01"
                     value={
                       isFullPayment
                         ? paidAmount.toFixed(2)
-                        : manualPaidAmount === 0
-                          ? ""
-                          : manualPaidAmount
+                        : manualPaidAmount || ""
                     }
                     onChange={(e) =>
-                      setManualPaidAmount(
-                        Number.parseFloat(e.target.value) || 0
-                      )
+                      setManualPaidAmount(Number.parseFloat(e.target.value) || 0)
                     }
-                    disabled={isFullPayment}
-                    placeholder="0"
+                    disabled={isFullPayment || isSubmitted}
+                    placeholder="Enter amount"
                     className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-right ${
-                      isFullPayment
-                        ? "bg-gray-200 cursor-not-allowed"
+                      isFullPayment || isSubmitted
+                        ? "bg-gray-100 cursor-not-allowed"
                         : "border-gray-300"
                     }`}
                   />
@@ -522,9 +617,8 @@ export default function SalePurchaseForm({
               <div className="flex justify-between text-sm pt-1">
                 <span className="font-semibold text-gray-900">Balance Due</span>
                 <span
-                  className={`text-lg font-bold ${
-                    balanceDue > 0 ? "text-red-600" : "text-green-600"
-                  }`}
+                  className={`text-lg font-bold ${balanceDue > 0 ? "text-red-600" : "text-green-600"
+                    }`}
                 >
                   ${balanceDue.toFixed(2)}
                 </span>
@@ -545,13 +639,14 @@ export default function SalePurchaseForm({
                     value={discount}
                     placeholder="0"
                     onChange={(e) =>
-                      setDiscount(Number.parseFloat(e.target.value) || "")
+                      setDiscount(e.target.value)
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={isSubmitted}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
                   />
                 </div>
               )}
-              
+
               {formSettings.tax && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -564,41 +659,44 @@ export default function SalePurchaseForm({
                     value={tax}
                     placeholder="0"
                     onChange={(e) =>
-                      setTax(Number.parseFloat(e.target.value) || "")
+                      setTax(e.target.value)
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={isSubmitted}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
                   />
                 </div>
               )}
             </div>
 
             <button
-              disabled={isSubmitting}
+              disabled={isSubmitting || isSubmitted}
               onClick={handleSave}
               className={`w-full bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm sm:text-base ${
-                isSubmitting ? "opacity-50 cursor-not-allowed" : ""
+                isSubmitting || isSubmitted ? "opacity-50 cursor-not-allowed" : ""
               }`}
             >
               {isSubmitting ? (
-                <span className="flex items-center gap-1 justify-center">
-                  <BiLoader /> {mode === "update" ? "Updating..." : "Saving..."}
+                <span className="flex items-center gap-2 justify-center">
+                  <BiLoader className="animate-spin" />
+                  {mode === "update" ? "Updating..." : "Saving..."}
                 </span>
+              ) : isSubmitted ? (
+                `Already ${mode === "update" ? "Updated" : "Saved"}`
               ) : mode === "update" ? (
                 `Update ${getMode(type)}`
               ) : (
                 `Save ${getMode(type)}`
               )}
             </button>
+
             {mode === "update" && (
               <Link
                 href={
                   type === "sale"
                     ? "/sales/sale-invoices"
-                    : "/purchase/purchase-bils"
+                    : "/purchase/purchase-bills"
                 }
-                className={`w-full block text-center bg-red-600 text-white py-2.5 rounded-lg hover:bg-red-700 transition-colors font-medium text-sm sm:text-base ${
-                  isSubmitting ? "opacity-50 cursor-not-allowed" : ""
-                }`}
+                className="w-full block text-center bg-red-600 text-white py-2.5 rounded-lg hover:bg-red-700 transition-colors font-medium text-sm sm:text-base"
               >
                 Go Back
               </Link>

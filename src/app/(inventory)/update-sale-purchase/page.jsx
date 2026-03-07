@@ -1,4 +1,4 @@
-export const revalidate = 0;
+
 import SalePurchasePage from "@/components/Sales/SaleManagement/SalePurchasePage";
 import client_api from "@/utils/API_FETCH";
 

@@ -1,5 +1,7 @@
 "use client"
 
+import CustomDatePicker from "@/components/DatePicker";
+
 
 // Common Tailwind classes for the floating label input style
 const inputClass = "block px-2.5 pb-2.5 pt-4 w-full text-sm text-gray-900 bg-transparent rounded-lg border shadow appearance-none focus:outline-none focus:ring-0 focus:border-blue-600 peer";
@@ -7,7 +9,7 @@ const labelClass = "absolute transition-all text-md text-gray-500 duration-300 t
 
 // Helper function to get the correct border class
 const getBorderClass = (isError) =>
-  isError ? "border-red-500 focus:border-red-500" : "border-gray-300 focus:border-blue-600"
+    isError ? "border-red-500 focus:border-red-500" : "border-gray-300 focus:border-blue-600"
 
 // Helper component for a single Floating Input Field
 const FloatingInput = ({ id, type = "text", label, value, onChange, placeholder = "", min, step, isRequired, isError }) => (
@@ -63,16 +65,6 @@ export default function StockTab({ formData, onChange, validationErrors }) {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* As Of Date Field - Required */}
-                <FloatingInput
-                    id="asOfDate"
-                    type="date"
-                    label="As Of Date"
-                    value={formData.asOfDate}
-                    onChange={onChange}
-                    isError={validationErrors.asOfDate} // Error logic
-                />
-
                 {/* Min Stock To Maintain Field - Required */}
                 <FloatingInput
                     id="minStockToMaintain" // Matches Prisma field
@@ -84,20 +76,33 @@ export default function StockTab({ formData, onChange, validationErrors }) {
                     min="0"
                     isError={validationErrors.minStockToMaintain} // Error logic
                 />
+                {/* Location Field - Optional */}
+                <div>
+                    <FloatingInput
+                        id="location"
+                        type="text"
+                        label="Location"
+                        value={formData.location}
+                        onChange={onChange}
+                        placeholder="e.g., Warehouse A, Shelf 3"
+                        isError={validationErrors.location} // Error logic
+                    />
+                </div>
+
+                <div>
+                    <CustomDatePicker
+                        defaultValue={formData?.asOfDate && formData.asOfDate}
+                        size="large"
+                        label="Balance as of"
+                        onChange={(date) => onChange("asOfDate", date)}
+                        icon="calendar"
+                        floatingDesign={true}
+                        padding="10px 8px"
+                    />
+                </div>
             </div>
 
-            {/* Location Field - Optional */}
-            <div>
-                <FloatingInput
-                    id="location"
-                    type="text"
-                    label="Location"
-                    value={formData.location}
-                    onChange={onChange}
-                    placeholder="e.g., Warehouse A, Shelf 3"
-                    isError={validationErrors.location} // Error logic
-                />
-            </div>
+
         </div>
     )
 }

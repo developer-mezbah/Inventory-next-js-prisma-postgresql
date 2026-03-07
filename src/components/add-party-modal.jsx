@@ -477,6 +477,7 @@ export default function AddPartyModal({
                         icon="calendar"
                         floatingDesign={true}
                         padding="10px 8px"
+                        placeholder="Select date"
                       />
                     </div>
 
