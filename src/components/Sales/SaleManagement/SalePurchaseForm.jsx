@@ -103,6 +103,7 @@ export default function SalePurchaseForm({
     isInitialMount.current = true;
   }, [sale?.id]);
 
+
   // Initialize with initData when in update mode
   useEffect(() => {
     if (mode === "update" && initData?.data && !initialFormData?.selectedParty) {
@@ -135,8 +136,8 @@ export default function SalePurchaseForm({
             accountdisplayname: initData.data.paymentType,
           }
       );
-      setSelectedParty({ ...initData.party, name: initData.party?.partyName });
-      setPhoneNumber(initData.data.phoneNumber || "");
+      // setSelectedParty({ ...initData.party, name: initData.party?.partyName });
+      // setPhoneNumber(initData.data.phoneNumber || "");
       setBillNumber(initData.data.billNumber || "");
       setBillDate(initData.data.billDate || new Date().toISOString().split("T")[0]);
       setImages(initData.data.images || []);
@@ -152,6 +153,7 @@ export default function SalePurchaseForm({
     }
   }, [initData, mode, initialFormData]);
 
+
   const isInitialMount = useRef(true);
   const prevFormDataString = useRef('');
 
@@ -159,7 +161,7 @@ export default function SalePurchaseForm({
   useEffect(() => {
     // Skip if submitted
     if (isSubmitted) return;
-    
+
     // Skip the first render to prevent infinite loop
     if (isInitialMount.current) {
       isInitialMount.current = false;
@@ -192,10 +194,8 @@ export default function SalePurchaseForm({
       onUpdate(formState);
     }
   }, [
-    selectedParty,
     billNumber,
     billDate,
-    phoneNumber,
     newParty,
     images,
     items,
@@ -209,7 +209,8 @@ export default function SalePurchaseForm({
     balanceDue,
     warranty,
     onUpdate,
-    isSubmitted
+    isSubmitted,
+    selectedParty, phoneNumber
   ]);
 
   const calculateTotal = () => {
@@ -316,7 +317,7 @@ export default function SalePurchaseForm({
       toast.info("This item has already been submitted");
       return;
     }
-    
+
     if (!validateForm()) return;
 
     const total = calculateTotal();
@@ -391,9 +392,8 @@ export default function SalePurchaseForm({
           <button
             disabled={isSubmitting || isSubmitted}
             onClick={handleSave}
-            className={`p-2 hover:bg-gray-100 rounded-lg transition-colors ${
-              isSubmitting || isSubmitted ? "opacity-50 cursor-not-allowed" : ""
-            }`}
+            className={`p-2 hover:bg-gray-100 rounded-lg transition-colors ${isSubmitting || isSubmitted ? "opacity-50 cursor-not-allowed" : ""
+              }`}
             title={isSubmitted ? "Already submitted" : "Save"}
           >
             {isSubmitting ? (
@@ -410,7 +410,6 @@ export default function SalePurchaseForm({
         {/* Search and Date Section */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <PartySelector
-            setSelectedParty={setSelectedParty}
             mode={type}
             setNewParty={setNewParty}
             partyData={data?.party || []}
@@ -605,11 +604,10 @@ export default function SalePurchaseForm({
                     }
                     disabled={isFullPayment || isSubmitted}
                     placeholder="Enter amount"
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-right ${
-                      isFullPayment || isSubmitted
-                        ? "bg-gray-100 cursor-not-allowed"
-                        : "border-gray-300"
-                    }`}
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-right ${isFullPayment || isSubmitted
+                      ? "bg-gray-100 cursor-not-allowed"
+                      : "border-gray-300"
+                      }`}
                   />
                 </div>
               </div>
@@ -671,9 +669,8 @@ export default function SalePurchaseForm({
             <button
               disabled={isSubmitting || isSubmitted}
               onClick={handleSave}
-              className={`w-full bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm sm:text-base ${
-                isSubmitting || isSubmitted ? "opacity-50 cursor-not-allowed" : ""
-              }`}
+              className={`w-full bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm sm:text-base ${isSubmitting || isSubmitted ? "opacity-50 cursor-not-allowed" : ""
+                }`}
             >
               {isSubmitting ? (
                 <span className="flex items-center gap-2 justify-center">

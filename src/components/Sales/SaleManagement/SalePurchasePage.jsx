@@ -54,44 +54,63 @@ export default function SalePurchasePage({ mode, type, initData }) {
   const { data: session } = useSession();
   const router = useRouter();
 
-  // FIXED: Initialize form data and salesPurchases when editing
+  // Initialize form data when editing - FIXED for your data structure
   useEffect(() => {
     if (isUpdateMode && initData?.data) {
+      // Format items for the form
+      const formattedItems = initData.invoiceData?.map(invoiceItem => {
+        const itemDetails = initData.data.items?.find(item => item.id === invoiceItem.itemId);
+        return {
+          id: invoiceItem.id || generateUniqueId(),
+          itemId: invoiceItem.itemId,
+          item: invoiceItem.itemName,
+          qty: invoiceItem.qty || 1,
+          unit: itemDetails?.baseUnit || "None",
+          price: invoiceItem.unitPrice || 0,
+          amount: invoiceItem.price || 0,
+        };
+      }) || [];
+
       // Update salesPurchases with actual data
       setSalesPurchases([{
         id: 1,
         name: `${getMode(type)} #1`,
-        items: initData.data.items || [],
-        total: initData.data.total || 0
+        items: formattedItems,
+        total: initData.data.amount || initData.data.total || 0
       }]);
+
+      // Format party object
+      const partyObject = initData.party ? {
+        id: initData.party.id,
+        name: initData.party.partyName,
+        phoneNumber: initData.party.phoneNumber,
+        emailId: initData.party.emailId,
+        billingAddress: initData.party.billingAddress,
+        ...initData.party
+      } : null;
 
       // Initialize form data
       const initialFormData = {};
       initialFormData[1] = {
-        selectedParty: initData.data.partyName ? {
-          id: initData.data.partyId,
-          name: initData.data.partyName,
-          ...initData.party
-        } : null,
+        selectedParty: partyObject,
+        newParty: null,
         partyName: initData.data.partyName,
-        partyEmail: initData.data.partyEmail,
-        partyPhone: initData.data.partyPhone,
-        partyAddress: initData.data.partyAddress,
-        items: initData.data.items || [],
-        total: initData.data.total || 0,
-        notes: initData.data.notes || "",
-        date: initData.data.date || new Date().toISOString().split('T')[0],
+        partyId: initData.data.partyId,
+        items: formattedItems,
+        total: initData.data.amount || initData.data.total || 0,
         billNumber: initData.data.billNumber || "",
         billDate: initData.data.billDate || new Date().toISOString().split('T')[0],
         phoneNumber: initData.data.phoneNumber || "",
         paymentType: initData.data.paymentType || "Cash",
-        discount: initData.data.discount || "",
-        tax: initData.data.tax || "",
+        paymentTypeId: initData.data.paymentTypeId,
+        discount: initData.data.discount || 0,
+        tax: initData.data.tax || 0,
         description: initData.data.description || "",
         isFullPayment: initData.data.isPaid || false,
         manualPaidAmount: initData.data.paidAmount || 0,
         paidAmount: initData.data.paidAmount || 0,
         balanceDue: initData.data.balanceDue || 0,
+        images: initData.data.images || [],
         warranty: initData.data.warranty || {
           duration: "",
           period: "Years",
@@ -101,6 +120,22 @@ export default function SalePurchasePage({ mode, type, initData }) {
       setFormData(initialFormData);
     }
   }, [isUpdateMode, initData, type]);
+
+  // Helper function to generate unique ID (copied from your form)
+  const generateUniqueId = () => {
+    if (typeof crypto !== "undefined" && crypto.randomUUID) {
+      return crypto.randomUUID();
+    } else {
+      return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
+        /[xy]/g,
+        function (c) {
+          const r = (Math.random() * 16) | 0;
+          const v = c === "x" ? r : (r & 0x3) | 0x8;
+          return v.toString(16);
+        }
+      );
+    }
+  };
 
   const addSalePurchase = () => {
     if (isUpdateMode) return; // No adding tabs in update mode

@@ -128,7 +128,6 @@ export default function PartySelector({
   partyData,
   refetch,
   mode,
-  setSelectedParty,
 }) {
   // Helper function to map data structure
   const mapPartyData = (data) =>
@@ -145,10 +144,11 @@ export default function PartySelector({
 
   const initialParties = mapPartyData(partyData);
 
+
   // State management
   const [parties, setParties] = useState(initialParties);
   const [isOpen, setIsOpen] = useState(false);
-  // Initialize mainInputValue with selectedParty name if it exists
+  // Renamed newPartyName to mainInputValue for clarity of where it's used
   const [mainInputValue, setMainInputValue] = useState(
     selectedParty ? selectedParty.name : ""
   );
@@ -169,14 +169,13 @@ export default function PartySelector({
     setParties(mapPartyData(partyData));
   }, [partyData]);
 
-  // Update mainInputValue when selectedParty changes (including tab changes)
   useEffect(() => {
-    if (selectedParty) {
+    if (selectedParty && selectedParty.name !== mainInputValue) {
       setMainInputValue(selectedParty.name);
-    } else {
+    } else if (!selectedParty) {
       setMainInputValue("");
     }
-  }, [selectedParty]);
+  }, []);
 
   // 🔥 New useEffect to call setNewParty when mainInputValue changes and it's a new party candidate
   useEffect(() => {
@@ -189,31 +188,31 @@ export default function PartySelector({
     if (isNewPartyCandidate) {
       // Call the prop with the desired object structure
       setNewParty(mainInputValue);
-
-      // FIXED: Create a temporary party object for manually entered names
-      // This ensures the name persists when switching tabs
-      const tempParty = {
-        id: `temp-${Date.now()}`,
-        name: mainInputValue,
-        isTemporary: true
-      };
-      onSelect(tempParty);
     } else if (!isNewPartyCandidate && mainInputValue.trim() !== "") {
+      // Clear the new party suggestion if the name now matches an existing one
+      // or if it was cleared and we want to ensure setNewParty is called with null/empty if the name matches a party in the list.
+      // You might need to refine this based on your specific backend logic for 'new' vs 'selected'.
+      // For now, we only call setNewParty if it's a *new* party candidate.
+      // If a party is selected, `onSelect` handles it.
+      // If the input is cleared, it should send null to clear the new party state.
       setNewParty(null);
     } else if (mainInputValue.trim() === "") {
       setNewParty(null);
       setPhoneNumber("");
     }
-  }, [mainInputValue, parties, setNewParty, onSelect]);
-
+  }, [mainInputValue, parties, setNewParty]); // Depend on mainInputValue, parties, and setNewParty
+console.log(selectedParty)
   // Handle input change for main input field
   const handleMainInputChange = (e) => {
     const value = e.target.value;
     setMainInputValue(value);
 
     // If the user starts typing a different value, clear the selection in the parent
-    if (selectedParty && selectedParty.name !== value) {
-      onSelect(null);
+    if (selectedParty) {
+      if (selectedParty.name !== value) {
+        onSelect(null);
+        setPhoneNumber("");
+      }
     }
   };
 
@@ -233,14 +232,14 @@ export default function PartySelector({
   // Filtering logic: Use dropdownSearchTerm if dropdown is open, otherwise use mainInputValue
   const currentSearchTerm = isOpen ? dropdownSearchTerm : mainInputValue;
   const filteredParties = parties.filter((party) =>
-    party?.name.toLowerCase().includes(currentSearchTerm && currentSearchTerm?.toLowerCase())
+    party.name.toLowerCase().includes(currentSearchTerm.toLowerCase())
   );
 
   // Select a party from the dropdown
   const handleSelectParty = (party) => {
     onSelect(party);
     setPhoneNumber(party?.phoneNumber || "");
-    setMainInputValue(party?.name);
+    setMainInputValue(party.name);
     setIsOpen(false);
     setDropdownSearchTerm(""); // Clear dropdown search on selection
   };
@@ -294,7 +293,7 @@ export default function PartySelector({
         }}
         refetch={refetch}
         onSave={handleSaveParty}
-        setSelectedParty={setSelectedParty}
+        onSelect={onSelect}
       />
 
       <div ref={partySelectorRef} className="relative w-full">
@@ -312,7 +311,7 @@ export default function PartySelector({
             onBlur={() => {
               if (selectedParty && mainInputValue !== selectedParty.name) {
                 setMainInputValue(selectedParty.name);
-                setSelectedParty(null);
+                onSelect(null);
               }
             }}
             placeholder={`Inter ${mode === "sale" ? "Customer" : "Party"
