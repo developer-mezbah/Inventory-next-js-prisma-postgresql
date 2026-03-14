@@ -13,6 +13,26 @@ const useSettingsStore = create(
           tax: true,
           discount: true,
         },
+        printSettings: {
+          sale: {
+            quantity: true,
+            tax: true,
+            warranty: true,
+            additionalField: false,
+            discount: true,
+            serialNumber: false,
+            notes: true
+          },
+          purchase: {
+            quantity: true,
+            tax: true,
+            warranty: false,
+            additionalField: true,
+            discount: false,
+            serialNumber: true,
+            notes: true
+          }
+        },
         // Add other settings categories here later
         // notificationSettings: {},
         // appearanceSettings: {},
@@ -93,6 +113,77 @@ const useSettingsStore = create(
         }));
       },
 
+      // Print Settings Actions
+      updatePrintSettings: (newSettings) => {
+        set((state) => ({
+          settings: {
+            ...state.settings,
+            printSettings: {
+              ...state.settings.printSettings,
+              ...newSettings,
+            },
+          },
+        }));
+      },
+
+      updatePrintCategory: (category, categorySettings) => {
+        set((state) => ({
+          settings: {
+            ...state.settings,
+            printSettings: {
+              ...state.settings.printSettings,
+              [category]: {
+                ...state.settings.printSettings[category],
+                ...categorySettings,
+              },
+            },
+          },
+        }));
+      },
+
+      togglePrintSetting: (category, key) => {
+        set((state) => ({
+          settings: {
+            ...state.settings,
+            printSettings: {
+              ...state.settings.printSettings,
+              [category]: {
+                ...state.settings.printSettings[category],
+                [key]: !state.settings.printSettings[category][key],
+              },
+            },
+          },
+        }));
+      },
+
+      resetPrintSettings: (defaultSettings) => {
+        set((state) => ({
+          settings: {
+            ...state.settings,
+            printSettings: defaultSettings || {
+              sale: {
+                quantity: true,
+                tax: true,
+                warranty: true,
+                additionalField: false,
+                discount: true,
+                serialNumber: false,
+                notes: true
+              },
+              purchase: {
+                quantity: true,
+                tax: true,
+                warranty: false,
+                additionalField: true,
+                discount: false,
+                serialNumber: true,
+                notes: true
+              }
+            },
+          },
+        }));
+      },
+
       // Generic Settings Actions
       updateSettings: (category, newSettings) => {
         set((state) => ({
@@ -110,7 +201,6 @@ const useSettingsStore = create(
       saveSettings: async () => {
         const state = get();
         set({ isLoading: true, error: null });
-
         try {
           const response = await client_api.create(
             '/api/settings',

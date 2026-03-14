@@ -332,7 +332,7 @@ export default function SalePurchaseForm({
       phoneNumber,
       paymentType,
       discount: formSettings.discount ? discount : 0,
-      tax: formSettings.tax ? tax : 0,
+      tax: formSettings.tax ? parseFloat(tax) || 0 : 0,
       balanceDue,
       paidAmount,
       images,

@@ -17,15 +17,60 @@ export async function GET(request) {
                 tax: true,
                 discount: true,
             },
+            printSettings: {
+                sale: {
+                    quantity: true,
+                    tax: true,
+                    warranty: true,
+                    additionalField: false,
+                    discount: true,
+                    serialNumber: false,
+                    notes: true
+                },
+                purchase: {
+                    quantity: true,
+                    tax: true,
+                    warranty: false,
+                    additionalField: true,
+                    discount: false,
+                    serialNumber: true,
+                    notes: true
+                }
+            },
             // Add other default settings here
+            // notificationSettings: {},
+            // appearanceSettings: {},
         };
+
+        if (settings) {
+            // Merge stored settings with defaults to ensure all fields exist
+            const mergedSettings = {
+                formSettings: {
+                    ...defaultSettings.formSettings,
+                    ...(settings.formSettings || {})
+                },
+                printSettings: {
+                    sale: {
+                        ...defaultSettings.printSettings.sale,
+                        ...(settings.printSettings?.sale || {})
+                    },
+                    purchase: {
+                        ...defaultSettings.printSettings.purchase,
+                        ...(settings.printSettings?.purchase || {})
+                    }
+                },
+                // Add other categories as needed
+            };
+
+            return NextResponse.json({
+                success: true,
+                data: mergedSettings
+            });
+        }
 
         return NextResponse.json({
             success: true,
-            data: settings?.formSettings ? {
-                formSettings: settings.formSettings,
-                // Add other settings categories here
-            } : defaultSettings
+            data: defaultSettings
         });
     } catch (error) {
         console.error('Error fetching settings:', error);
@@ -40,12 +85,46 @@ export async function POST(request) {
     try {
         const body = await request.json();
         const companyId = await getCompanyId();
+        
+        // Ensure we have both form and print settings
+        const settingsToSave = {
+            formSettings: body.formSettings || {
+                warranty: true,
+                tax: true,
+                discount: true,
+            },
+            printSettings: body.printSettings || {
+                sale: {
+                    quantity: true,
+                    tax: true,
+                    warranty: true,
+                    additionalField: false,
+                    discount: true,
+                    serialNumber: false,
+                    notes: true
+                },
+                purchase: {
+                    quantity: true,
+                    tax: true,
+                    warranty: false,
+                    additionalField: true,
+                    discount: false,
+                    serialNumber: true,
+                    notes: true
+                }
+            },
+        };
+
         const settings = await prisma.setting.upsert({
             where: { companyId },
-            update: { formSettings: body.formSettings },
+            update: { 
+                formSettings: settingsToSave.formSettings,
+                printSettings: settingsToSave.printSettings
+            },
             create: {
                 companyId,
-                formSettings: body.formSettings,
+                formSettings: settingsToSave.formSettings,
+                printSettings: settingsToSave.printSettings
             },
         });
 

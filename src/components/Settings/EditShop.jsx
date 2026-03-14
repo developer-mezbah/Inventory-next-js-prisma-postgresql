@@ -2,13 +2,26 @@
 import Media from "@/components/gallery/Media";
 import Loading from "@/components/Loading";
 import { useFetchData } from "@/hook/useFetchData";
-import useOutsideClick from "@/hook/useOutsideClick";
 import { useCurrencyStore } from "@/stores/useCurrencyStore";
 import client_api from "@/utils/API_FETCH";
 import { countriesData } from "@/utils/CountriesData";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { BiCamera, BiLoader, BiSave } from "react-icons/bi";
 import { toast } from "react-toastify";
+import {
+  useFloating,
+  autoUpdate,
+  offset,
+  flip,
+  shift,
+  size,
+  useClick,
+  useDismiss,
+  useRole,
+  useInteractions,
+  FloatingFocusManager,
+  FloatingPortal,
+} from "@floating-ui/react";
 
 // Mock data for dropdowns
 const mockBusinessTypes = ["Retail", "Service", "Manufacturing", "E-commerce"];
@@ -112,7 +125,6 @@ const EditShop = () => {
   const {
     currencySymbol,
     currencyCode,
-    availableCurrencies,
     setCurrency,
     updateFromCompanyData,
     searchCurrencies,
@@ -135,25 +147,93 @@ const EditShop = () => {
   const [image, setImage] = useState([]);
   const [signature, setSignature] = useState([]);
   const [formLoading, setFormLoading] = useState(false);
-  const [currency, setIsCurrency] = useState(null);
-  console.log(currency);
+  const [selectedCurrency, setSelectedCurrency] = useState(null);
 
   // Keep countries as local state (not in Zustand)
-  const [availableCountries, setAvailableCountries] = useState(countriesData);
+  const [availableCountries] = useState(countriesData);
 
   const [isCurrencyOpen, setIsCurrencyOpen] = useState(false);
   const [isCountryOpen, setIsCountryOpen] = useState(false);
   const [currencySearch, setCurrencySearch] = useState("");
   const [countrySearch, setCountrySearch] = useState("");
 
-  const currencyBoxRef = useOutsideClick(() => setIsCurrencyOpen(false));
-  const countryBoxRef = useOutsideClick(() => setIsCountryOpen(false));
+  // Floating UI for Currency dropdown
+  const {
+    x: currencyX,
+    y: currencyY,
+    strategy: currencyStrategy,
+    refs: currencyRefs,
+    context: currencyContext,
+  } = useFloating({
+    open: isCurrencyOpen,
+    onOpenChange: setIsCurrencyOpen,
+    middleware: [
+      offset(5),
+      flip(),
+      shift(),
+      size({
+        apply({ rects, elements }) {
+          Object.assign(elements.floating.style, {
+            width: `${rects.reference.width}px`,
+          });
+        },
+      }),
+    ],
+    whileElementsMounted: autoUpdate,
+    placement: "bottom-start",
+  });
+
+  // Interactions for Currency dropdown
+  const currencyClick = useClick(currencyContext);
+  const currencyDismiss = useDismiss(currencyContext);
+  const currencyRole = useRole(currencyContext);
+  
+  const { getReferenceProps: getCurrencyReferenceProps, getFloatingProps: getCurrencyFloatingProps } = useInteractions([
+    currencyClick,
+    currencyDismiss,
+    currencyRole,
+  ]);
+
+  // Floating UI for Country dropdown
+  const {
+    x: countryX,
+    y: countryY,
+    strategy: countryStrategy,
+    refs: countryRefs,
+    context: countryContext,
+  } = useFloating({
+    open: isCountryOpen,
+    onOpenChange: setIsCountryOpen,
+    middleware: [
+      offset(5),
+      flip(),
+      shift(),
+      size({
+        apply({ rects, elements }) {
+          Object.assign(elements.floating.style, {
+            width: `${rects.reference.width}px`,
+          });
+        },
+      }),
+    ],
+    whileElementsMounted: autoUpdate,
+    placement: "bottom-start",
+  });
+
+  // Interactions for Country dropdown
+  const countryClick = useClick(countryContext);
+  const countryDismiss = useDismiss(countryContext);
+  const countryRole = useRole(countryContext);
+  
+  const { getReferenceProps: getCountryReferenceProps, getFloatingProps: getCountryFloatingProps } = useInteractions([
+    countryClick,
+    countryDismiss,
+    countryRole,
+  ]);
 
   const {
     isInitialLoading,
-    error,
     data = [],
-    refetch,
   } = useFetchData("/api/company/edit-shop", ["edit-shop"]);
 
   useEffect(() => {
@@ -183,7 +263,7 @@ const EditShop = () => {
         companyData?.signatureUrl ? [companyData?.signatureUrl] : []
       );
     }
-  }, [data]);
+  }, [data, currencyCode, currencySymbol, updateFromCompanyData]);
 
   // Sync Zustand currency state with local profile state
   useEffect(() => {
@@ -200,28 +280,22 @@ const EditShop = () => {
   };
 
   const handleCurrencyChange = (currency) => {
-    // Update Zustand store
-    // setCurrency(currency);
-
-    // Update local profile state
+    setSelectedCurrency(currency);
     setProfile((prev) => ({
       ...prev,
       currencyCode: currency.code,
       currencySymbol: currency.symbol,
     }));
-
     setIsCurrencyOpen(false);
     setCurrencySearch("");
   };
 
   const handleCountryChange = (country) => {
-    // Only update local state for country
     setProfile((prev) => ({
       ...prev,
       country: country.name,
       countryCode: country.code,
     }));
-
     setIsCountryOpen(false);
     setCountrySearch("");
   };
@@ -236,14 +310,17 @@ const EditShop = () => {
       })
       .then((res) => {
         if (res?.status) {
-          setCurrency(currency);
-          toast.success("Shop updated successfully:");
+          if (selectedCurrency) {
+            setCurrency(selectedCurrency);
+          }
+          toast.success("Shop updated successfully");
         } else {
-          toast.error("Failed to update shop:");
+          toast.error("Failed to update shop");
         }
       })
       .catch((err) => {
         console.log("Error updating shop:", err);
+        toast.error("Error updating shop");
       })
       .finally(() => {
         setFormLoading(false);
@@ -306,26 +383,27 @@ const EditShop = () => {
               />
 
               {/* Currency Selector with Search - Using Zustand */}
-              <div className="space-y-2" ref={currencyBoxRef}>
+              <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700">
                   Default Currency
                 </label>
                 <div className="relative">
                   <button
+                    ref={currencyRefs.setReference}
                     type="button"
-                    onClick={() => setIsCurrencyOpen(!isCurrencyOpen)}
-                    className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    {...getCurrencyReferenceProps()}
+                    className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-blue-400"
                   >
                     <div className="flex items-center gap-2">
                       <span className="text-lg font-semibold">
-                        {currency?.symbol || currencySymbol}
+                        {selectedCurrency?.symbol || currencySymbol}
                       </span>
                       <span className="text-gray-700">
-                        {currency?.code || currencyCode}
+                        {selectedCurrency?.code || currencyCode}
                       </span>
                     </div>
                     <svg
-                      className={`h-5 w-5 text-gray-400 transition-transform ${
+                      className={`h-5 w-5 text-gray-400 transition-all duration-300 transform ${
                         isCurrencyOpen ? "rotate-180" : ""
                       }`}
                       xmlns="http://www.w3.org/2000/svg"
@@ -341,70 +419,81 @@ const EditShop = () => {
                   </button>
 
                   {isCurrencyOpen && (
-                    <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-64 overflow-hidden flex flex-col">
-                      {/* Search input */}
-                      <div className="p-2 border-b">
-                        <input
-                          type="text"
-                          placeholder="Search currency by code, symbol or name..."
-                          value={currencySearch}
-                          onChange={(e) => setCurrencySearch(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                      </div>
-
-                      {/* Currencies list from Zustand */}
-                      <div className="overflow-y-auto max-h-52">
-                        {filteredCurrencies.length > 0 ? (
-                          filteredCurrencies.map((currency, i) => (
-                            <button
-                              key={i}
-                              type="button"
-                              onClick={() => {
-                                setIsCurrency(currency);
-                                handleCurrencyChange(currency);
-                              }}
-                              className={`w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center justify-between ${
-                                currencyCode === currency.code
-                                  ? "bg-blue-50 text-blue-600"
-                                  : "text-gray-700"
-                              }`}
-                            >
-                              <div className="flex items-center gap-3">
-                                <span className="text-lg font-medium">
-                                  {currency.symbol}
-                                </span>
-                                <div>
-                                  <div className="font-medium text-sm">
-                                    {currency.code}
-                                  </div>
-                                  <div className="text-xs text-gray-500">
-                                    {currency.name}
-                                  </div>
-                                </div>
-                              </div>
-                              {currencyCode === currency.code && (
-                                <svg
-                                  className="w-4 h-4 text-blue-500"
-                                  fill="currentColor"
-                                  viewBox="0 0 20 20"
-                                >
-                                  <path
-                                    fillRule="evenodd"
-                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                    clipRule="evenodd"
-                                  />
-                                </svg>
-                              )}
-                            </button>
-                          ))
-                        ) : (
-                          <div className="px-4 py-3 text-center text-gray-500 text-sm">
-                            No currencies found
+                    <FloatingPortal>
+                      <FloatingFocusManager context={currencyContext} modal={false}>
+                        <div
+                          ref={currencyRefs.setFloating}
+                          style={{
+                            position: currencyStrategy,
+                            top: currencyY ?? 0,
+                            left: currencyX ?? 0,
+                          }}
+                          {...getCurrencyFloatingProps()}
+                          className="z-50 bg-white border border-gray-300 rounded-md shadow-lg max-h-64 overflow-hidden flex flex-col animate-dropdown"
+                        >
+                          {/* Search input */}
+                          <div className="p-2 border-b">
+                            <input
+                              type="text"
+                              placeholder="Search currency by code, symbol or name..."
+                              value={currencySearch}
+                              onChange={(e) => setCurrencySearch(e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all duration-200"
+                              autoFocus
+                            />
                           </div>
-                        )}
-                      </div>
-                    </div>
+
+                          {/* Currencies list from Zustand */}
+                          <div className="overflow-y-auto max-h-52">
+                            {filteredCurrencies.length > 0 ? (
+                              filteredCurrencies.map((currency, index) => (
+                                <button
+                                  key={index}
+                                  type="button"
+                                  onClick={() => handleCurrencyChange(currency)}
+                                  className={`w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center justify-between transition-all duration-200 ${
+                                    profile.currencyCode === currency.code
+                                      ? "bg-blue-50 text-blue-600"
+                                      : "text-gray-700"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-lg font-medium">
+                                      {currency.symbol}
+                                    </span>
+                                    <div>
+                                      <div className="font-medium text-sm">
+                                        {currency.code}
+                                      </div>
+                                      <div className="text-xs text-gray-500">
+                                        {currency.name}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  {profile.currencyCode === currency.code && (
+                                    <svg
+                                      className="w-4 h-4 text-blue-500 animate-check"
+                                      fill="currentColor"
+                                      viewBox="0 0 20 20"
+                                    >
+                                      <path
+                                        fillRule="evenodd"
+                                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                        clipRule="evenodd"
+                                      />
+                                    </svg>
+                                  )}
+                                </button>
+                              ))
+                            ) : (
+                              <div className="px-4 py-3 text-center text-gray-500 text-sm">
+                                No currencies found
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </FloatingFocusManager>
+                    </FloatingPortal>
                   )}
                 </div>
                 <p className="text-xs text-gray-500">
@@ -441,15 +530,16 @@ const EditShop = () => {
               />
 
               {/* Country Selector - Local state only */}
-              <div className="space-y-2" ref={countryBoxRef}>
+              <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700">
                   Country
                 </label>
                 <div className="relative">
                   <button
+                    ref={countryRefs.setReference}
                     type="button"
-                    onClick={() => setIsCountryOpen(!isCountryOpen)}
-                    className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    {...getCountryReferenceProps()}
+                    className="w-full flex items-center justify-between px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:border-blue-400"
                   >
                     <div className="flex items-center gap-2">
                       {profile.country ? (
@@ -466,7 +556,7 @@ const EditShop = () => {
                       )}
                     </div>
                     <svg
-                      className={`h-5 w-5 text-gray-400 transition-transform ${
+                      className={`h-5 w-5 text-gray-400 transition-all duration-300 transform ${
                         isCountryOpen ? "rotate-180" : ""
                       }`}
                       xmlns="http://www.w3.org/2000/svg"
@@ -482,62 +572,76 @@ const EditShop = () => {
                   </button>
 
                   {isCountryOpen && (
-                    <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-64 overflow-hidden flex flex-col">
-                      {/* Search input */}
-                      <div className="p-2 border-b">
-                        <input
-                          type="text"
-                          placeholder="Search countries..."
-                          value={countrySearch}
-                          onChange={(e) => setCountrySearch(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                      </div>
-
-                      {/* Countries list - Local state */}
-                      <div className="overflow-y-auto max-h-52">
-                        {filteredCountries.length > 0 ? (
-                          filteredCountries.map((country) => (
-                            <button
-                              key={country.code}
-                              type="button"
-                              onClick={() => handleCountryChange(country)}
-                              className={`w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center justify-between ${
-                                profile.countryCode === country.code
-                                  ? "bg-blue-50 text-blue-600"
-                                  : "text-gray-700"
-                              }`}
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="w-6 h-4 flex items-center justify-center bg-gray-100 rounded text-xs font-bold">
-                                  {country.code}
-                                </div>
-                                <div>
-                                  <div className="font-medium text-sm">
-                                    {country.name}
-                                  </div>
-                                  <div className="text-xs text-gray-500">
-                                    {country.phoneCode}
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm">
-                                  {country.currencySymbol}
-                                </span>
-                                <span className="text-xs text-gray-500">
-                                  {country.currency}
-                                </span>
-                              </div>
-                            </button>
-                          ))
-                        ) : (
-                          <div className="px-4 py-3 text-center text-gray-500 text-sm">
-                            No countries found
+                    <FloatingPortal>
+                      <FloatingFocusManager context={countryContext} modal={false}>
+                        <div
+                          ref={countryRefs.setFloating}
+                          style={{
+                            position: countryStrategy,
+                            top: countryY ?? 0,
+                            left: countryX ?? 0,
+                          }}
+                          {...getCountryFloatingProps()}
+                          className="z-50 bg-white border border-gray-300 rounded-md shadow-lg max-h-64 overflow-hidden flex flex-col animate-dropdown"
+                        >
+                          {/* Search input */}
+                          <div className="p-2 border-b">
+                            <input
+                              type="text"
+                              placeholder="Search countries..."
+                              value={countrySearch}
+                              onChange={(e) => setCountrySearch(e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all duration-200"
+                              autoFocus
+                            />
                           </div>
-                        )}
-                      </div>
-                    </div>
+
+                          {/* Countries list - Local state */}
+                          <div className="overflow-y-auto max-h-52">
+                            {filteredCountries.length > 0 ? (
+                              filteredCountries.map((country, index) => (
+                                <button
+                                  key={index}
+                                  type="button"
+                                  onClick={() => handleCountryChange(country)}
+                                  className={`w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center justify-between transition-all duration-200 ${
+                                    profile.countryCode === country.code
+                                      ? "bg-blue-50 text-blue-600"
+                                      : "text-gray-700"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-6 h-4 flex items-center justify-center bg-gray-100 rounded text-xs font-bold">
+                                      {country.code}
+                                    </div>
+                                    <div>
+                                      <div className="font-medium text-sm">
+                                        {country.name}
+                                      </div>
+                                      <div className="text-xs text-gray-500">
+                                        {country.phoneCode}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm">
+                                      {country.currencySymbol}
+                                    </span>
+                                    <span className="text-xs text-gray-500">
+                                      {country.currency}
+                                    </span>
+                                  </div>
+                                </button>
+                              ))
+                            ) : (
+                              <div className="px-4 py-3 text-center text-gray-500 text-sm">
+                                No countries found
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </FloatingFocusManager>
+                    </FloatingPortal>
                   )}
                 </div>
               </div>
@@ -555,7 +659,7 @@ const EditShop = () => {
                   value={profile.businessAddress}
                   onChange={handleChange}
                   placeholder="Enter Business Address"
-                  className="p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 resize-none"
+                  className="p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 resize-none transition-all duration-200"
                 ></textarea>
               </div>
 
@@ -581,11 +685,11 @@ const EditShop = () => {
         <div className="border-t border-gray-200 p-4 flex justify-end space-x-3 bg-gray-50 rounded-b-xl">
           <button
             onClick={handleSave}
-            className="flex items-center px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md hover:bg-red-700 transition duration-150"
+            className="flex items-center px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg shadow-md hover:bg-red-700 transition-all duration-200 transform hover:scale-105 active:scale-95"
           >
             {formLoading ? (
               <>
-                <BiLoader className="w-4 h-4 mr-1" />
+                <BiLoader className="w-4 h-4 mr-1 animate-spin" />
                 Saving...
               </>
             ) : (
@@ -597,6 +701,40 @@ const EditShop = () => {
           </button>
         </div>
       </div>
+
+      {/* Add these animation keyframes to your global CSS file or use a style tag */}
+      <style jsx global>{`
+        @keyframes dropdown {
+          0% {
+            opacity: 0;
+            transform: scale(0.95) translateY(-10px);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
+        }
+
+        @keyframes check {
+          0% {
+            opacity: 0;
+            transform: scale(0);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        .animate-dropdown {
+          animation: dropdown 0.2s ease-out forwards;
+          transform-origin: top;
+        }
+
+        .animate-check {
+          animation: check 0.2s ease-out forwards;
+        }
+      `}</style>
     </div>
   );
 };

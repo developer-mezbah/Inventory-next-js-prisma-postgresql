@@ -201,7 +201,7 @@ export default function PartySelector({
       setPhoneNumber("");
     }
   }, [mainInputValue, parties, setNewParty]); // Depend on mainInputValue, parties, and setNewParty
-console.log(selectedParty)
+
   // Handle input change for main input field
   const handleMainInputChange = (e) => {
     const value = e.target.value;

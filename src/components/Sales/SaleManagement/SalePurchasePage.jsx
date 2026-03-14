@@ -89,7 +89,7 @@ export default function SalePurchasePage({ mode, type, initData }) {
         ...initData.party
       } : null;
 
-      // Initialize form data
+      // Initialize form data - Convert discount and tax to strings or null
       const initialFormData = {};
       initialFormData[1] = {
         selectedParty: partyObject,
@@ -103,8 +103,9 @@ export default function SalePurchasePage({ mode, type, initData }) {
         phoneNumber: initData.data.phoneNumber || "",
         paymentType: initData.data.paymentType || "Cash",
         paymentTypeId: initData.data.paymentTypeId,
-        discount: initData.data.discount || 0,
-        tax: initData.data.tax || 0,
+        // FIXED: Convert numbers to strings, keep null if not present
+        discount: initData.data.discount ? String(initData.data.discount) : null,
+        tax: initData.data.tax ? String(initData.data.tax) : null,
         description: initData.data.description || "",
         isFullPayment: initData.data.isPaid || false,
         manualPaidAmount: initData.data.paidAmount || 0,
@@ -266,16 +267,20 @@ export default function SalePurchasePage({ mode, type, initData }) {
 
     setIsSubmitting(true);
 
+    // Prepare submit data - convert discount and tax from strings to numbers if needed
     const submitData = {
       ...currentFormData,
+      // Convert discount and tax back to numbers for API
+      discount: currentFormData.discount ? Number(currentFormData.discount) : 0,
+      tax: currentFormData.tax ? Number(currentFormData.tax) : 0,
       userId: session?.user?.id,
       mode: type === "sale" ? "sale" : "purchase",
     };
 
+
     if (isUpdateMode) {
       submitData.id = initData?.data?.id;
     }
-
     try {
       const response = await (isUpdateMode
         ? client_api.update("/api/sale-purchase/update", "token", submitData)
@@ -380,8 +385,11 @@ export default function SalePurchasePage({ mode, type, initData }) {
       const currentFormData = formData[purchase.id];
 
       if (currentFormData) {
+        // Prepare submit data - convert discount and tax from strings to numbers
         const submitData = {
           ...currentFormData,
+          discount: currentFormData.discount ? Number(currentFormData.discount) : 0,
+          tax: currentFormData.tax ? Number(currentFormData.tax) : 0,
           userId: session?.user?.id,
           mode: type === "sale" ? "sale" : "purchase",
         };
