@@ -1,4 +1,5 @@
 "use client"
+import CustomDatePicker from '@/components/DatePicker';
 import client_api from '@/utils/API_FETCH';
 import React, { useEffect, useState } from 'react'
 import { BiLoader, BiMinus, BiPlus } from 'react-icons/bi';
@@ -117,7 +118,7 @@ const BankAccountForm = ({ isShowForm, onClose, initialData, refetch, updateForm
         if (updateFormId) {
             // id use for ignore to pass in the server
             const { id, ...newFormData } = { ...formData, openingbalance: parseFloat(formData?.openingbalance) }
-            
+
             client_api.update(`/api/cashandbank/${updateFormId}`, "token", newFormData).then((res) => {
                 if (!res?.error) {
                     refetch()
@@ -198,13 +199,26 @@ const BankAccountForm = ({ isShowForm, onClose, initialData, refetch, updateForm
                             />
 
                             {/* As of Date */}
-                            <FloatingInput
+                            {/* <FloatingInput
                                 id="asofdate"
                                 type="date"
                                 label="Balance As of Date"
                                 value={formData.asofdate ? new Date(formData.asofdate).toISOString().split("T")[0] : ""}
                                 onChange={handleInputChange}
+                            /> */}
+                          <div>
+                              <CustomDatePicker
+                                defaultValue={formData?.asofdate || ""}
+                                size="large"
+                                label="Balance As of Date"
+                                onChange={(date) => handleInputChange("asofdate", date)}
+                                icon="calendar"
+                                floatingDesign={true}
+                                padding="10px 8px"
+                                placeholder="Select date"
+                                className='relative'
                             />
+                          </div>
                         </div>
                     </section>
 

@@ -2,6 +2,7 @@
 import CashAdjustmentModal from "@/components/CashAndBank/CashInHand/CashAdjustmentModal";
 import CashInHandSection from "@/components/CashAndBank/CashInHand/CashInHandSection";
 import CashSection from "@/components/CashAndBank/CashInHand/CashSection";
+import CustomDatePicker from "@/components/DatePicker";
 // import TransactionsTable from "@/components/CashAndBank/CashInHand/TransactionTable";
 import Loading from "@/components/Loading";
 import TransactionsTable from "@/components/purchase/PurchaseBills/TransactionsTable";
@@ -148,9 +149,9 @@ const Page = () => {
       if (
         item.type === "Reduce Cash" ||
         item.type === "Expense" ||
-        item.type === "Purchase" || 
+        item.type === "Purchase" ||
         item.type === "LOAN_PROCESSING_FEE" ||
-        item.type === "LOAN_PAYMENT" 
+        item.type === "LOAN_PAYMENT"
       ) {
         amount = -Math.abs(amount); // Make negative
       } else if (
@@ -357,40 +358,14 @@ const Page = () => {
 
             {/* Adjustment Date */}
             <div className="mb-4">
-              <label
-                htmlFor="date"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Adjustment Date
-              </label>
-              <div className="relative">
-                <input
-                  type="date"
-                  name="date"
-                  id="date"
-                  value={adjustmentDate}
-                  onChange={(e) => setAdjustmentDate(e.target.value)}
-                  className="block w-full pr-10 pl-2 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-red-500 focus:border-red-500 transition duration-150 appearance-none"
-                  disabled={isSaving}
-                />
-                {/* Calendar Icon */}
-                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                  <svg
-                    className="h-5 w-5 text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                    ></path>
-                  </svg>
-                </div>
-              </div>
+
+              <CustomDatePicker
+                defaultValue={adjustmentDate && adjustmentDate}
+                size="large"
+                label="Adjustment Date"
+                onChange={(date) => setAdjustmentDate(date)}
+                icon="calendar"
+              />
             </div>
 
             {/* Description */}

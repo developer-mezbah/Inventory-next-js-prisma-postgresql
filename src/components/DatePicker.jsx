@@ -199,7 +199,7 @@ const CustomDatePicker = ({
       {floatingDesign ? renderFloatingDesign() : renderDefaultDesign()}
 
       {/* Helper text and error message (common for both designs) */}
-      <div className="flex items-center justify-between text-xs px-1 min-h-[20px]">
+     {helperText || error && <div className="flex items-center justify-between text-xs px-1 min-h-[20px]">
         <div className="flex items-center gap-1">
           {/* Space for any additional info */}
         </div>
@@ -209,7 +209,7 @@ const CustomDatePicker = ({
         {error && (
           <span className="text-red-500 text-xs">{error}</span>
         )}
-      </div>
+      </div>}
     </div>
   );
 };
